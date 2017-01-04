@@ -509,12 +509,12 @@ func BenchmarkVarious(t *testing.B) {
 	}
 	var start time.Time
 	consoleTime := func(s string) {
-		fmt.Printf("%s: ", s)
+		//		fmt.Printf("%s: ", s)
 		start = time.Now()
 	}
 	consoleTimeEnd := func(s string) {
 		end := time.Since(start)
-		fmt.Printf("%v\n", end)
+		fmt.Printf("%v: %v\n", s, end)
 	}
 	var data = genData(N, 1)
 	var data2 = genData(N, 1)
