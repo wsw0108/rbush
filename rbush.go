@@ -247,53 +247,53 @@ func (this *RBush) collides(bbox bboxI) bool {
 
 //    load: function (data) {
 func (this *RBush) load(data []*nodeT) *RBush {
-	tp("load 1")
+	//--//--tp("load 1")
 	//        if (!(data && data.length)) return this;
 	if len(data) == 0 {
 		return this
 	}
-	tp("load 2: %d", len(data))
+	//--tp("load 2: %d", len(data))
 	//
 	//        if (data.length < this._minEntries) {
 	if len(data) < this._minEntries {
-		tp("load 3")
+		//--tp("load 3")
 		//            for (var i = 0, len = data.length; i < len; i++) {
 		for i, len_ := 0, len(data); i < len_; i++ {
 			//                this.insert(data[i]);
-			tp("load 4: %d", i)
+			//--tp("load 4: %d", i)
 			this.insert(data[i])
 			//            }
 		}
 		//            return this;
-		tp("load 5")
+		//--tp("load 5")
 		return this
 		//        }
 	}
-	tp("load 6")
+	//--tp("load 6")
 	//        // recursively build the tree with the given data from scratch using OMT algorithm
 	//        var node = this._build(data.slice(), 0, data.length - 1, 0);
 	var node = this._build(ncopy(data), 0, len(data)-1, 0)
-	tp("load 7: %s", nodeString(node))
+	//--tp("load 7: %s", nodeString(node))
 	//os.Exit(0)
 	//        if (!this.data.children.length) {
 	if len(this.data.children) == 0 {
-		tp("load 8")
+		//--tp("load 8")
 		//            // save as is if tree is empty
 		//            this.data = node;
 		this.data = node
 		//        } else if (this.data.height === node.height) {
 	} else if this.data.height == node.height {
-		tp("load 9")
+		//--tp("load 9")
 		//            // split root if trees have the same height
 		//            this._splitRoot(this.data, node);
 		this._splitRoot(this.data, node)
 
 		//        } else {
 	} else {
-		tp("load 10")
+		//--tp("load 10")
 		//            if (this.data.height < node.height) {
 		if this.data.height < node.height {
-			tp("load 11")
+			//--tp("load 11")
 			//                // swap trees if inserted one is bigger
 			//                var tmpNode = this.data;
 			//                this.data = node;
@@ -301,16 +301,16 @@ func (this *RBush) load(data []*nodeT) *RBush {
 			this.data, node = node, this.data
 			//            }
 		}
-		tp("load 12")
+		//--tp("load 12")
 
 		//            // insert the small tree into the large tree at appropriate level
 		//            this._insert(node, this.data.height - node.height - 1, true);
 		this._insert(node, this.data.height-node.height-1, true)
 		//        }
 	}
-	tp("load 13")
+	//--tp("load 13")
 	for j := 0; j < len(node.children); j++ {
-		tp("load 14: %d,%s", j, nodeString(node.children[j]))
+		//--tp("load 14: %d,%s", j, nodeString(node.children[j]))
 	}
 	//        return this;
 	return this
@@ -319,14 +319,14 @@ func (this *RBush) load(data []*nodeT) *RBush {
 
 //    insert: function (item) {
 func (this *RBush) insert(item *nodeT) *RBush {
-	tp("insert 1: %s", nodeString(item))
+	//--tp("insert 1: %s", nodeString(item))
 	//        if (item) this._insert(item, this.data.height - 1);
 	if item != nil {
-		tp("insert 2")
+		//--tp("insert 2")
 		this._insert(item, this.data.height-1, false)
-		tp("insert 3: %v", nodeString(this.data))
+		//--tp("insert 3: %v", nodeString(this.data))
 	}
-	tp("insert 4: %v", nodeString(this.data))
+	//--tp("insert 4: %v", nodeString(this.data))
 	//        return this;
 	return this
 	//    },
@@ -497,7 +497,7 @@ func (this *RBush) _all(node *nodeT, result []*nodeT) []*nodeT {
 
 //    _build: function (items, left, right, height) {
 func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
-	//tp("_build 1: %d,%d,%d,%d", len(items), left, right, height)
+	////--tp("_build 1: %d,%d,%d,%d", len(items), left, right, height)
 	//
 	//        var N = right - left + 1,
 	var N = right - left + 1
@@ -507,34 +507,34 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 	var node *nodeT
 	//
 	//        if (N <= M) {
-	//tp("_build 2: %d,%d", N, M)
+	////--tp("_build 2: %d,%d", N, M)
 	if N <= M {
-		//tp("_build 3")
+		////--tp("_build 3")
 		//            // reached leaf level; return leaf
 		//            node = createNode(items.slice(left, right + 1));
 		node = createNode(append([]*nodeT(nil), items[left:right+1]...))
-		//tp("_build 4: %s", nodeString(node))
+		////--tp("_build 4: %s", nodeString(node))
 		//            calcBBox(node, this.toBBox);
 		calcBBox(node)
-		//tp("_build 5: %s", nodeString(node))
+		////--tp("_build 5: %s", nodeString(node))
 		//            return node;
 		return node
 		//        }
 	}
-	//tp("_build 6")
+	////--tp("_build 6")
 	//
 	//        if (!height) {
 	if height == 0 {
-		//tp("_build 7")
+		////--tp("_build 7")
 		//            // target height of the bulk-loaded tree
 		//            height = Math.ceil(Math.log(N) / Math.log(M));
 		height = int(math.Ceil(math.Log(float64(N)) / math.Log(float64(M))))
-		//tp("_build 8: %d", height)
+		////--tp("_build 8: %d", height)
 		//
 		//            // target number of root entries to maximize storage utilization
 		//            M = Math.ceil(N / Math.pow(M, height - 1));
 		M = int(math.Ceil(float64(N) / math.Pow(float64(M), float64(height)-1)))
-		//tp("_build 9: %d", M)
+		////--tp("_build 9: %d", M)
 		//        }
 	}
 	//
@@ -544,7 +544,7 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 	node.leaf = false
 	//        node.height = height;
 	node.height = height
-	//tp("_build 10: %s", nodeString(node))
+	////--tp("_build 10: %s", nodeString(node))
 	//
 	//        // split the items into M mostly square tiles
 	//
@@ -554,11 +554,11 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 	var N1 = N2 * int(math.Ceil(math.Sqrt(float64(M))))
 	//            i, j, right2, right3;
 	var i, j, right2, right3 int
-	//tp("_build 11: %d,%d", N1, N2)
+	////--tp("_build 11: %d,%d", N1, N2)
 	//
 	//        multiSelect(items, left, right, N1, this.compareMinX);
 	multiSelect(byMinX(items), left, right, N1)
-	//tp("_build 12: %s", nodeString(node))
+	////--tp("_build 12: %s", nodeString(node))
 	//os.Exit(0)
 	//
 	//        for (i = left; i <= right; i += N1) {
@@ -566,23 +566,23 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 		//
 		//            right2 = Math.min(i + N1 - 1, right);
 		right2 = int(math.Min(float64(i+N1-1), float64(right)))
-		//tp("_build 13: %d:%d", i, right2)
+		////--tp("_build 13: %d:%d", i, right2)
 		//
 		//            multiSelect(items, i, right2, N2, this.compareMinY);
 		multiSelect(byMinY(items), i, right2, N2)
-		//tp("_build 14")
+		////--tp("_build 14")
 		//
 		//            for (j = i; j <= right2; j += N2) {
 		for j = i; j <= right2; j += N2 {
 			//
 			//                right3 = Math.min(j + N2 - 1, right2);
 			right3 = int(math.Min(float64(j+N2-1), float64(right2)))
-			//tp("_build 15: %d:%d:%d", j, right3, len(items))
+			////--tp("_build 15: %d:%d:%d", j, right3, len(items))
 			//
 			//                // pack each entry recursively
 			//                node.children.push(this._build(items, j, right3, height - 1));
 			child := this._build(items, j, right3, height-1)
-			//tp("_build 16: %d: %s", j, nodeString(child))
+			////--tp("_build 16: %d: %s", j, nodeString(child))
 			node.children = append(node.children, child)
 			//            }
 		}
@@ -590,9 +590,9 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 	}
 	//
 	//        calcBBox(node, this.toBBox);
-	//tp("_build 17: %s", nodeString(node))
+	////--tp("_build 17: %s", nodeString(node))
 	calcBBox(node)
-	//tp("_build 18: %s", nodeString(node))
+	////--tp("_build 18: %s", nodeString(node))
 
 	//
 	//        return node;
@@ -679,8 +679,8 @@ func (this *RBush) _chooseSubtree(bbox bboxI, node *nodeT, level int, path []*no
 
 //    _insert: function (item, level, isNode) {
 func (this *RBush) _insert(item *nodeT, level int, isNode bool) {
-	tp("_insert 1: %v", nodeSum(item))
-	tp("_insert 2: %v,%v", level, isNode)
+	//--tp("_insert 1: %v", nodeSum(item))
+	//--tp("_insert 2: %v,%v", level, isNode)
 	//
 	//        var toBBox = this.toBBox,
 	//            bbox = isNode ? item : toBBox(item),
@@ -692,47 +692,47 @@ func (this *RBush) _insert(item *nodeT, level int, isNode bool) {
 	//        var node = this._chooseSubtree(bbox, this.data, level, insertPath);
 	var node *nodeT
 	node, insertPath = this._chooseSubtree(bbox, this.data, level, insertPath)
-	tp("_insert 3: %v", nodeSum(node))
-	tp("_insert 4: %v,%v", len(insertPath), nodeString(node))
+	//--tp("_insert 3: %v", nodeSum(node))
+	//--tp("_insert 4: %v,%v", len(insertPath), nodeString(node))
 	//
 	//        // put the item into the node
 	//        node.children.push(item);
-	tp("_insert 5: %v", nodeJSONString(item))
-	tp("_insert 6: %v", nodeJSONString(node))
-	tp("_insert 7: %v", nodeJSONString(this.data))
+	//--tp("_insert 5: %v", nodeJSONString(item))
+	//--tp("_insert 6: %v", nodeJSONString(node))
+	//--tp("_insert 7: %v", nodeJSONString(this.data))
 	node.children = append(node.children, item)
-	tp("_insert 8: %v", nodeJSONString(item))
-	tp("_insert 9: %v", nodeJSONString(node))
-	tp("_insert 10: %v", nodeJSONString(this.data))
-	tp("_insert 11: %v", len(node.children))
+	//--tp("_insert 8: %v", nodeJSONString(item))
+	//--tp("_insert 9: %v", nodeJSONString(node))
+	//--tp("_insert 10: %v", nodeJSONString(this.data))
+	//--tp("_insert 11: %v", len(node.children))
 	//        extend(node, bbox);
 	extend(node, bbox)
-	//tp("_insert 4: %v", nodeJSONString(node))
-	tp("_insert 12: %v", nodeJSONString(this.data))
-	tp("_insert 13: %v", nodeString(node))
+	////--tp("_insert 4: %v", nodeJSONString(node))
+	//--tp("_insert 12: %v", nodeJSONString(this.data))
+	//--tp("_insert 13: %v", nodeString(node))
 	//
 	//        // split on node overflow; propagate upwards if necessary
 	//        while (level >= 0) {
 	for level >= 0 {
-		tp("_insert 14: %d,%d", level, len(insertPath[level].children))
+		//--tp("_insert 14: %d,%d", level, len(insertPath[level].children))
 		//            if (insertPath[level].children.length > this._maxEntries) {
 		if len(insertPath[level].children) > this._maxEntries {
-			tp("_insert 15: %v", nodeString(this.data))
+			//--tp("_insert 15: %v", nodeString(this.data))
 			//                this._split(insertPath, level);
 			insertPath = this._split(insertPath, level)
-			tp("_insert 16: %v", nodeString(this.data))
-			tp("_insert 17: %v", len(insertPath))
+			//--tp("_insert 16: %v", nodeString(this.data))
+			//--tp("_insert 17: %v", len(insertPath))
 			//                level--;
 			level--
 			//            } else break;
 		} else {
-			tp("_insert 18: %v", nodeJSONString(this.data))
-			//tp("_insert 9: %v", nodeString(this.data))
+			//--tp("_insert 18: %v", nodeJSONString(this.data))
+			////--tp("_insert 9: %v", nodeString(this.data))
 			break
 		}
 		//        }
 	}
-	tp("_insert 19")
+	//--tp("_insert 19")
 	//
 	//        // adjust bboxes along the insertion path
 	//        this._adjustParentBBoxes(bbox, insertPath, level);
@@ -744,7 +744,7 @@ func (this *RBush) _insert(item *nodeT, level int, isNode bool) {
 //    _split: function (insertPath, level) {
 func (this *RBush) _split(insertPath []*nodeT, level int) []*nodeT {
 	for j := 0; j < len(insertPath); j++ {
-		tp("_split 1: %v,%v,%v", j, level, nodeString(insertPath[j]))
+		//--tp("_split 1: %v,%v,%v", j, level, nodeString(insertPath[j]))
 	}
 	//
 	//        var node = insertPath[level],
@@ -755,24 +755,24 @@ func (this *RBush) _split(insertPath []*nodeT, level int) []*nodeT {
 	var m = this._minEntries
 	//
 	//        this._chooseSplitAxis(node, m, M);
-	tp("_split 2: %v", nodeString(node))
-	tp("_split 3: %v", nodeString(this.data))
+	//--tp("_split 2: %v", nodeString(node))
+	//--tp("_split 3: %v", nodeString(this.data))
 	this._chooseSplitAxis(node, m, M)
-	tp("_split 4: %v", nodeString(node))
-	tp("_split 5: %v", nodeString(this.data))
-	tp("_split 6: %v,%v", m, M)
+	//--tp("_split 4: %v", nodeString(node))
+	//--tp("_split 5: %v", nodeString(this.data))
+	//--tp("_split 6: %v,%v", m, M)
 	//
 	//        var splitIndex = this._chooseSplitIndex(node, m, M);
 	var splitIndex = this._chooseSplitIndex(node, m, M)
-	tp("_split 7: %v,%v,%v", len(node.children), splitIndex, len(node.children)-splitIndex)
+	//--tp("_split 7: %v,%v,%v", len(node.children), splitIndex, len(node.children)-splitIndex)
 	//
 	//        var newNode = createNode(node.children.splice(splitIndex, node.children.length - splitIndex));
 	//spliced := append(node.children[:splitIndex], node.children[splitIndex+(len(node.children)-splitIndex):]...)
 	var spliced []*nodeT
 	node.children, spliced = splice(node.children, splitIndex, len(node.children)-splitIndex)
-	tp("_split 8: %v", len(spliced))
+	//--tp("_split 8: %v", len(spliced))
 	var newNode = createNode(spliced)
-	tp("_split 9: %v", nodeString(newNode))
+	//--tp("_split 9: %v", nodeString(newNode))
 	//        newNode.height = node.height;
 	newNode.height = node.height
 	//        newNode.leaf = node.leaf;
@@ -810,8 +810,8 @@ func (this *RBush) _splitRoot(node *nodeT, newNode *nodeT) {
 
 //    _chooseSplitIndex: function (node, m, M) {
 func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
-	tp("_chooseSplitIndex 1: %v,%v", m, M)
-	tp("_chooseSplitIndex 2: %v", nodeString(node))
+	//--tp("_chooseSplitIndex 1: %v,%v", m, M)
+	//--tp("_chooseSplitIndex 2: %v", nodeString(node))
 	//
 	//        var i, bbox1, bbox2, overlap, area, minOverlap, minArea, index;
 	var i int
@@ -822,29 +822,29 @@ func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
 	//        minOverlap = minArea = Infinity;
 	minArea = math.Inf(+1)
 	minOverlap = minArea
-	tp("_chooseSplitIndex 3: %v,%v", minOverlap, minArea)
+	//--tp("_chooseSplitIndex 3: %v,%v", minOverlap, minArea)
 	//
 	//        for (i = m; i <= M - m; i++) {
 	for i = m; i <= M-m; i++ {
-		tp("_chooseSplitIndex 4: %v", i)
+		//--tp("_chooseSplitIndex 4: %v", i)
 		//            bbox1 = distBBox(node, 0, i, this.toBBox);
 		bbox1 = distBBox(node, 0, i, nil)
-		tp("_chooseSplitIndex 5: %v", nodeString(bbox1))
+		//--tp("_chooseSplitIndex 5: %v", nodeString(bbox1))
 		//            bbox2 = distBBox(node, i, M, this.toBBox);
 		bbox2 = distBBox(node, i, M, nil)
-		tp("_chooseSplitIndex 6: %v", nodeString(bbox2))
+		//--tp("_chooseSplitIndex 6: %v", nodeString(bbox2))
 		//
 		//            overlap = intersectionArea(bbox1, bbox2);
 		overlap = intersectionArea(bbox1, bbox2)
-		tp("_chooseSplitIndex 7: %v", overlap)
+		//--tp("_chooseSplitIndex 7: %v", overlap)
 		//            area = bboxArea(bbox1) + bboxArea(bbox2);
 		area = bboxArea(bbox1) + bboxArea(bbox2)
-		tp("_chooseSplitIndex 8: %v", area)
+		//--tp("_chooseSplitIndex 8: %v", area)
 		//
 		//            // choose distribution with minimum overlap
 		//            if (overlap < minOverlap) {
 		if overlap < minOverlap {
-			tp("_chooseSplitIndex 9")
+			//--tp("_chooseSplitIndex 9")
 			//                minOverlap = overlap;
 			minOverlap = overlap
 			//                index = i;
@@ -854,11 +854,11 @@ func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
 			if area < minArea {
 				minArea = area
 			}
-			tp("_chooseSplitIndex 10: %v,%v,%v", minOverlap, index, area)
+			//--tp("_chooseSplitIndex 10: %v,%v,%v", minOverlap, index, area)
 			//
 			//            } else if (overlap === minOverlap) {
 		} else if overlap == minOverlap {
-			tp("_chooseSplitIndex 11")
+			//--tp("_chooseSplitIndex 11")
 			//                // otherwise choose distribution with minimum area
 			//                if (area < minArea) {
 			if area < minArea {
@@ -869,11 +869,11 @@ func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
 				//                }
 			}
 			//            }
-			tp("_chooseSplitIndex 12: %v,%v", minArea, index)
+			//--tp("_chooseSplitIndex 12: %v,%v", minArea, index)
 		}
 		//        }
 	}
-	tp("_chooseSplitIndex 13")
+	//--tp("_chooseSplitIndex 13")
 	//
 	//        return index;
 	return index
@@ -883,23 +883,23 @@ func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
 //    // sorts node children by the best axis for split
 //    _chooseSplitAxis: function (node, m, M) {
 func (this *RBush) _chooseSplitAxis(node *nodeT, m, M int) {
-	tp("_chooseSplitAxis 1: %v,%v", m, M)
-	tp("_chooseSplitAxis 2: %v", nodeString(node))
+	//--tp("_chooseSplitAxis 1: %v,%v", m, M)
+	//--tp("_chooseSplitAxis 2: %v", nodeString(node))
 	//
 	//        var compareMinX = node.leaf ? this.compareMinX : compareNodeMinX,
 	//            compareMinY = node.leaf ? this.compareMinY : compareNodeMinY,
 	//            xMargin = this._allDistMargin(node, m, M, compareMinX),
 	var xMargin = this._allDistMargin(node, m, M, 1)
-	tp("_chooseSplitAxis 3: %v", xMargin)
+	//--tp("_chooseSplitAxis 3: %v", xMargin)
 	//            yMargin = this._allDistMargin(node, m, M, compareMinY);
 	var yMargin = this._allDistMargin(node, m, M, 2)
-	tp("_chooseSplitAxis 4: %v", yMargin)
+	//--tp("_chooseSplitAxis 4: %v", yMargin)
 	//
 	//        // if total distributions margin value is minimal for x, sort by minX,
 	//        // otherwise it's already sorted by minY
 	//        if (xMargin < yMargin) node.children.sort(compareMinX);
 	if xMargin < yMargin {
-		tp("_chooseSplitAxis 5")
+		//--tp("_chooseSplitAxis 5")
 		sort.Sort(byMinX(node.children))
 	}
 	//    },
@@ -908,12 +908,12 @@ func (this *RBush) _chooseSplitAxis(node *nodeT, m, M int) {
 //    // total margin of all possible split distributions where each node is at least m full
 //    _allDistMargin: function (node, m, M, compare) {
 func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
-	tp("_allDistMargin 1: %v", nodeString(node))
-	tp("_allDistMargin 2: %v,%v", m, M)
+	//--tp("_allDistMargin 1: %v", nodeString(node))
+	//--tp("_allDistMargin 2: %v,%v", m, M)
 	//
 	//        node.children.sort(compare);
 	for j := 0; j < len(node.children); j++ {
-		tp("_allDistMargin A: %v,%v", j, nodeString(node.children[j]))
+		//--tp("_allDistMargin A: %v,%v", j, nodeString(node.children[j]))
 	}
 	switch dim {
 	default:
@@ -924,7 +924,7 @@ func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
 		sort.Sort(byMinY(node.children))
 	}
 	for j := 0; j < len(node.children); j++ {
-		tp("_allDistMargin B: %v,%v", j, nodeString(node.children[j]))
+		//--tp("_allDistMargin B: %v,%v", j, nodeString(node.children[j]))
 	}
 	//
 	//        var toBBox = this.toBBox,
@@ -935,15 +935,15 @@ func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
 	//            margin = bboxMargin(leftBBox) + bboxMargin(rightBBox),
 	var margin = bboxMargin(leftBBox) + bboxMargin(rightBBox)
 	//            i, child;
-	tp("_allDistMargin 3: %v", nodeString(leftBBox))
-	tp("_allDistMargin 4: %v", nodeString(leftBBox))
-	tp("_allDistMargin 5: %v", margin)
+	//--tp("_allDistMargin 3: %v", nodeString(leftBBox))
+	//--tp("_allDistMargin 4: %v", nodeString(leftBBox))
+	//--tp("_allDistMargin 5: %v", margin)
 	var i int
 	var child *nodeT
 	//
 	//        for (i = m; i < M - m; i++) {
 	for i = m; i < M-m; i++ {
-		tp("_allDistMargin 6: %v", i)
+		//--tp("_allDistMargin 6: %v", i)
 		//            child = node.children[i];
 		child = node.children[i]
 		//            extend(leftBBox, node.leaf ? toBBox(child) : child);
@@ -955,7 +955,7 @@ func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
 	//
 	//        for (i = M - m - 1; i >= m; i--) {
 	for i = M - m - 1; i >= m; i-- {
-		tp("_allDistMargin 7: %v", i)
+		//--tp("_allDistMargin 7: %v", i)
 		//            child = node.children[i];
 		child = node.children[i]
 		//            extend(rightBBox, node.leaf ? toBBox(child) : child);
@@ -966,24 +966,24 @@ func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
 	}
 	//
 	//        return margin;
-	tp("_allDistMargin 8: %v", margin)
+	//--tp("_allDistMargin 8: %v", margin)
 	return margin
 	//    },
 }
 
 //    _adjustParentBBoxes: function (bbox, path, level) {
 func (this *RBush) _adjustParentBBoxes(bbox bboxI, path []*nodeT, level int) {
-	tp("_adjustParentBBoxes 1: %v", nodeString(this.data))
-	tp("_adjustParentBBoxes 2: %v,%v,%v", nodeString(bbox.(*nodeT)), len(path), level)
+	//--tp("_adjustParentBBoxes 1: %v", nodeString(this.data))
+	//--tp("_adjustParentBBoxes 2: %v,%v,%v", nodeString(bbox.(*nodeT)), len(path), level)
 	//        // adjust bboxes along the given tree path
 	//        for (var i = level; i >= 0; i--) {
 	for i := level; i >= 0; i-- {
-		tp("_adjustParentBBoxes 3: %d: %v", i, nodeString(path[i]))
+		//--tp("_adjustParentBBoxes 3: %d: %v", i, nodeString(path[i]))
 		//            extend(path[i], bbox);
 		extend(path[i], bbox)
 		//        }
 	}
-	tp("_adjustParentBBoxes 4: %v", nodeString(this.data))
+	//--tp("_adjustParentBBoxes 4: %v", nodeString(this.data))
 	//    },
 }
 
@@ -1067,26 +1067,26 @@ func findItem(item *nodeT, items []*nodeT) int {
 //// calculate node's bbox from bboxes of its children
 //function calcBBox(node, toBBox) {
 func calcBBox(node *nodeT) {
-	//tp("calcBBox 1: %s", nodeString(node))
+	////--tp("calcBBox 1: %s", nodeString(node))
 	//    distBBox(node, 0, node.children.length, toBBox, node);
 	distBBox(node, 0, len(node.children), node)
 	//}
-	//tp("calcBBox 2: %s", nodeString(node))
+	////--tp("calcBBox 2: %s", nodeString(node))
 }
 
 //
 //// min bounding rectangle of node children from k to p-1
 //function distBBox(node, k, p, toBBox, destNode) {
 func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
-	tp("distBBox 1: %v,%v", k, p)
-	tp("distBBox 2: %v", nodeString(node))
+	//--tp("distBBox 1: %v,%v", k, p)
+	//--tp("distBBox 2: %v", nodeString(node))
 	//    if (!destNode) destNode = createNode(null);
-	tp("distBBox 3: %v", nodeString(destNode))
+	//--tp("distBBox 3: %v", nodeString(destNode))
 	if destNode == nil {
-		tp("distBBox 4")
+		//--tp("distBBox 4")
 		destNode = createNode(nil)
 	}
-	tp("distBBox 5")
+	//--tp("distBBox 5")
 	//    destNode.minX = Infinity;
 	destNode.minX = math.Inf(+1)
 	//    destNode.minY = Infinity;
@@ -1097,21 +1097,21 @@ func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
 	destNode.maxY = math.Inf(-1)
 	//
 	//    for (var i = k, child; i < p; i++) {
-	tp("distBBox 6: %v", nodeString(destNode))
+	//--tp("distBBox 6: %v", nodeString(destNode))
 	var child *nodeT
 	for i := k; i < p; i++ {
 		//        child = node.children[i];
 		child = node.children[i]
-		tp("distBBox 7: %v,%v", i, nodeString(child))
+		//--tp("distBBox 7: %v,%v", i, nodeString(child))
 		//        extend(destNode, node.leaf ? toBBox(child) : child);
 		extend(destNode, child)
 
-		tp("distBBox 8: %v,%v", i, nodeString(destNode))
+		//--tp("distBBox 8: %v,%v", i, nodeString(destNode))
 		//    }
 	}
 	//
 	//    return destNode;
-	tp("distBBox 9: %v", nodeString(destNode))
+	//--tp("distBBox 9: %v", nodeString(destNode))
 	return destNode
 	//}
 }
@@ -1229,7 +1229,7 @@ func createNode(children []*nodeT) *nodeT {
 //
 //function multiSelect(arr, left, right, n, compare) {
 func multiSelect(arr quickSelectArr, left, right, n int) {
-	//tp("_multiSelect 1: %d,%d,%d", left, right, n)
+	////--tp("_multiSelect 1: %d,%d,%d", left, right, n)
 	//    var stack = [left, right],
 	var stack = []int{left, right}
 	//        mid;
@@ -1245,7 +1245,7 @@ func multiSelect(arr quickSelectArr, left, right, n int) {
 		stack = stack[:len(stack)-1]
 		//
 		//        if (right - left <= n) continue;
-		//tp("_multiSelect 2: %d,%d,%d", len(stack), right, left)
+		////--tp("_multiSelect 2: %d,%d,%d", len(stack), right, left)
 		if right-left <= n {
 			//tp("_multiSelect 3: %d", len(stack))
 			continue
@@ -1253,7 +1253,7 @@ func multiSelect(arr quickSelectArr, left, right, n int) {
 		//
 		//        mid = left + Math.ceil((right - left) / n / 2) * n;
 		mid = left + int(math.Ceil(float64(right-left)/float64(n)/2))*n
-		//tp("_multiSelect 4: %d,%d", len(stack), mid)
+		////-//---//--tp("_multiSelect 4: %d,%d", len(stack), mid)
 		//        quickselect(arr, mid, left, right, compare);
 		quickselect(arr, mid, left, right)
 
@@ -1267,11 +1267,11 @@ func multiSelect(arr quickSelectArr, left, right, n int) {
 		switch nodes := arr.(type) {
 		case byMinX:
 			for i := 0; i < len(nodes); i++ {
-				tp("_multiSelect 5: %d: %s", i, nodeString(nodes[i]))
+				//--tp("_multiSelect 5: %d: %s", i, nodeString(nodes[i]))
 			}
 		case byMinY:
 			for i := 0; i < len(nodes); i++ {
-				tp("_multiSelect 5: %d: %s", i, nodeString(nodes[i]))
+				//--tp("_multiSelect 5: %d: %s", i, nodeString(nodes[i]))
 			}
 		}
 	}
@@ -1440,6 +1440,14 @@ func tpq(format string, args ...interface{}) {
 		fmt.Printf("\n")
 	}
 	fmt.Printf("\x1b[35m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+
+func tpm(format string, args ...interface{}) {
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[34m\x1b[1m• %s\x1b[0m\n", fmt.Sprintf(format, args...))
 	tpt++
 }
 

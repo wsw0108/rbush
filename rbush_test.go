@@ -2,10 +2,13 @@ package rbush
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 )
 
 type byDims []*nodeT
@@ -476,4 +479,103 @@ func TestQuickselect(t *testing.T) {
 			t.Fatalf("mismatch for index %d\n", i)
 		}
 	}
+}
+func BenchmarkVarious(t *testing.B) {
+	t.N = 0
+	var N = 1000000
+	var maxFill = 16
+
+	fmt.Printf("number: %v\n", N)
+	fmt.Printf("maxFill: %v\n", maxFill)
+
+	rand.Seed(time.Now().UnixNano())
+	randBox := func(size float64) *nodeT {
+		var x = rand.Float64() * (100 - size)
+		var y = rand.Float64() * (100 - size)
+		return &nodeT{
+			minX: x,
+			minY: y,
+			maxX: x + size*rand.Float64(),
+			maxY: y + size*rand.Float64(),
+		}
+	}
+
+	genData := func(N int, size float64) []*nodeT {
+		var data []*nodeT
+		for i := 0; i < N; i++ {
+			data = append(data, randBox(size))
+		}
+		return data
+	}
+	var start time.Time
+	consoleTime := func(s string) {
+		fmt.Printf("%s: ", s)
+		start = time.Now()
+	}
+	consoleTimeEnd := func(s string) {
+		end := time.Since(start)
+		fmt.Printf("%v\n", end)
+	}
+	var data = genData(N, 1)
+	var data2 = genData(N, 1)
+	var bboxes100 = genData(1000, 100*math.Sqrt(0.1))
+	var bboxes10 = genData(1000, 10)
+	var bboxes1 = genData(1000, 1)
+
+	var tree = New(maxFill)
+
+	t.ResetTimer()
+	consoleTime("insert one by one")
+	for i := 0; i < N; i++ {
+		tree.insert(data[i])
+		t.N++
+	}
+	consoleTimeEnd("insert one by one")
+
+	consoleTime("1000 searches 10%")
+	for i := 0; i < 1000; i++ {
+		tree.search(bboxes100[i])
+		t.N++
+	}
+	consoleTimeEnd("1000 searches 10%")
+
+	consoleTime("1000 searches 1%")
+	for i := 0; i < 1000; i++ {
+		tree.search(bboxes10[i])
+		t.N++
+	}
+	consoleTimeEnd("1000 searches 1%")
+
+	consoleTime("1000 searches 0.01%")
+	for i := 0; i < 1000; i++ {
+		tree.search(bboxes1[i])
+		t.N++
+	}
+	consoleTimeEnd("1000 searches 0.01%")
+
+	consoleTime("remove 1000 one by one")
+	for i := 0; i < 1000; i++ {
+		tree.remove(data[i])
+		t.N++
+	}
+	consoleTimeEnd("remove 1000 one by one")
+
+	consoleTime("bulk-insert 1M more")
+	tree.load(data2)
+	consoleTimeEnd("bulk-insert 1M more")
+
+	consoleTime("1000 searches 1%")
+	for i := 0; i < 1000; i++ {
+		tree.search(bboxes10[i])
+		t.N++
+	}
+	consoleTimeEnd("1000 searches 1%")
+
+	consoleTime("1000 searches 0.01%")
+	for i := 0; i < 1000; i++ {
+		tree.search(bboxes1[i])
+		t.N++
+	}
+	consoleTimeEnd("1000 searches 0.01%")
+
 }
