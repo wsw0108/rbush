@@ -2,7 +2,11 @@
 
 module.exports = rbush;
 
+var fs = require('fs');
 var quickselect = require('quickselect');
+eval(fs.readFileSync('md5.js') + '');
+var md5 = global.md5;
+
 
 function rbush(maxEntries, format) {
     if (!(this instanceof rbush)) return new rbush(maxEntries, format);
@@ -81,43 +85,65 @@ rbush.prototype = {
     },
 
     load: function (data) {
-        if (!(data && data.length)) return this;
+        tp('load 1');
 
+        if (!(data && data.length)) return this;
+        tp('load 2: ' + data.length);
         if (data.length < this._minEntries) {
+            tp('load 3');
             for (var i = 0, len = data.length; i < len; i++) {
+                tp('load 4: ' + i);
                 this.insert(data[i]);
             }
+            tp('load 5');
             return this;
         }
 
+        tp('load 6');
         // recursively build the tree with the given data from scratch using OMT algorithm
         var node = this._build(data.slice(), 0, data.length - 1, 0);
-
+        tp('load 7: ' + nodeString(node));
+		//if (true) throw new Error("?")
         if (!this.data.children.length) {
+            tp('load 8');
             // save as is if tree is empty
             this.data = node;
 
         } else if (this.data.height === node.height) {
+            tp('load 9');
             // split root if trees have the same height
             this._splitRoot(this.data, node);
 
         } else {
+            tp('load 10');
             if (this.data.height < node.height) {
+                tp('load 11');
                 // swap trees if inserted one is bigger
                 var tmpNode = this.data;
                 this.data = node;
                 node = tmpNode;
             }
 
+            tp('load 12');
             // insert the small tree into the large tree at appropriate level
             this._insert(node, this.data.height - node.height - 1, true);
         }
+        tp('load 13');
 
+        for (var j = 0; j < node.children.length; j++) {
+            tp('load 14: ' + j + ',' + nodeString(node.children[j]));
+        }
         return this;
     },
 
-    insert: function (item) {
-        if (item) this._insert(item, this.data.height - 1);
+    insert: function (item, t) {
+        tp('insert 1: ' + nodeString(item));
+        if (item) {
+            tp('insert 2');
+            this._insert(item, this.data.height - 1, false, t);
+            tp('insert 3: ' + nodeString(this.data));
+        }
+        tp('insert 4: ' + nodeString(this.data));
         return this;
     },
 
@@ -199,54 +225,70 @@ rbush.prototype = {
     },
 
     _build: function (items, left, right, height) {
-
+//tp("_build 1: "+items.length+","+left+","+right+","+height)
         var N = right - left + 1,
             M = this._maxEntries,
             node;
 
+	//tp("_build 2: "+N+","+M)
         if (N <= M) {
+			//tp("_build 3")
             // reached leaf level; return leaf
             node = createNode(items.slice(left, right + 1));
-            calcBBox(node, this.toBBox);
+		//tp("_build 4: "+ nodeString(node))
+            calcBBox(node, this.toBBox, this.t);
+		//tp("_build 5: "+ nodeString(node))
             return node;
         }
-
+	//tp("_build 6")
         if (!height) {
+	//tp("_build 7")
             // target height of the bulk-loaded tree
             height = Math.ceil(Math.log(N) / Math.log(M));
+		//tp("_build 8: "+ height)
 
             // target number of root entries to maximize storage utilization
             M = Math.ceil(N / Math.pow(M, height - 1));
+			//tp("_build 9: "+ M)
         }
 
         node = createNode([]);
         node.leaf = false;
         node.height = height;
+		//tp("_build 10: "+ nodeString(node))
 
         // split the items into M mostly square tiles
 
         var N2 = Math.ceil(N / M),
             N1 = N2 * Math.ceil(Math.sqrt(M)),
             i, j, right2, right3;
+	//tp("_build 11: "+N1 + ","+N2)
 
-        multiSelect(items, left, right, N1, this.compareMinX);
+        multiSelect(items, left, right, N1, this.compareMinX, this.t);
+			//tp("_build 12: "+ nodeString(node))
 
         for (i = left; i <= right; i += N1) {
 
             right2 = Math.min(i + N1 - 1, right);
+		//tp("_build 13: "+i+":"+right2)
 
-            multiSelect(items, i, right2, N2, this.compareMinY);
-
+            multiSelect(items, i, right2, N2, this.compareMinY, this.t);
+//tp("_build 14")
             for (j = i; j <= right2; j += N2) {
 
                 right3 = Math.min(j + N2 - 1, right2);
+		//tp("_build 15: "+j+":"+right3+":"+items.length)
 
                 // pack each entry recursively
-                node.children.push(this._build(items, j, right3, height - 1));
+                var child = this._build(items, j, right3, height - 1);
+			//tp("_build 16: "+j+","+ nodeString(child))
+                node.children.push(child);
             }
         }
-
-        calcBBox(node, this.toBBox);
+//if (true) throw new Error("?")
+	//tp("_build 17: "+ nodeString(node))
+        calcBBox(node, this.toBBox, this.t);
+	//tp("_build 18: "+ nodeString(node))
 
         return node;
     },
@@ -288,48 +330,78 @@ rbush.prototype = {
         return node;
     },
 
-    _insert: function (item, level, isNode) {
-
+    _insert: function (item, level, isNode, t) {
+        tp('_insert 1: %v', nodeSum(item));
+        tp('_insert 2: ' + level + ',' + isNode);
         var toBBox = this.toBBox,
             bbox = isNode ? item : toBBox(item),
             insertPath = [];
 
         // find the best node for accommodating the item, saving all nodes along the path too
         var node = this._chooseSubtree(bbox, this.data, level, insertPath);
-
-        // put the item into the node
+        tp('_insert 3: %v', nodeSum(node));
+        tp('_insert 4: %v,%v', insertPath.length, nodeString(node));
+		// put the item into the node
+        tp('_insert 5: %v', nodeJSONString(item));
+        tp('_insert 6: %v', nodeJSONString(node));
+        tp('_insert 7: %v', nodeJSONString(this.data));
         node.children.push(item);
+        tp('_insert 8: %v', nodeJSONString(item));
+        tp('_insert 9: %v', nodeJSONString(node));
+        tp('_insert 10: %v', nodeJSONString(this.data));
+        tp('_insert 11: ' + node.children.length);
         extend(node, bbox);
+        //tp('_insert 4: ' + nodeJSONString(node))
+        tp('_insert 12: %v', nodeJSONString(this.data));
+        tp('_insert 13: ' + nodeString(node));
 
         // split on node overflow; propagate upwards if necessary
         while (level >= 0) {
+            tp('_insert 14: ' + level + ',' + insertPath[level].children.length);
             if (insertPath[level].children.length > this._maxEntries) {
-                this._split(insertPath, level);
+                tp('_insert 15: ' + nodeString(this.data));
+                this._split(insertPath, level, t);
+                tp('_insert 16: ' + nodeString(this.data));
+                tp('_insert 17: ' + insertPath.length);
                 level--;
-            } else break;
+            } else {
+                tp('_insert 18: ' + nodeJSONString(this.data, 1));
+                //tp('_insert 9: ' + nodeString(this.data));
+                break;
+            }
         }
-
+        tp('_insert 19');
         // adjust bboxes along the insertion path
-        this._adjustParentBBoxes(bbox, insertPath, level);
+        this._adjustParentBBoxes(bbox, insertPath, level, t);
     },
 
     // split overflowed node into two
     _split: function (insertPath, level) {
-
+        for (var j = 0; j < insertPath.length; j++) {
+            tp('_split 1: %v,%v,%v', j, level, nodeString(insertPath[j]));
+        }
         var node = insertPath[level],
             M = node.children.length,
             m = this._minEntries;
 
+        tp('_split 2: ' + nodeString(node));
+        tp('_split 3: ' + nodeString(this.data));
         this._chooseSplitAxis(node, m, M);
-
+        tp('_split 4: ' + nodeString(node));
+        tp('_split 5: ' + nodeString(this.data));
+        tp('_split 6: ' + m + ',' + M);
         var splitIndex = this._chooseSplitIndex(node, m, M);
+        tp('_split 7: ' + node.children.length + ',' + (splitIndex || 0) + ',' + (node.children.length - splitIndex));
+        var spliced = node.children.splice(splitIndex, node.children.length - splitIndex);
+        tp('_split 8: ' + spliced.length);
+        var newNode = createNode(spliced);
 
-        var newNode = createNode(node.children.splice(splitIndex, node.children.length - splitIndex));
+        tp('_split 9: ' + nodeString(newNode));
         newNode.height = node.height;
         newNode.leaf = node.leaf;
 
-        calcBBox(node, this.toBBox);
-        calcBBox(newNode, this.toBBox);
+        calcBBox(node, this.toBBox, this.t);
+        calcBBox(newNode, this.toBBox, this.t);
 
         if (level) insertPath[level - 1].children.push(newNode);
         else this._splitRoot(node, newNode);
@@ -340,37 +412,48 @@ rbush.prototype = {
         this.data = createNode([node, newNode]);
         this.data.height = node.height + 1;
         this.data.leaf = false;
-        calcBBox(this.data, this.toBBox);
+        calcBBox(this.data, this.toBBox, this.t);
     },
 
     _chooseSplitIndex: function (node, m, M) {
-
+        tp('_chooseSplitIndex 1: %v,%v', m, M);
+        tp('_chooseSplitIndex 2: %v', nodeString(node));
         var i, bbox1, bbox2, overlap, area, minOverlap, minArea, index;
 
         minOverlap = minArea = Infinity;
 
+        tp('_chooseSplitIndex 3: %v,%v', minOverlap, minArea);
         for (i = m; i <= M - m; i++) {
+            tp('_chooseSplitIndex 4: %v', i);
             bbox1 = distBBox(node, 0, i, this.toBBox);
+            tp('_chooseSplitIndex 5: %v', nodeString(bbox1));
             bbox2 = distBBox(node, i, M, this.toBBox);
+            tp('_chooseSplitIndex 6: %v', nodeString(bbox2));
 
             overlap = intersectionArea(bbox1, bbox2);
+            tp('_chooseSplitIndex 7: %v', overlap);
             area = bboxArea(bbox1) + bboxArea(bbox2);
+            tp('_chooseSplitIndex 8: %v', area);
 
             // choose distribution with minimum overlap
             if (overlap < minOverlap) {
+                tp('_chooseSplitIndex 9');
                 minOverlap = overlap;
                 index = i;
-
                 minArea = area < minArea ? area : minArea;
+                tp('_chooseSplitIndex 10: %v,%v,%v', minOverlap, index, area);
 
             } else if (overlap === minOverlap) {
+                tp('_chooseSplitIndex 11');
                 // otherwise choose distribution with minimum area
                 if (area < minArea) {
                     minArea = area;
                     index = i;
                 }
+                tp('_chooseSplitIndex 12: %v,%v', minArea, index);
             }
         }
+        tp('_chooseSplitIndex 13');
 
         return index;
     },
@@ -378,20 +461,35 @@ rbush.prototype = {
     // sorts node children by the best axis for split
     _chooseSplitAxis: function (node, m, M) {
 
+        tp('_chooseSplitAxis 1: %v,%v', m, M);
+        tp('_chooseSplitAxis 2: %v', nodeString(node));
         var compareMinX = node.leaf ? this.compareMinX : compareNodeMinX,
-            compareMinY = node.leaf ? this.compareMinY : compareNodeMinY,
-            xMargin = this._allDistMargin(node, m, M, compareMinX),
-            yMargin = this._allDistMargin(node, m, M, compareMinY);
-
+            compareMinY = node.leaf ? this.compareMinY : compareNodeMinY;
+        var xMargin = this._allDistMargin(node, m, M, compareMinX);
+        tp('_chooseSplitAxis 3: %v', xMargin);
+        var yMargin = this._allDistMargin(node, m, M, compareMinY);
+        tp('_chooseSplitAxis 4: %v', yMargin);
         // if total distributions margin value is minimal for x, sort by minX,
         // otherwise it's already sorted by minY
-        if (xMargin < yMargin) node.children.sort(compareMinX);
+        if (xMargin < yMargin) {
+            tp('_chooseSplitAxis 5');
+            node.children.sort(compareMinX);
+        }
     },
 
     // total margin of all possible split distributions where each node is at least m full
     _allDistMargin: function (node, m, M, compare) {
+        tp('_allDistMargin 1: %v', nodeString(node));
+        tp('_allDistMargin 2: %v,%v', m, M);
 
+        for (var j = 0; j < node.children.length; j++) {
+            tp('_allDistMargin A: %v,%v', j, nodeString(node.children[j]));
+        }
         node.children.sort(compare);
+        for (j = 0; j < node.children.length; j++) {
+            tp('_allDistMargin B: %v,%v', j, nodeString(node.children[j]));
+        }
+
 
         var toBBox = this.toBBox,
             leftBBox = distBBox(node, 0, m, toBBox),
@@ -399,26 +497,36 @@ rbush.prototype = {
             margin = bboxMargin(leftBBox) + bboxMargin(rightBBox),
             i, child;
 
+        tp('_allDistMargin 3: %v', nodeString(leftBBox));
+        tp('_allDistMargin 4: %v', nodeString(leftBBox));
+        tp('_allDistMargin 5: %v', margin);
         for (i = m; i < M - m; i++) {
+            tp('_allDistMargin 6: %v', i);
             child = node.children[i];
             extend(leftBBox, node.leaf ? toBBox(child) : child);
             margin += bboxMargin(leftBBox);
         }
 
         for (i = M - m - 1; i >= m; i--) {
+            tp('_allDistMargin 7: %v', i);
             child = node.children[i];
             extend(rightBBox, node.leaf ? toBBox(child) : child);
             margin += bboxMargin(rightBBox);
         }
+        tp('_allDistMargin 8: %v', margin);
 
         return margin;
     },
 
     _adjustParentBBoxes: function (bbox, path, level) {
+        tp('_adjustParentBBoxes 1: %v', nodeString(this.data));
+        tp('_adjustParentBBoxes 2: %v,%v,%v', nodeString(bbox), path.length, level);
         // adjust bboxes along the given tree path
         for (var i = level; i >= 0; i--) {
+            tp('_adjustParentBBoxes 3: ' + i + ': ' + nodeString(path[i]));
             extend(path[i], bbox);
         }
+        tp('_adjustParentBBoxes 4: ' + nodeString(this.data));
     },
 
     _condense: function (path) {
@@ -431,7 +539,7 @@ rbush.prototype = {
 
                 } else this.clear();
 
-            } else calcBBox(path[i], this.toBBox);
+            } else calcBBox(path[i], this.toBBox, this.t);
         }
     },
 
@@ -465,22 +573,35 @@ function findItem(item, items, equalsFn) {
 }
 
 // calculate node's bbox from bboxes of its children
-function calcBBox(node, toBBox) {
-    distBBox(node, 0, node.children.length, toBBox, node);
+function calcBBox(node, toBBox, t) {
+//tp("calcBBox 1: "+nodeString(node))
+    distBBox(node, 0, node.children.length, toBBox, node, t);
+//tp("calcBBox 2: "+nodeString(node))
 }
 
 // min bounding rectangle of node children from k to p-1
 function distBBox(node, k, p, toBBox, destNode) {
-    if (!destNode) destNode = createNode(null);
+    tp('distBBox 1: %v,%v', k, p);
+    tp('distBBox 2: %v', nodeString(node));
+    tp('distBBox 3: %v', nodeString(destNode));
+    if (!destNode) {
+        tp('distBBox 4');
+        destNode = createNode(null);
+    }
+    tp('distBBox 5');
     destNode.minX = Infinity;
     destNode.minY = Infinity;
     destNode.maxX = -Infinity;
     destNode.maxY = -Infinity;
+    tp('distBBox 6: %v', nodeString(destNode));
 
     for (var i = k, child; i < p; i++) {
         child = node.children[i];
+        tp('distBBox 7: %v,%v', i, nodeString(child));
         extend(destNode, node.leaf ? toBBox(child) : child);
+        tp('distBBox 8: %v,%v', i, nodeString(destNode));
     }
+    tp('distBBox 9: %v', nodeString(destNode));
 
     return destNode;
 }
@@ -544,18 +665,157 @@ function createNode(children) {
 // combines selection algorithm with binary divide & conquer approach
 
 function multiSelect(arr, left, right, n, compare) {
+	//tp("_multiSelect 1: "+left+","+right+","+n)
     var stack = [left, right],
         mid;
 
     while (stack.length) {
         right = stack.pop();
         left = stack.pop();
-
-        if (right - left <= n) continue;
+//tp("_multiSelect 2: "+stack.length+","+right+","+left)
+        if (right - left <= n) {
+//tp("_multiSelect 3: "+stack.length)
+            continue;
+        }
 
         mid = left + Math.ceil((right - left) / n / 2) * n;
+//tp("_multiSelect 4: "+stack.length+","+mid)
         quickselect(arr, mid, left, right, compare);
 
         stack.push(left, mid, mid, right);
     }
+    if (false) {
+        var nodes = arr;
+        for (var i = 0; i < nodes.length; i++) {
+            tp('_multiSelect 5: ' + i + ',' + nodeString(nodes[i]));
+        }
+    }
 }
+
+function count(node) {
+    if (!node.children || !node.children.length) {
+        return 1;
+    }
+    var n = 0;
+    for (var i = 0; i < node.children.length; i++) {
+        n += count(node.children[i]);
+    }
+    return n;
+}
+function nodeString(n) {
+    if (!n) {
+        return '<nil>';
+    }
+    var sum = nodeSum(n);
+    return ('&{children:"' + (n.children || []).length + ':' + count(n) + '"' +
+		' height:' + (n.height || 0) +
+		' leaf:' + (n.leaf || false) +
+		' minX:' + (n.minX || 0) +
+		' minY:' + (n.minY || 0) +
+		' maxX:' + (n.maxX || 0) +
+		' maxY:' + (n.maxY || 0) +
+		'}').split('inity').join('').split(':Inf').join(':+Inf') +
+	' (' + sum.substring(sum.length - 7) + ')';
+}
+
+function appendNodeJSON(node, depth) {
+    var s = '';
+    if (!node) {
+        return s + 'null';
+    }
+    s += '{';
+    if (node.children && node.children.length) {
+        s += '"children":[';
+        for (var i = 0; i < node.children.length; i++) {
+            var child = node.children[i];
+            if (i > 0) {
+                s += ',';
+            }
+            s += appendNodeJSON(child, depth + 1);
+        }
+        s += '],';
+    }
+    s += '"leaf":';
+    if (node.leaf) {
+        s += 'true';
+    } else {
+        s += 'false';
+    }
+    s += ',"height":' + (node.height || 0);
+    s += ',"minX":' + cinf(node.minX || 0);
+    s += ',"minY":' + cinf(node.minY || 0);
+    s += ',"maxX":' + cinf(node.maxX || 0);
+    s += ',"maxY":' + cinf(node.maxY || 0);
+    s += '}';
+    return s;
+}
+
+function cinf(arg) {
+    if (!isNaN(arg)) {
+        arg = arg + '';
+        if (arg === 'Infinity') {
+            arg = '+Inf';
+        } else if (arg === '-Infinity') {
+            arg = '-Inf';
+        }
+    }
+    return arg;
+}
+
+function nodeJSONString(n) {
+    return appendNodeJSON(n, 0);
+}
+function nodeSum(n) {
+    return md5(nodeJSONString(n));
+}
+
+var tpon = false;
+
+function tpsum(s) {
+    var hash = md5(s);
+    return hash.substring(hash.length - 4).toUpperCase();
+}
+
+function tp(s) {
+    var t = global.tpt;
+    if (!tpon) {
+        return;
+    }
+    for (var i = 1; i < arguments.length; i++) {
+        var idx = s.indexOf('%v');
+        if (idx !== -1) {
+            var arg = arguments[i];
+            if (!isNaN(arg)) {
+                arg = arg + '';
+                if (arg === 'Infinity') {
+                    arg = '+Inf';
+                } else if (arg === '-Infinity') {
+                    arg = '-Inf';
+                }
+            }
+            s = s.substring(0, idx) + arg + s.substring(idx + 2);
+        }
+    }
+
+    if (!t.tpc) {
+        try {
+            fs.unlinkSync('out.log');
+        } catch (e) {
+            if (false) return;
+        }
+        t.tpc = 0;
+    }
+    if (!t.tpall) {
+        t.tpall = '';
+    }
+    var ln = '0000' + t.tpc;
+    ln = ln.substring(ln.length - 4);
+    t.tpall += s;
+    var head = ln + ':' + tpsum(t.tpall) + ' ';
+    var line = head + s;
+    t.comment(line);
+    fs.appendFileSync('out.log', line + '\n');
+    t.tpc++;
+}
+global.tp = tp;
+
