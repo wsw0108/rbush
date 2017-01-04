@@ -513,7 +513,7 @@ func BenchmarkVarious(t *testing.B) {
 	}
 	consoleTimeEnd := func(s string) {
 		end := time.Since(start)
-		fmt.Printf("%v: %v\n", s, end)
+		fmt.Printf("%v: %dms\n", s, end/time.Millisecond)
 	}
 	var data = genData(N, 1)
 	var data2 = genData(N, 1)

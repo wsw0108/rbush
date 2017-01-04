@@ -453,20 +453,13 @@ func (this *RBush) _chooseSplitAxis(node *nodeT, m, M int) {
 	// if total distributions margin value is minimal for x, sort by minX,
 	// otherwise it's already sorted by minY
 	if xMargin < yMargin {
-		sort.Sort(byMinX(node.children))
+		sortData(node.children, 1)
 	}
 }
 
 // total margin of all possible split distributions where each node is at least m full
 func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
-	switch dim {
-	default:
-		panic("invalid dimension")
-	case 1:
-		sort.Sort(byMinX(node.children))
-	case 2:
-		sort.Sort(byMinY(node.children))
-	}
+	sortData(node.children, dim)
 
 	var leftBBox = distBBox(node, 0, m, nil)
 	var rightBBox = distBBox(node, M-m, M, nil)
@@ -540,12 +533,12 @@ func calcBBox(node *nodeT) {
 func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
 	if destNode == nil {
 		destNode = createNode(nil)
+	} else {
+		destNode.minX = math.Inf(+1)
+		destNode.minY = math.Inf(+1)
+		destNode.maxX = math.Inf(-1)
+		destNode.maxY = math.Inf(-1)
 	}
-	destNode.minX = math.Inf(+1)
-	destNode.minY = math.Inf(+1)
-	destNode.maxX = math.Inf(-1)
-	destNode.maxY = math.Inf(-1)
-
 	var child *nodeT
 	for i := k; i < p; i++ {
 		child = node.children[i]
@@ -894,4 +887,14 @@ func quickselect(arr quickSelectArr, k, left, right int) {
 			right = j - 1
 		}
 	}
+}
+func sortData(nodes []*nodeT, dim int) {
+	var data sort.Interface
+	switch dim {
+	case 1:
+		data = byMinX(nodes)
+	case 2:
+		data = byMinY(nodes)
+	}
+	sort.Sort(data)
 }
