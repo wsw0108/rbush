@@ -15,21 +15,17 @@ type byDims []*nodeT
 
 func (arr byDims) Len() int { return len(arr) }
 func (arr byDims) Less(a, b int) bool {
-	n := arr[a].minX - arr[b].minX
-	if n != 0 {
-		return n < 0
+	for i := 0; i < DIMS; i++ {
+		n := arr[a].min[i] - arr[b].min[i]
+		if n != 0 {
+			return n < 0
+		}
 	}
-	n = arr[a].minY - arr[b].minY
-	if n != 0 {
-		return n < 0
-	}
-	n = arr[a].maxX - arr[b].maxX
-	if n != 0 {
-		return n < 0
-	}
-	n = arr[a].maxY - arr[b].maxY
-	if n != 0 {
-		return n < 0
+	for i := 0; i < DIMS; i++ {
+		n := arr[a].max[i] - arr[b].max[i]
+		if n != 0 {
+			return n < 0
+		}
 	}
 	return false
 }
@@ -47,12 +43,12 @@ var data = arrToBBoxes(`
 `)
 
 var emptyData = []*nodeT{
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
+	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
+	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
+	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
+	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
+	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
+	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
 }
 
 func arrToBBoxes(data string) []*nodeT {
@@ -63,10 +59,8 @@ func arrToBBoxes(data string) []*nodeT {
 	}
 	for _, arr := range arr {
 		nodes = append(nodes, &nodeT{
-			minX: arr[0],
-			minY: arr[1],
-			maxX: arr[2],
-			maxY: arr[3],
+			min: [DIMS]float64{arr[0], arr[1]},
+			max: [DIMS]float64{arr[2], arr[3]},
 		})
 	}
 	return nodes
@@ -258,7 +252,7 @@ func TestSearchFindsMatchingPointsInTheTreeGivenABBox(t *testing.T) {
 
 	var tree = New(4)
 	tree.load(data)
-	var result = tree.search(&nodeT{minX: 40, minY: 20, maxX: 80, maxY: 70})
+	var result = tree.search(&nodeT{min: [DIMS]float64{40, 20}, max: [DIMS]float64{80, 70}})
 
 	expect := arrToBBoxes(`[
         [70,20,70,20],[75,25,75,25],[45,45,45,45],[50,50,50,50],[60,60,60,60],[70,70,70,70],
@@ -273,7 +267,7 @@ func TestCollidesReturnsTrueWhenSearchFindsMatchingPoints(t *testing.T) {
 
 	var tree = New(4)
 	tree.load(data)
-	var result = tree.collides(&nodeT{minX: 40, minY: 20, maxX: 80, maxY: 70})
+	var result = tree.collides(&nodeT{min: [DIMS]float64{40, 20}, max: [DIMS]float64{80, 70}})
 
 	same(t, result, true)
 }
@@ -281,14 +275,14 @@ func TestSearchReturnsAnEmptyArrayIfNothingFound(t *testing.T) {
 	tpn("#search returns an empty array if nothing found")
 	var tree = New(4)
 	tree.load(data)
-	result := tree.search(&nodeT{minX: 200, minY: 200, maxX: 210, maxY: 210})
+	result := tree.search(&nodeT{min: [DIMS]float64{200, 200}, max: [DIMS]float64{210, 210}})
 
 	sortedEqual(t, result, nil)
 }
 
 func TestCollidesReturnsFalseIfNothingFound(t *testing.T) {
 	tpn("#collides returns false if nothing found")
-	var result = New(4).load(data).collides(&nodeT{minX: 200, minY: 200, maxX: 210, maxY: 210})
+	var result = New(4).load(data).collides(&nodeT{min: [DIMS]float64{200, 200}, max: [DIMS]float64{210, 210}})
 
 	same(t, result, false)
 }
@@ -300,7 +294,7 @@ func TestAllReturnsAllPointsInTheTree(t *testing.T) {
 	var result = tree.all()
 
 	sortedEqual(t, result, data)
-	sortedEqual(t, tree.search(&nodeT{minX: 0, minY: 0, maxX: 100, maxY: 100}), data)
+	sortedEqual(t, tree.search(&nodeT{min: [DIMS]float64{0, 0}, max: [DIMS]float64{100, 100}}), data)
 
 }
 
@@ -380,7 +374,7 @@ func TestRemoveDoesNothingIfNothingFound(t *testing.T) {
 	tpn("#remove does nothing if nothing found")
 	same(t,
 		New(0).load(data),
-		New(0).load(data).remove(&nodeT{minX: 13, minY: 13, maxX: 13, maxY: 13}))
+		New(0).load(data).remove(&nodeT{min: [DIMS]float64{13, 13}, max: [DIMS]float64{13, 13}}))
 }
 func TestRemoveDoesIfGivenUndefined(t *testing.T) {
 	tpn("#remove does nothing if given undefined")
@@ -403,7 +397,7 @@ func TestRemoveAcceptsAnEqualsFunction(t *testing.T) {
 	tpq("#remove accepts an equals function")
 	//var tree = New(4).load(data);
 
-	//var item = &nodeT{minX: 20, minY: 70, maxX: 20, maxY: 70, foo: 'bar'};
+	//var item = &nodeT{minX: 20,  70, maxX: 20, maxY: 70, foo: 'bar'};
 
 	//tree.insert(item);
 	//tree.remove(JSON.parse(JSON.stringify(item)), function (a, b) {
@@ -428,7 +422,7 @@ func TestShouldHaveChainableAPI(t *testing.T) {
 func someData(n int) []*nodeT {
 	var data []*nodeT
 	for i := 0; i < n; i++ {
-		data = append(data, &nodeT{minX: float64(i), minY: float64(i), maxX: float64(i), maxY: float64(i)})
+		data = append(data, &nodeT{min: [DIMS]float64{float64(i), float64(i)}, max: [DIMS]float64{float64(i), float64(i)}})
 	}
 	return data
 }
@@ -451,16 +445,16 @@ func same(t *testing.T, a interface{}, b interface{}) {
 	}
 }
 
-type byQuick []int
+type byQuick []*nodeT
 
-func (arr byQuick) At(i int) interface{} {
+func (arr byQuick) At(i int) *nodeT {
 	return arr[i]
 }
-func (arr byQuick) Compare(a, b interface{}) int {
-	if a.(int) < b.(int) {
+func (arr byQuick) Compare(a, b *nodeT) int {
+	if a.min[0] < b.min[0] {
 		return -1
 	}
-	if a.(int) > b.(int) {
+	if a.min[0] > b.min[0] {
 		return 1
 	}
 	return 0
@@ -470,12 +464,19 @@ func (arr byQuick) Swap(a, b int) {
 }
 
 func TestQuickselect(t *testing.T) {
-	var arr = []int{65, 28, 59, 33, 21, 56, 22, 95, 50, 12, 90, 53, 28, 77, 39}
-	quickselect(byQuick(arr), 8, 0, len(arr)-1)
+	var arr []*nodeT
+	for _, v := range []float64{65, 28, 59, 33, 21, 56, 22, 95, 50, 12, 90, 53, 28, 77, 39} {
+		arr = append(arr, &nodeT{min: [DIMS]float64{v}})
+	}
 
-	var exp = []int{39, 28, 28, 33, 21, 12, 22, 50, 53, 56, 59, 65, 90, 77, 95}
+	quickselect(arr, 8, 0, len(arr)-1, 0)
+
+	var exp []*nodeT
+	for _, v := range []float64{39, 28, 28, 33, 21, 12, 22, 50, 53, 56, 59, 65, 90, 77, 95} {
+		exp = append(exp, &nodeT{min: [DIMS]float64{v}})
+	}
 	for i := 0; i < len(arr); i++ {
-		if arr[i] != exp[i] {
+		if arr[i].min[0] != exp[i].min[0] {
 			t.Fatalf("mismatch for index %d\n", i)
 		}
 	}
@@ -493,10 +494,8 @@ func BenchmarkVarious(t *testing.B) {
 		var x = rand.Float64() * (100 - size)
 		var y = rand.Float64() * (100 - size)
 		return &nodeT{
-			minX: x,
-			minY: y,
-			maxX: x + size*rand.Float64(),
-			maxY: y + size*rand.Float64(),
+			min: [DIMS]float64{x, y},
+			max: [DIMS]float64{x + size*rand.Float64(), y + size*rand.Float64()},
 		}
 	}
 

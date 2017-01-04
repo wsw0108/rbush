@@ -12,13 +12,13 @@ import (
 )
 
 const defaultMaxEntries = 9
+const DIMS = 2
 
 type nodeT struct {
-	minX, minY float64
-	maxX, maxY float64
-	children   []*nodeT
-	height     int
-	leaf       bool
+	min, max [DIMS]float64
+	children []*nodeT
+	height   int
+	leaf     bool
 }
 
 type RBush struct {
@@ -27,60 +27,22 @@ type RBush struct {
 	data        *nodeT
 }
 
-type byMinX []*nodeT
-
-func (arr byMinX) At(i int) interface{} {
-	return arr[i]
-}
-func (arr byMinX) Compare(a, b interface{}) int {
-	na, nb := a.(*nodeT), b.(*nodeT)
-	if na.minX < nb.minX {
-		return -1
-	}
-	if na.minX > nb.minX {
-		return +1
-	}
-	return 0
-}
-func (arr byMinX) Less(i, j int) bool {
-	return arr[i].minX < arr[j].minX
+type byDim struct {
+	arr []*nodeT
+	dim int
 }
 
-func (arr byMinX) Swap(i, j int) {
-	arr[i], arr[j] = arr[j], arr[i]
+func (v byDim) Len() int { return len(v.arr) }
+func (v byDim) Less(i, j int) bool {
+	return v.arr[i].min[v.dim] < v.arr[j].min[v.dim]
 }
+func (v byDim) Swap(i, j int) {
+	v.arr[i], v.arr[j] = v.arr[j], v.arr[i]
+}
+func byMinX(arr []*nodeT) byDim { return byDim{arr, 0} }
+func byMinY(arr []*nodeT) byDim { return byDim{arr, 1} }
 
-func (arr byMinX) Len() int {
-	return len(arr)
-}
-
-type byMinY []*nodeT
-
-func (arr byMinY) At(i int) interface{} {
-	return arr[i]
-}
-func (arr byMinY) Compare(a, b interface{}) int {
-	na, nb := a.(*nodeT), b.(*nodeT)
-	if na.minY < nb.minY {
-		return -1
-	}
-	if na.minY > nb.minY {
-		return +1
-	}
-	return 0
-}
-func (arr byMinY) Less(i, j int) bool {
-	return arr[i].minY < arr[j].minY
-}
-
-func (arr byMinY) Swap(i, j int) {
-	arr[i], arr[j] = arr[j], arr[i]
-}
-
-func (arr byMinY) Len() int {
-	return len(arr)
-}
-
+// New returns a new RBush object
 func New(maxEntries int) *RBush {
 	this := &RBush{}
 	// max entries in a node is 9 by default; min node fill is 40% for best performance
@@ -305,10 +267,10 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 	var N2 = int(math.Ceil(float64(N) / float64(M)))
 	var N1 = N2 * int(math.Ceil(math.Sqrt(float64(M))))
 	var i, j, right2, right3 int
-	multiSelect(byMinX(items), left, right, N1)
+	multiSelect(items, left, right, N1, 1)
 	for i = left; i <= right; i += N1 {
 		right2 = int(math.Min(float64(i+N1-1), float64(right)))
-		multiSelect(byMinY(items), i, right2, N2)
+		multiSelect(items, i, right2, N2, 2)
 		for j = i; j <= right2; j += N2 {
 			right3 = int(math.Min(float64(j+N2-1), float64(right2)))
 			// pack each entry recursively
@@ -448,18 +410,18 @@ func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
 
 // sorts node children by the best axis for split
 func (this *RBush) _chooseSplitAxis(node *nodeT, m, M int) {
-	var xMargin = this._allDistMargin(node, m, M, 1)
-	var yMargin = this._allDistMargin(node, m, M, 2)
+	var xMargin = this._allDistMargin(node, m, M, 0)
+	var yMargin = this._allDistMargin(node, m, M, 1)
 	// if total distributions margin value is minimal for x, sort by minX,
 	// otherwise it's already sorted by minY
 	if xMargin < yMargin {
-		sortData(node.children, 1)
+		sort.Sort(byDim{node.children, 0})
 	}
 }
 
 // total margin of all possible split distributions where each node is at least m full
 func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
-	sortData(node.children, dim)
+	sort.Sort(byDim{node.children, dim})
 
 	var leftBBox = distBBox(node, 0, m, nil)
 	var rightBBox = distBBox(node, M-m, M, nil)
@@ -534,10 +496,10 @@ func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
 	if destNode == nil {
 		destNode = createNode(nil)
 	} else {
-		destNode.minX = math.Inf(+1)
-		destNode.minY = math.Inf(+1)
-		destNode.maxX = math.Inf(-1)
-		destNode.maxY = math.Inf(-1)
+		destNode.min[0] = math.Inf(+1)
+		destNode.min[1] = math.Inf(+1)
+		destNode.max[0] = math.Inf(-1)
+		destNode.max[1] = math.Inf(-1)
 	}
 	var child *nodeT
 	for i := k; i < p; i++ {
@@ -548,46 +510,47 @@ func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
 }
 
 func extend(a *nodeT, b *nodeT) *nodeT {
-	a.minX = math.Min(a.minX, b.minX)
-	a.minY = math.Min(a.minY, b.minY)
-	a.maxX = math.Max(a.maxX, b.maxX)
-	a.maxY = math.Max(a.maxY, b.maxY)
+	a.min[0] = math.Min(a.min[0], b.min[0])
+	a.min[1] = math.Min(a.min[1], b.min[1])
+	a.max[0] = math.Max(a.max[0], b.max[0])
+	a.max[1] = math.Max(a.max[1], b.max[1])
 	return a
 }
 
 func bboxArea(a *nodeT) float64 {
-	return (a.maxX - a.minX) * (a.maxY - a.minY)
+	return (a.max[0] - a.min[0]) * (a.max[1] - a.min[1])
 }
 
 func bboxMargin(a *nodeT) float64 {
-	return (a.maxX - a.minX) + (a.maxY - a.minY)
+	return (a.max[0] - a.min[0]) + (a.max[1] - a.min[1])
 }
 
 func enlargedArea(a, b *nodeT) float64 {
-	return (math.Max(b.maxX, a.maxX) - math.Min(b.minX, a.minX)) *
-		(math.Max(b.maxY, a.maxY) - math.Min(b.minY, a.minY))
+	return (math.Max(b.max[0], a.max[0]) - math.Min(b.min[0], a.min[0])) *
+		(math.Max(b.max[1], a.max[1]) - math.Min(b.min[1], a.min[1]))
 }
 
 func intersectionArea(a, b *nodeT) float64 {
-	var minX = math.Max(a.minX, b.minX)
-	var minY = math.Max(a.minY, b.minY)
-	var maxX = math.Min(a.maxX, b.maxX)
-	var maxY = math.Min(a.maxY, b.maxY)
+
+	var minX = math.Max(a.min[0], b.min[0])
+	var minY = math.Max(a.min[1], b.min[1])
+	var maxX = math.Min(a.max[0], b.max[0])
+	var maxY = math.Min(a.max[1], b.max[1])
 	return math.Max(0, maxX-minX) * math.Max(0, maxY-minY)
 }
 
 func contains(a, b *nodeT) bool {
-	return a.minX <= b.minX &&
-		a.minY <= b.minY &&
-		b.maxX <= a.maxX &&
-		b.maxY <= a.maxY
+	return a.min[0] <= b.min[0] &&
+		a.min[1] <= b.min[1] &&
+		b.max[0] <= a.max[0] &&
+		b.max[1] <= a.max[1]
 }
 
 func intersects(a, b *nodeT) bool {
-	return b.minX <= a.maxX &&
-		b.minY <= a.maxY &&
-		b.maxX >= a.minX &&
-		b.maxY >= a.minY
+	return b.min[0] <= a.max[0] &&
+		b.min[1] <= a.max[1] &&
+		b.max[0] >= a.min[0] &&
+		b.max[1] >= a.min[1]
 }
 
 func createNode(children []*nodeT) *nodeT {
@@ -595,63 +558,31 @@ func createNode(children []*nodeT) *nodeT {
 		children: children,
 		height:   1,
 		leaf:     true,
-		minX:     math.Inf(+1),
-		minY:     math.Inf(+1),
-		maxX:     math.Inf(-1),
-		maxY:     math.Inf(-1),
+		min:      [DIMS]float64{math.Inf(+1), math.Inf(+1)},
+		max:      [DIMS]float64{math.Inf(-1), math.Inf(-1)},
 	}
 }
 
-//// sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
-//// combines selection algorithm with binary divide & conquer approach
-//
-//function multiSelect(arr, left, right, n, compare) {
-func multiSelect(arr quickSelectArr, left, right, n int) {
-	////--tp("_multiSelect 1: %d,%d,%d", left, right, n)
-	//    var stack = [left, right],
+// sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
+// combines selection algorithm with binary divide & conquer approach
+func multiSelect(arr []*nodeT, left, right, n int, dim int) {
 	var stack = []int{left, right}
-	//        mid;
 	var mid int
-	//
-	//    while (stack.length) {
+
 	for len(stack) > 0 {
-		//        right = stack.pop();
 		right = stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		//        left = stack.pop();
 		left = stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
-		//
-		//        if (right - left <= n) continue;
-		////--tp("_multiSelect 2: %d,%d,%d", len(stack), right, left)
+
 		if right-left <= n {
-			//tp("_multiSelect 3: %d", len(stack))
 			continue
 		}
-		//
-		//        mid = left + Math.ceil((right - left) / n / 2) * n;
-		mid = left + int(math.Ceil(float64(right-left)/float64(n)/2))*n
-		////-//---//--tp("_multiSelect 4: %d,%d", len(stack), mid)
-		//        quickselect(arr, mid, left, right, compare);
-		quickselect(arr, mid, left, right)
 
-		//
-		//        stack.push(left, mid, mid, right);
+		mid = left + int(math.Ceil(float64(right-left)/float64(n)/2))*n
+		quickselect(arr, mid, left, right, dim)
+
 		stack = append(stack, left, mid, mid, right)
-		//    }
-	}
-	//}
-	if false {
-		switch nodes := arr.(type) {
-		case byMinX:
-			for i := 0; i < len(nodes); i++ {
-				//--tp("_multiSelect 5: %d: %s", i, nodeString(nodes[i]))
-			}
-		case byMinY:
-			for i := 0; i < len(nodes); i++ {
-				//--tp("_multiSelect 5: %d: %s", i, nodeString(nodes[i]))
-			}
-		}
 	}
 }
 
@@ -696,7 +627,7 @@ func nodeString(node *nodeT) string {
 		`} (%v)`,
 		len(node.children), count(node),
 		node.height, node.leaf,
-		node.minX, node.minY, node.maxX, node.maxY,
+		node.min[0], node.min[1], node.max[0], node.max[1],
 		sum[len(sum)-7:],
 	)
 }
@@ -736,13 +667,13 @@ func appendNodeJSON(b []byte, node *nodeT, depth int) []byte {
 	b = append(b, `,"height":`...)
 	b = append(b, strconv.FormatInt(int64(node.height), 10)...)
 	b = append(b, `,"minX":`...)
-	b = append(b, strconv.FormatFloat(node.minX, 'f', -1, 64)...)
+	b = append(b, strconv.FormatFloat(node.min[0], 'f', -1, 64)...)
 	b = append(b, `,"minY":`...)
-	b = append(b, strconv.FormatFloat(node.minY, 'f', -1, 64)...)
+	b = append(b, strconv.FormatFloat(node.min[1], 'f', -1, 64)...)
 	b = append(b, `,"maxX":`...)
-	b = append(b, strconv.FormatFloat(node.maxX, 'f', -1, 64)...)
+	b = append(b, strconv.FormatFloat(node.max[0], 'f', -1, 64)...)
 	b = append(b, `,"maxY":`...)
-	b = append(b, strconv.FormatFloat(node.maxY, 'f', -1, 64)...)
+	b = append(b, strconv.FormatFloat(node.max[1], 'f', -1, 64)...)
 	b = append(b, '}')
 	return b
 }
@@ -829,18 +760,12 @@ func tpm(format string, args ...interface{}) {
 	tpt++
 }
 
-type quickSelectArr interface {
-	Swap(i, j int)
-	Compare(a, b interface{}) int
-	At(i int) interface{}
-}
-
-func quickselect(arr quickSelectArr, k, left, right int) {
+func quickselect(arr []*nodeT, k, left, right, dim int) {
 	for right > left {
 		if right-left > 600 {
-			var n = right - left + 1
-			var m = k - left + 1
-			var z = math.Log(float64(n))
+			var n = float64(right - left + 1)
+			var m = float64(k - left + 1)
+			var z = math.Log(n)
 			var s = 0.5 * math.Exp(2*z/3)
 			var tt = 1
 			if m-n/2 < 0 {
@@ -849,35 +774,35 @@ func quickselect(arr quickSelectArr, k, left, right int) {
 			var sd = 0.5 * math.Sqrt(z*s*(float64(n)-s)/float64(n)) * float64(tt)
 			var newLeft = int(math.Max(float64(left), math.Floor(float64(k)-float64(m)*s/float64(n)+sd)))
 			var newRight = int(math.Min(float64(right), math.Floor(float64(k)+float64(n-m)*s/float64(n)+sd)))
-			quickselect(arr, k, newLeft, newRight)
+			quickselect(arr, k, newLeft, newRight, dim)
 		}
 
-		var t = arr.At(k)
+		var t = qsAt(arr, k)
 		var i = left
 		var j = right
 
-		arr.Swap(left, k)
-		if arr.Compare(arr.At(right), t) > 0 {
-			arr.Swap(left, right)
+		qsSwap(arr, left, k)
+		if qsCompare(arr, qsAt(arr, right), t) > 0 {
+			qsSwap(arr, left, right)
 		}
 
 		for i < j {
-			arr.Swap(i, j)
+			qsSwap(arr, i, j)
 			i++
 			j--
-			for arr.Compare(arr.At(i), t) < 0 {
+			for qsCompare(arr, qsAt(arr, i), t) < 0 {
 				i++
 			}
-			for arr.Compare(arr.At(j), t) > 0 {
+			for qsCompare(arr, qsAt(arr, j), t) > 0 {
 				j--
 			}
 		}
 
-		if arr.Compare(arr.At(left), t) == 0 {
-			arr.Swap(left, j)
+		if qsCompare(arr, qsAt(arr, left), t) == 0 {
+			qsSwap(arr, left, j)
 		} else {
 			j++
-			arr.Swap(j, right)
+			qsSwap(arr, j, right)
 		}
 
 		if j <= k {
@@ -888,13 +813,17 @@ func quickselect(arr quickSelectArr, k, left, right int) {
 		}
 	}
 }
-func sortData(nodes []*nodeT, dim int) {
-	var data sort.Interface
-	switch dim {
-	case 1:
-		data = byMinX(nodes)
-	case 2:
-		data = byMinY(nodes)
+
+func qsAt(arr []*nodeT, i int) *nodeT { return arr[i] }
+func qsCompare(arr []*nodeT, a, b *nodeT) int {
+	if a.min[0] < b.min[0] {
+		return -1
 	}
-	sort.Sort(data)
+	if a.min[0] > b.min[0] {
+		return +1
+	}
+	return 0
+}
+func qsSwap(arr []*nodeT, i, j int) {
+	arr[i], arr[j] = arr[j], arr[i]
 }
