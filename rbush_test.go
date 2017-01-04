@@ -110,10 +110,10 @@ func TestConstructorAcceptsAFormatArgumentToCustomizeTheDataFormat(t *testing.T)
 }
 func TestConstructorUses9MaxEntriesByDefault(t *testing.T) {
 	tpn("constructor uses 9 max entries by default")
-	var tree = New(DefaultMaxEntries).load(someData(9))
+	var tree = New(0).load(someData(9))
 	same(t, tree.toJSON().height, 1)
 
-	var tree2 = New(DefaultMaxEntries).load(someData(10))
+	var tree2 = New(0).load(someData(10))
 	same(t, tree2.toJSON().height, 2)
 }
 func TestToBBoxCompareMinXCompareMinYCanBeOverridenToAllowCustomDataStructures(t *testing.T) {
@@ -200,10 +200,10 @@ func TestLoadUsesStandardInsertionWhenGivenALowNumberOfItems(t *testing.T) {
 }
 func TestLoadDoesNothingIfLoadingEmptyData(t *testing.T) {
 	tpn("#load does nothing if loading empty data")
-	var tree = New(DefaultMaxEntries)
+	var tree = New(0)
 	tree.load(nil)
 
-	same(t, tree, New(DefaultMaxEntries))
+	same(t, tree, New(0))
 }
 func TestLoadHandlesTheInsertionOfMaxEntriesPlus2EmptyBBoxes(t *testing.T) {
 
@@ -338,8 +338,8 @@ func TestInsertAddsAnItemToAnExistingTreeCorrectly(t *testing.T) {
 func TestInsertDoesNothingIfGivenUndefined(t *testing.T) {
 	tpn("#insert does nothing if given undefined")
 	same(t,
-		New(DefaultMaxEntries).load(data),
-		New(DefaultMaxEntries).load(data).insert(nil))
+		New(0).load(data),
+		New(0).load(data).insert(nil))
 }
 func TestInsertFormsAValidTreeIfItemsAreInsertedOneByOne(t *testing.T) {
 	tpn("#insert forms a valid tree if items are inserted one by one")
@@ -379,14 +379,14 @@ func TestRemoveItemsCorrectly(t *testing.T) {
 func TestRemoveDoesNothingIfNothingFound(t *testing.T) {
 	tpn("#remove does nothing if nothing found")
 	same(t,
-		New(DefaultMaxEntries).load(data),
-		New(DefaultMaxEntries).load(data).remove(&nodeT{minX: 13, minY: 13, maxX: 13, maxY: 13}))
+		New(0).load(data),
+		New(0).load(data).remove(&nodeT{minX: 13, minY: 13, maxX: 13, maxY: 13}))
 }
 func TestRemoveDoesIfGivenUndefined(t *testing.T) {
 	tpn("#remove does nothing if given undefined")
 	same(t,
-		New(DefaultMaxEntries).load(data),
-		New(DefaultMaxEntries).load(data).remove(nil))
+		New(0).load(data),
+		New(0).load(data).remove(nil))
 }
 func TestRemoveBringsTheTreeToAClearStateWhenRemovingEverythingOneByOne(t *testing.T) {
 	tpn("#remove brings the tree to a clear state when removing everything one by one")
@@ -422,7 +422,7 @@ func TestClearShouldClearAllTheDataInTheTree(t *testing.T) {
 }
 func TestShouldHaveChainableAPI(t *testing.T) {
 	tpn("should have chainable API")
-	New(DefaultMaxEntries).load(data).insert(data[0]).remove(data[0])
+	New(0).load(data).insert(data[0]).remove(data[0])
 }
 
 func someData(n int) []*nodeT {
@@ -509,7 +509,6 @@ func BenchmarkVarious(t *testing.B) {
 	}
 	var start time.Time
 	consoleTime := func(s string) {
-		//		fmt.Printf("%s: ", s)
 		start = time.Now()
 	}
 	consoleTimeEnd := func(s string) {
