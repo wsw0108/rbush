@@ -1,12 +1,14 @@
 package rbush
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
 	"reflect"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -67,31 +69,13 @@ func arrToBBoxes(data string) []*nodeT {
 }
 
 func sortedEqual(t *testing.T, a, b []*nodeT) {
-	//compare = compare || defaultCompare
 	copyA := append([]*nodeT(nil), a...)
 	copyB := append([]*nodeT(nil), b...)
 	sort.Sort(byDims(copyA))
 	sort.Sort(byDims(copyB))
 	if !reflect.DeepEqual(copyA, copyB) {
-		//println(len(copyA), len(copyB))
-		if false {
-			for i := 0; i < len(copyA) || i < len(copyB); i++ {
-				var av *nodeT
-				if i < len(copyA) {
-					av = copyA[i]
-				}
-				var bv *nodeT
-				if i < len(copyB) {
-					bv = copyB[i]
-				}
-				tp("%v[a]: %s", i, nodeString(av))
-				tp("%v[b]: %s", i, nodeString(bv))
-				tp("---")
-			}
-		}
 		t.Fatal("not equals")
 	}
-	//t.same(a.slice().sort(compare), b.slice().sort(compare))
 }
 
 func TestConstructorAcceptsAFormatArgumentToCustomizeTheDataFormat(t *testing.T) {
@@ -213,7 +197,6 @@ func TestInsertHandlesTheInsertionOfMaxEntriesPlus2EmptyBBoxes(t *testing.T) {
 	var tree = New(4)
 	var i int
 	for _, datum := range emptyData {
-		tp("test %d: %s", i, nodeString(datum))
 		tree.insert(datum)
 		i++
 	}
@@ -576,4 +559,90 @@ func BenchmarkVarious(t *testing.B) {
 	}
 	consoleTimeEnd("1000 searches 0.01%")
 
+}
+
+var tpon = false
+var tpc int
+var tpall string
+var tpt int
+var tlines []string
+var tbad = false
+var tbadcount = 0
+var tbadidx = 0
+
+func tpsum(s string) string {
+	hex := fmt.Sprintf("%X", md5.Sum([]byte(s)))
+	return hex[len(hex)-4:]
+}
+func tpn(format string, args ...interface{}) {
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[92m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+func tpq(format string, args ...interface{}) {
+	tpn(format, args...)
+	return
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[35m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+
+func tpm(format string, args ...interface{}) {
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[34m\x1b[1m• %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+func (this *RBush) jsonString() string {
+	var b []byte
+	b = append(b, `{`+
+		`"maxEntries":`+strconv.FormatInt(int64(this._maxEntries), 10)+`,`+
+		`"minEntries":`+strconv.FormatInt(int64(this._minEntries), 10)+`,`+
+		`"data":`...)
+	b = appendNodeJSON(b, this.data, 1)
+	b = append(b, '}')
+	return string(b)
+}
+
+func appendNodeJSON(b []byte, node *nodeT, depth int) []byte {
+	if node == nil {
+		return append(b, "null"...)
+	}
+	b = append(b, '{')
+	if len(node.children) > 0 {
+		b = append(b, `"children":[`...)
+		for i, child := range node.children {
+			if i > 0 {
+				b = append(b, ',')
+			}
+			b = appendNodeJSON(b, child, depth+1)
+		}
+		b = append(b, ']', ',')
+	}
+	b = append(b, `"leaf":`...)
+	if node.leaf {
+		b = append(b, "true"...)
+	} else {
+		b = append(b, "false"...)
+	}
+	b = append(b, `,"height":`...)
+	b = append(b, strconv.FormatInt(int64(node.height), 10)...)
+	b = append(b, `,"minX":`...)
+	b = append(b, strconv.FormatFloat(node.min[0], 'f', -1, 64)...)
+	b = append(b, `,"minY":`...)
+	b = append(b, strconv.FormatFloat(node.min[1], 'f', -1, 64)...)
+	b = append(b, `,"maxX":`...)
+	b = append(b, strconv.FormatFloat(node.max[0], 'f', -1, 64)...)
+	b = append(b, `,"maxY":`...)
+	b = append(b, strconv.FormatFloat(node.max[1], 'f', -1, 64)...)
+	b = append(b, '}')
+	return b
+}
+func nodeJSONString(n *nodeT) string {
+	return string(appendNodeJSON([]byte(nil), n, 0))
 }

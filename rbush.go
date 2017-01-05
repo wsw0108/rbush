@@ -1,14 +1,8 @@
 package rbush
 
 import (
-	"crypto/md5"
-	"fmt"
-	"io/ioutil"
 	"math"
-	"os"
 	"sort"
-	"strconv"
-	"strings"
 )
 
 const defaultMaxEntries = 9
@@ -32,15 +26,15 @@ type byDim struct {
 	dim int
 }
 
-func (v byDim) Len() int { return len(v.arr) }
+func (v byDim) Len() int {
+	return len(v.arr)
+}
 func (v byDim) Less(i, j int) bool {
 	return v.arr[i].min[v.dim] < v.arr[j].min[v.dim]
 }
 func (v byDim) Swap(i, j int) {
 	v.arr[i], v.arr[j] = v.arr[j], v.arr[i]
 }
-func byMinX(arr []*nodeT) byDim { return byDim{arr, 0} }
-func byMinY(arr []*nodeT) byDim { return byDim{arr, 1} }
 
 // New returns a new RBush object
 func New(maxEntries int) *RBush {
@@ -496,10 +490,10 @@ func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
 	if destNode == nil {
 		destNode = createNode(nil)
 	} else {
-		destNode.min[0] = math.Inf(+1)
-		destNode.min[1] = math.Inf(+1)
-		destNode.max[0] = math.Inf(-1)
-		destNode.max[1] = math.Inf(-1)
+		for i := 0; i < DIMS; i++ {
+			destNode.min[i] = math.Inf(+1)
+			destNode.max[i] = math.Inf(-1)
+		}
 	}
 	var child *nodeT
 	for i := k; i < p; i++ {
@@ -510,57 +504,78 @@ func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
 }
 
 func extend(a *nodeT, b *nodeT) *nodeT {
-	a.min[0] = math.Min(a.min[0], b.min[0])
-	a.min[1] = math.Min(a.min[1], b.min[1])
-	a.max[0] = math.Max(a.max[0], b.max[0])
-	a.max[1] = math.Max(a.max[1], b.max[1])
+	for i := 0; i < DIMS; i++ {
+		a.min[i] = math.Min(a.min[i], b.min[i])
+		a.max[i] = math.Max(a.max[i], b.max[i])
+	}
 	return a
 }
 
 func bboxArea(a *nodeT) float64 {
-	return (a.max[0] - a.min[0]) * (a.max[1] - a.min[1])
+	v := a.max[0] - a.min[0]
+	for i := 1; i < DIMS; i++ {
+		v *= a.max[i] - a.min[i]
+	}
+	return v
 }
 
 func bboxMargin(a *nodeT) float64 {
-	return (a.max[0] - a.min[0]) + (a.max[1] - a.min[1])
+	v := a.max[0] - a.min[0]
+	for i := 1; i < DIMS; i++ {
+		v += a.max[i] - a.min[i]
+	}
+	return v
 }
 
 func enlargedArea(a, b *nodeT) float64 {
-	return (math.Max(b.max[0], a.max[0]) - math.Min(b.min[0], a.min[0])) *
-		(math.Max(b.max[1], a.max[1]) - math.Min(b.min[1], a.min[1]))
+	v := math.Max(b.max[0], a.max[0]) - math.Min(b.min[0], a.min[0])
+	for i := 1; i < DIMS; i++ {
+		v *= math.Max(b.max[i], a.max[i]) - math.Min(b.min[i], a.min[i])
+	}
+	return v
 }
 
 func intersectionArea(a, b *nodeT) float64 {
-
-	var minX = math.Max(a.min[0], b.min[0])
-	var minY = math.Max(a.min[1], b.min[1])
-	var maxX = math.Min(a.max[0], b.max[0])
-	var maxY = math.Min(a.max[1], b.max[1])
-	return math.Max(0, maxX-minX) * math.Max(0, maxY-minY)
+	var min = math.Max(a.min[0], b.min[0])
+	var max = math.Min(a.max[0], b.max[0])
+	v := math.Max(0, max-min)
+	for i := 1; i < DIMS; i++ {
+		min = math.Max(a.min[i], b.min[i])
+		max = math.Min(a.max[i], b.max[i])
+		v *= math.Max(0, max-min)
+	}
+	return v
 }
 
 func contains(a, b *nodeT) bool {
-	return a.min[0] <= b.min[0] &&
-		a.min[1] <= b.min[1] &&
-		b.max[0] <= a.max[0] &&
-		b.max[1] <= a.max[1]
+	for i := 0; i < DIMS; i++ {
+		if a.min[i] > b.min[i] || b.max[i] > a.max[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func intersects(a, b *nodeT) bool {
-	return b.min[0] <= a.max[0] &&
-		b.min[1] <= a.max[1] &&
-		b.max[0] >= a.min[0] &&
-		b.max[1] >= a.min[1]
+	for i := 0; i < DIMS; i++ {
+		if b.min[i] > a.max[i] || b.max[i] < a.min[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func createNode(children []*nodeT) *nodeT {
-	return &nodeT{
+	n := &nodeT{
 		children: children,
 		height:   1,
 		leaf:     true,
-		min:      [DIMS]float64{math.Inf(+1), math.Inf(+1)},
-		max:      [DIMS]float64{math.Inf(-1), math.Inf(-1)},
 	}
+	for i := 0; i < DIMS; i++ {
+		n.min[i] = math.Inf(+1)
+		n.max[i] = math.Inf(-1)
+	}
+	return n
 }
 
 // sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
@@ -612,160 +627,17 @@ func count(node *nodeT) int {
 	}
 	return n
 }
-func nodeString(node *nodeT) string {
-	if node == nil {
-		return "<nil>"
-	}
-	sum := nodeSum(node)
-	return fmt.Sprintf(`&{children:"%d:%d"`+
-		` height:%v`+
-		` leaf:%v`+
-		` minX:%v`+
-		` minY:%v`+
-		` maxX:%v`+
-		` maxY:%v`+
-		`} (%v)`,
-		len(node.children), count(node),
-		node.height, node.leaf,
-		node.min[0], node.min[1], node.max[0], node.max[1],
-		sum[len(sum)-7:],
-	)
-}
 
-func (this *RBush) jsonString() string {
-	var b []byte
-	b = append(b, `{`+
-		`"maxEntries":`+strconv.FormatInt(int64(this._maxEntries), 10)+`,`+
-		`"minEntries":`+strconv.FormatInt(int64(this._minEntries), 10)+`,`+
-		`"data":`...)
-	b = appendNodeJSON(b, this.data, 1)
-	b = append(b, '}')
-	return string(b)
-}
-
-func appendNodeJSON(b []byte, node *nodeT, depth int) []byte {
-	if node == nil {
-		return append(b, "null"...)
-	}
-	b = append(b, '{')
-	if len(node.children) > 0 {
-		b = append(b, `"children":[`...)
-		for i, child := range node.children {
-			if i > 0 {
-				b = append(b, ',')
-			}
-			b = appendNodeJSON(b, child, depth+1)
-		}
-		b = append(b, ']', ',')
-	}
-	b = append(b, `"leaf":`...)
-	if node.leaf {
-		b = append(b, "true"...)
-	} else {
-		b = append(b, "false"...)
-	}
-	b = append(b, `,"height":`...)
-	b = append(b, strconv.FormatInt(int64(node.height), 10)...)
-	b = append(b, `,"minX":`...)
-	b = append(b, strconv.FormatFloat(node.min[0], 'f', -1, 64)...)
-	b = append(b, `,"minY":`...)
-	b = append(b, strconv.FormatFloat(node.min[1], 'f', -1, 64)...)
-	b = append(b, `,"maxX":`...)
-	b = append(b, strconv.FormatFloat(node.max[0], 'f', -1, 64)...)
-	b = append(b, `,"maxY":`...)
-	b = append(b, strconv.FormatFloat(node.max[1], 'f', -1, 64)...)
-	b = append(b, '}')
-	return b
-}
-func nodeJSONString(n *nodeT) string {
-	return string(appendNodeJSON([]byte(nil), n, 0))
-}
-func nodeSum(n *nodeT) string {
-	return fmt.Sprintf("%x", md5.Sum([]byte(nodeJSONString(n))))
-}
 func ncopy(nodes []*nodeT) []*nodeT {
 	return append([]*nodeT(nil), nodes...)
-}
-
-var tpon = false
-var tpc int
-var tpall string
-var tpt int
-var tlines []string
-var tbad = false
-var tbadcount = 0
-var tbadidx = 0
-
-func tpsum(s string) string {
-	hex := fmt.Sprintf("%X", md5.Sum([]byte(s)))
-	return hex[len(hex)-4:]
-}
-func tp(format string, args ...interface{}) {
-	if !tpon {
-		return
-	}
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	if tpc == 0 {
-		data, _ := ioutil.ReadFile("out.log")
-		tlines = strings.Split(string(data), "\n")
-	}
-	s := fmt.Sprintf(format, args...)
-	tpall += s
-	s = fmt.Sprintf("%04d:%s %s", tpc, tpsum(tpall), s)
-	if !tbad {
-		if tlines[tpc] != s {
-			fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
-			fmt.Printf("# %s\n", tlines[tpc])
-			tbad = true
-			tbadcount++
-			tbadidx = tpc
-		} else {
-			fmt.Printf("\x1b[38;5;83m\x1b[1m✓ %s\x1b[0m\n", s)
-		}
-	} else {
-		fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
-		//fmt.Printf("# %s\n", tlines[tpc])
-		if tbadcount == 5 {
-			os.Exit(0)
-		}
-		tbadcount++
-	}
-	tpc++
-	tpt++
-}
-func tpn(format string, args ...interface{}) {
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[92m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
-}
-func tpq(format string, args ...interface{}) {
-	tpn(format, args...)
-	return
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[35m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
-}
-
-func tpm(format string, args ...interface{}) {
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[34m\x1b[1m• %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
 }
 
 func quickselect(arr []*nodeT, k, left, right, dim int) {
 	for right > left {
 		if right-left > 600 {
-			var n = float64(right - left + 1)
-			var m = float64(k - left + 1)
-			var z = math.Log(n)
+			var n = right - left + 1
+			var m = k - left + 1
+			var z = math.Log(float64(n))
 			var s = 0.5 * math.Exp(2*z/3)
 			var tt = 1
 			if m-n/2 < 0 {
@@ -777,12 +649,12 @@ func quickselect(arr []*nodeT, k, left, right, dim int) {
 			quickselect(arr, k, newLeft, newRight, dim)
 		}
 
-		var t = qsAt(arr, k)
+		var t = arr[k]
 		var i = left
 		var j = right
 
 		qsSwap(arr, left, k)
-		if qsCompare(arr, qsAt(arr, right), t) > 0 {
+		if qsCompare(arr, arr[right], t) > 0 {
 			qsSwap(arr, left, right)
 		}
 
@@ -790,15 +662,15 @@ func quickselect(arr []*nodeT, k, left, right, dim int) {
 			qsSwap(arr, i, j)
 			i++
 			j--
-			for qsCompare(arr, qsAt(arr, i), t) < 0 {
+			for qsCompare(arr, arr[i], t) < 0 {
 				i++
 			}
-			for qsCompare(arr, qsAt(arr, j), t) > 0 {
+			for qsCompare(arr, arr[j], t) > 0 {
 				j--
 			}
 		}
 
-		if qsCompare(arr, qsAt(arr, left), t) == 0 {
+		if qsCompare(arr, arr[left], t) == 0 {
 			qsSwap(arr, left, j)
 		} else {
 			j++
@@ -814,13 +686,14 @@ func quickselect(arr []*nodeT, k, left, right, dim int) {
 	}
 }
 
-func qsAt(arr []*nodeT, i int) *nodeT { return arr[i] }
 func qsCompare(arr []*nodeT, a, b *nodeT) int {
-	if a.min[0] < b.min[0] {
-		return -1
-	}
-	if a.min[0] > b.min[0] {
-		return +1
+	for i := 0; i < DIMS; i++ {
+		if a.min[i] < b.min[i] {
+			return -1
+		}
+		if a.min[i] > b.min[i] {
+			return +1
+		}
 	}
 	return 0
 }
