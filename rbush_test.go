@@ -11,23 +11,23 @@ import (
 	"time"
 )
 
-type byDims []*nodeT
+type byDims []*Node
 
 func (arr byDims) Len() int { return len(arr) }
 func (arr byDims) Less(a, b int) bool {
-	n := arr[a].minX - arr[b].minX
+	n := arr[a].MinX - arr[b].MinX
 	if n != 0 {
 		return n < 0
 	}
-	n = arr[a].minY - arr[b].minY
+	n = arr[a].MinY - arr[b].MinY
 	if n != 0 {
 		return n < 0
 	}
-	n = arr[a].maxX - arr[b].maxX
+	n = arr[a].MaxX - arr[b].MaxX
 	if n != 0 {
 		return n < 0
 	}
-	n = arr[a].maxY - arr[b].maxY
+	n = arr[a].MaxY - arr[b].MaxY
 	if n != 0 {
 		return n < 0
 	}
@@ -46,53 +46,71 @@ var data = arrToBBoxes(`
     [85,60,85,60],[95,70,95,70],[50,75,50,75],[60,85,60,85],[70,95,70,95],[75,75,75,75],[85,85,85,85],[95,95,95,95]]
 `)
 
-var emptyData = []*nodeT{
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
-	{minX: math.Inf(-1), minY: math.Inf(-1), maxX: math.Inf(+1), maxY: math.Inf(+1)},
+var emptyData = []*Node{
+	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
+	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
+	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
+	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
+	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
+	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
 }
 
-func arrToBBoxes(data string) []*nodeT {
-	var nodes []*nodeT
+func arrToBBoxes(data string) []*Node {
+	var nodes []*Node
 	var arr [][]float64
 	if err := json.Unmarshal([]byte(data), &arr); err != nil {
 		panic(err)
 	}
-	for _, arr := range arr {
-		nodes = append(nodes, &nodeT{
-			minX: arr[0],
-			minY: arr[1],
-			maxX: arr[2],
-			maxY: arr[3],
+	for i, arr := range arr {
+		nodes = append(nodes, &Node{
+			MinX: arr[0],
+			MinY: arr[1],
+			MaxX: arr[2],
+			MaxY: arr[3],
+			Item: i,
 		})
 	}
 	return nodes
 }
 
-func sortedEqual(t *testing.T, a, b []*nodeT) {
+func sortedEqual(t *testing.T, a, b []*Node) {
 	//compare = compare || defaultCompare
-	copyA := append([]*nodeT(nil), a...)
-	copyB := append([]*nodeT(nil), b...)
+	copyA := append([]*Node(nil), a...)
+	copyB := append([]*Node(nil), b...)
 	sort.Sort(byDims(copyA))
 	sort.Sort(byDims(copyB))
-	if !reflect.DeepEqual(copyA, copyB) {
-		//println(len(copyA), len(copyB))
-		if false {
+	equal := false
+	if len(copyA) == len(copyB) {
+		equal = true
+		for i := 0; i < len(copyA) || i < len(copyB); i++ {
+			var av *Node
+			if i < len(copyA) {
+				av = copyA[i]
+			}
+			var bv *Node
+			if i < len(copyB) {
+				bv = copyB[i]
+			}
+			if nodeString(av) != nodeString(bv) {
+				equal = false
+				break
+			}
+		}
+	}
+	if !equal {
+		if true {
 			for i := 0; i < len(copyA) || i < len(copyB); i++ {
-				var av *nodeT
+				var av *Node
 				if i < len(copyA) {
 					av = copyA[i]
 				}
-				var bv *nodeT
+				var bv *Node
 				if i < len(copyB) {
 					bv = copyB[i]
 				}
-				tp("%v[a]: %s", i, nodeString(av))
-				tp("%v[b]: %s", i, nodeString(bv))
-				tp("---")
+				fmt.Printf("%v[a]: %s\n", i, nodeString(av))
+				fmt.Printf("%v[b]: %s\n", i, nodeString(bv))
+				fmt.Printf("---\n")
 			}
 		}
 		t.Fatal("not equals")
@@ -111,10 +129,10 @@ func TestConstructorAcceptsAFormatArgumentToCustomizeTheDataFormat(t *testing.T)
 func TestConstructorUses9MaxEntriesByDefault(t *testing.T) {
 	tpn("constructor uses 9 max entries by default")
 	var tree = New(0).load(someData(9))
-	same(t, tree.toJSON().height, 1)
+	same(t, tree.toJSON().Height, 1)
 
 	var tree2 = New(0).load(someData(10))
-	same(t, tree2.toJSON().height, 2)
+	same(t, tree2.toJSON().Height, 2)
 }
 func TestToBBoxCompareMinXCompareMinYCanBeOverridenToAllowCustomDataStructures(t *testing.T) {
 	// go version uses interfaces instead of callbacks.
@@ -211,7 +229,7 @@ func TestLoadHandlesTheInsertionOfMaxEntriesPlus2EmptyBBoxes(t *testing.T) {
 	var tree = New(4)
 	tree.load(emptyData)
 
-	same(t, tree.data.height, 2)
+	same(t, tree.Data.Height, 2)
 	sortedEqual(t, tree.all(), emptyData)
 }
 func TestInsertHandlesTheInsertionOfMaxEntriesPlus2EmptyBBoxes(t *testing.T) {
@@ -223,7 +241,7 @@ func TestInsertHandlesTheInsertionOfMaxEntriesPlus2EmptyBBoxes(t *testing.T) {
 		tree.insert(datum)
 		i++
 	}
-	same(t, tree.data.height, 2)
+	same(t, tree.Data.Height, 2)
 	sortedEqual(t, tree.all(), emptyData)
 }
 func TestLoadProperlySplitsTreeRootWhenMergingTreesOfTheSameHeight(t *testing.T) {
@@ -231,7 +249,7 @@ func TestLoadProperlySplitsTreeRootWhenMergingTreesOfTheSameHeight(t *testing.T)
 	var tree = New(4)
 	tree.load(data)
 	tree.load(data)
-	same(t, tree.data.height, 4)
+	same(t, tree.Data.Height, 4)
 	sortedEqual(t, tree.all(), append(data, data...))
 }
 
@@ -247,7 +265,7 @@ func TestLoadProperlyMergesDataOfSmallerOrBiggerTreeHeights(t *testing.T) {
 	tree2.load(smaller)
 	tree2.load(data)
 
-	same(t, tree1.data.height, tree2.data.height)
+	same(t, tree1.Data.Height, tree2.Data.Height)
 
 	sortedEqual(t, tree1.all(), append(data, smaller...))
 	sortedEqual(t, tree2.all(), append(data, smaller...))
@@ -258,7 +276,7 @@ func TestSearchFindsMatchingPointsInTheTreeGivenABBox(t *testing.T) {
 
 	var tree = New(4)
 	tree.load(data)
-	var result = tree.search(&nodeT{minX: 40, minY: 20, maxX: 80, maxY: 70})
+	var result = tree.search(&Node{MinX: 40, MinY: 20, MaxX: 80, MaxY: 70})
 
 	expect := arrToBBoxes(`[
         [70,20,70,20],[75,25,75,25],[45,45,45,45],[50,50,50,50],[60,60,60,60],[70,70,70,70],
@@ -273,7 +291,7 @@ func TestCollidesReturnsTrueWhenSearchFindsMatchingPoints(t *testing.T) {
 
 	var tree = New(4)
 	tree.load(data)
-	var result = tree.collides(&nodeT{minX: 40, minY: 20, maxX: 80, maxY: 70})
+	var result = tree.collides(&Node{MinX: 40, MinY: 20, MaxX: 80, MaxY: 70})
 
 	same(t, result, true)
 }
@@ -281,14 +299,14 @@ func TestSearchReturnsAnEmptyArrayIfNothingFound(t *testing.T) {
 	tpn("#search returns an empty array if nothing found")
 	var tree = New(4)
 	tree.load(data)
-	result := tree.search(&nodeT{minX: 200, minY: 200, maxX: 210, maxY: 210})
+	result := tree.search(&Node{MinX: 200, MinY: 200, MaxX: 210, MaxY: 210})
 
 	sortedEqual(t, result, nil)
 }
 
 func TestCollidesReturnsFalseIfNothingFound(t *testing.T) {
 	tpn("#collides returns false if nothing found")
-	var result = New(4).load(data).collides(&nodeT{minX: 200, minY: 200, maxX: 210, maxY: 210})
+	var result = New(4).load(data).collides(&Node{MinX: 200, MinY: 200, MaxX: 210, MaxY: 210})
 
 	same(t, result, false)
 }
@@ -300,7 +318,7 @@ func TestAllReturnsAllPointsInTheTree(t *testing.T) {
 	var result = tree.all()
 
 	sortedEqual(t, result, data)
-	sortedEqual(t, tree.search(&nodeT{minX: 0, minY: 0, maxX: 100, maxY: 100}), data)
+	sortedEqual(t, tree.search(&Node{MinX: 0, MinY: 0, MaxX: 100, MaxY: 100}), data)
 
 }
 
@@ -328,10 +346,10 @@ func TestInsertAddsAnItemToAnExistingTreeCorrectly(t *testing.T) {
 	tree.load(items[0:3])
 	sortedEqual(t, tree.all(), items[0:3])
 	tree.insert(items[3])
-	same(t, tree.data.height, 1)
+	same(t, tree.Data.Height, 1)
 	sortedEqual(t, tree.all(), items[0:4])
 	tree.insert(items[4])
-	same(t, tree.data.height, 2)
+	same(t, tree.Data.Height, 2)
 	sortedEqual(t, tree.all(), items)
 
 }
@@ -352,7 +370,7 @@ func TestInsertFormsAValidTreeIfItemsAreInsertedOneByOne(t *testing.T) {
 	var tree2 = New(4)
 	tree2.load(data)
 
-	ok(t, tree.toJSON().height-tree2.toJSON().height <= 1)
+	ok(t, tree.toJSON().Height-tree2.toJSON().Height <= 1)
 
 	sortedEqual(t, tree.all(), tree2.all())
 }
@@ -380,7 +398,7 @@ func TestRemoveDoesNothingIfNothingFound(t *testing.T) {
 	tpn("#remove does nothing if nothing found")
 	same(t,
 		New(0).load(data),
-		New(0).load(data).remove(&nodeT{minX: 13, minY: 13, maxX: 13, maxY: 13}))
+		New(0).load(data).remove(&Node{MinX: 13, MinY: 13, MaxX: 13, MaxY: 13}))
 }
 func TestRemoveDoesIfGivenUndefined(t *testing.T) {
 	tpn("#remove does nothing if given undefined")
@@ -424,11 +442,12 @@ func TestShouldHaveChainableAPI(t *testing.T) {
 	tpn("should have chainable API")
 	New(0).load(data).insert(data[0]).remove(data[0])
 }
-
-func someData(n int) []*nodeT {
-	var data []*nodeT
+func TestVarious(t *testing.T) {
+}
+func someData(n int) []*Node {
+	var data []*Node
 	for i := 0; i < n; i++ {
-		data = append(data, &nodeT{minX: float64(i), minY: float64(i), maxX: float64(i), maxY: float64(i)})
+		data = append(data, &Node{MinX: float64(i), MinY: float64(i), MaxX: float64(i), MaxY: float64(i)})
 	}
 	return data
 }
@@ -489,19 +508,19 @@ func BenchmarkVarious(t *testing.B) {
 	fmt.Printf("maxFill: %v\n", maxFill)
 
 	rand.Seed(time.Now().UnixNano())
-	randBox := func(size float64) *nodeT {
+	randBox := func(size float64) *Node {
 		var x = rand.Float64() * (100 - size)
 		var y = rand.Float64() * (100 - size)
-		return &nodeT{
-			minX: x,
-			minY: y,
-			maxX: x + size*rand.Float64(),
-			maxY: y + size*rand.Float64(),
+		return &Node{
+			MinX: x,
+			MinY: y,
+			MaxX: x + size*rand.Float64(),
+			MaxY: y + size*rand.Float64(),
 		}
 	}
 
-	genData := func(N int, size float64) []*nodeT {
-		var data []*nodeT
+	genData := func(N int, size float64) []*Node {
+		var data []*Node
 		for i := 0; i < N; i++ {
 			data = append(data, randBox(size))
 		}
@@ -513,7 +532,7 @@ func BenchmarkVarious(t *testing.B) {
 	}
 	consoleTimeEnd := func(s string) {
 		end := time.Since(start)
-		fmt.Printf("%v: %v\n", s, end)
+		fmt.Printf("%v: %dms\n", s, end/time.Millisecond)
 	}
 	var data = genData(N, 1)
 	var data2 = genData(N, 1)
