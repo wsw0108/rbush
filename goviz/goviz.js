@@ -2996,7 +2996,11 @@ $packages["hash"] = (function() {
 	return $pkg;
 })();
 $packages["math"] = (function() {
+<<<<<<< HEAD
 	var $pkg = {}, $init, js, arrayType, arrayType$1, arrayType$2, structType, arrayType$3, math, zero, posInf, negInf, nan, buf, pow10tab, Ceil, Inf, IsInf, IsNaN, Max, NaN, Signbit, init, max, init$1;
+=======
+	var $pkg = {}, $init, js, arrayType, arrayType$1, arrayType$2, structType, arrayType$3, math, zero, posInf, negInf, nan, buf, pow10tab, Ceil, Exp, Floor, Inf, IsInf, IsNaN, Log, Max, Min, NaN, Pow, Signbit, Sqrt, init, max, min, init$1;
+>>>>>>> track
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	arrayType = $arrayType($Uint32, 2);
 	arrayType$1 = $arrayType($Float32, 2);
@@ -3008,6 +3012,19 @@ $packages["math"] = (function() {
 		return $parseFloat(math.ceil(x));
 	};
 	$pkg.Ceil = Ceil;
+<<<<<<< HEAD
+=======
+	Exp = function(x) {
+		var $ptr, x;
+		return $parseFloat(math.exp(x));
+	};
+	$pkg.Exp = Exp;
+	Floor = function(x) {
+		var $ptr, x;
+		return $parseFloat(math.floor(x));
+	};
+	$pkg.Floor = Floor;
+>>>>>>> track
 	Inf = function(sign) {
 		var $ptr, sign;
 		if (sign >= 0) {
@@ -3035,21 +3052,59 @@ $packages["math"] = (function() {
 		return is;
 	};
 	$pkg.IsNaN = IsNaN;
+<<<<<<< HEAD
+=======
+	Log = function(x) {
+		var $ptr, x;
+		if (!((x === x))) {
+			return nan;
+		}
+		return $parseFloat(math.log(x));
+	};
+	$pkg.Log = Log;
+>>>>>>> track
 	Max = function(x, y) {
 		var $ptr, x, y;
 		return max(x, y);
 	};
 	$pkg.Max = Max;
+<<<<<<< HEAD
+=======
+	Min = function(x, y) {
+		var $ptr, x, y;
+		return min(x, y);
+	};
+	$pkg.Min = Min;
+>>>>>>> track
 	NaN = function() {
 		var $ptr;
 		return nan;
 	};
 	$pkg.NaN = NaN;
+<<<<<<< HEAD
+=======
+	Pow = function(x, y) {
+		var $ptr, x, y;
+		if ((x === 1) || ((x === -1) && ((y === posInf) || (y === negInf)))) {
+			return 1;
+		}
+		return $parseFloat(math.pow(x, y));
+	};
+	$pkg.Pow = Pow;
+>>>>>>> track
 	Signbit = function(x) {
 		var $ptr, x;
 		return x < 0 || (1 / x === negInf);
 	};
 	$pkg.Signbit = Signbit;
+<<<<<<< HEAD
+=======
+	Sqrt = function(x) {
+		var $ptr, x;
+		return $parseFloat(math.sqrt(x));
+	};
+	$pkg.Sqrt = Sqrt;
+>>>>>>> track
 	init = function() {
 		var $ptr, ab;
 		ab = new ($global.ArrayBuffer)(8);
@@ -3074,6 +3129,26 @@ $packages["math"] = (function() {
 		}
 		return y;
 	};
+<<<<<<< HEAD
+=======
+	min = function(x, y) {
+		var $ptr, x, y;
+		if (IsInf(x, -1) || IsInf(y, -1)) {
+			return Inf(-1);
+		} else if (IsNaN(x) || IsNaN(y)) {
+			return NaN();
+		} else if ((x === 0) && (x === y)) {
+			if (Signbit(x)) {
+				return x;
+			}
+			return y;
+		}
+		if (x < y) {
+			return x;
+		}
+		return y;
+	};
+>>>>>>> track
 	init$1 = function() {
 		var $ptr, _q, i, m, x;
 		pow10tab[0] = 1;
@@ -4979,7 +5054,19 @@ $packages["syscall"] = (function() {
 	return $pkg;
 })();
 $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
+<<<<<<< HEAD
 	var $pkg = {}, $init, Once, funcType, ptrType$3;
+=======
+	var $pkg = {}, $init, Mutex, Once, ptrType, funcType, ptrType$3;
+	Mutex = $pkg.Mutex = $newType(0, $kindStruct, "nosync.Mutex", true, "github.com/gopherjs/gopherjs/nosync", true, function(locked_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.locked = false;
+			return;
+		}
+		this.locked = locked_;
+	});
+>>>>>>> track
 	Once = $pkg.Once = $newType(0, $kindStruct, "nosync.Once", true, "github.com/gopherjs/gopherjs/nosync", true, function(doing_, done_) {
 		this.$val = this;
 		if (arguments.length === 0) {
@@ -4990,8 +5077,32 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		this.doing = doing_;
 		this.done = done_;
 	});
+<<<<<<< HEAD
 	funcType = $funcType([], [], false);
 	ptrType$3 = $ptrType(Once);
+=======
+	ptrType = $ptrType(Mutex);
+	funcType = $funcType([], [], false);
+	ptrType$3 = $ptrType(Once);
+	Mutex.ptr.prototype.Lock = function() {
+		var $ptr, m;
+		m = this;
+		if (m.locked) {
+			$panic(new $String("nosync: mutex is already locked"));
+		}
+		m.locked = true;
+	};
+	Mutex.prototype.Lock = function() { return this.$val.Lock(); };
+	Mutex.ptr.prototype.Unlock = function() {
+		var $ptr, m;
+		m = this;
+		if (!m.locked) {
+			$panic(new $String("nosync: unlock of unlocked mutex"));
+		}
+		m.locked = false;
+	};
+	Mutex.prototype.Unlock = function() { return this.$val.Unlock(); };
+>>>>>>> track
 	Once.ptr.prototype.Do = function(f) {
 		var $ptr, f, o, $s, $deferred, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; f = $f.f; o = $f.o; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
@@ -5016,7 +5127,13 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: Once.ptr.prototype.Do }; } $f.$ptr = $ptr; $f.f = f; $f.o = o; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	Once.prototype.Do = function(f) { return this.$val.Do(f); };
+<<<<<<< HEAD
 	ptrType$3.methods = [{prop: "Do", name: "Do", pkg: "", typ: $funcType([funcType], [], false)}];
+=======
+	ptrType.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
+	ptrType$3.methods = [{prop: "Do", name: "Do", pkg: "", typ: $funcType([funcType], [], false)}];
+	Mutex.init("github.com/gopherjs/gopherjs/nosync", [{prop: "locked", name: "locked", exported: false, typ: $Bool, tag: ""}]);
+>>>>>>> track
 	Once.init("github.com/gopherjs/gopherjs/nosync", [{prop: "doing", name: "doing", exported: false, typ: $Bool, tag: ""}, {prop: "done", name: "done", exported: false, typ: $Bool, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
@@ -5027,7 +5144,11 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 	return $pkg;
 })();
 $packages["time"] = (function() {
+<<<<<<< HEAD
 	var $pkg = {}, $init, errors, js, nosync, runtime, syscall, ParseError, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, ptrType, sliceType$2, arrayType, sliceType$3, arrayType$1, arrayType$2, ptrType$1, arrayType$4, ptrType$3, ptrType$6, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, months, days, daysBefore, utcLoc, utcLoc$24ptr, localLoc, localLoc$24ptr, localOnce, zoneinfo, badData, _tuple, _r, init, initLocal, indexByte, startsWithLowerCase, nextStdChunk, match, lookup, appendInt, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, absWeekday, absClock, fmtFrac, fmtInt, absDate, daysIn, Unix, isLeap, norm, Date, div, FixedZone;
+=======
+	var $pkg = {}, $init, errors, js, nosync, runtime, syscall, ParseError, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, ptrType, sliceType$2, arrayType, sliceType$3, arrayType$1, arrayType$2, ptrType$1, arrayType$4, ptrType$3, ptrType$6, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, months, days, daysBefore, utcLoc, utcLoc$24ptr, localLoc, localLoc$24ptr, localOnce, zoneinfo, badData, _tuple, _r, init, initLocal, runtimeNano, now, indexByte, startsWithLowerCase, nextStdChunk, match, lookup, appendInt, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, absWeekday, absClock, fmtFrac, fmtInt, Since, absDate, daysIn, Now, Unix, isLeap, norm, Date, div, FixedZone;
+>>>>>>> track
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	nosync = $packages["github.com/gopherjs/gopherjs/nosync"];
@@ -5137,6 +5258,24 @@ $packages["time"] = (function() {
 		localLoc.name = $substring(s, (i + 1 >> 0), j);
 		localLoc.zone = new sliceType([new zone.ptr(localLoc.name, $imul(($parseInt(d.getTimezoneOffset()) >> 0), -60), false)]);
 	};
+<<<<<<< HEAD
+=======
+	runtimeNano = function() {
+		var $ptr;
+		return $mul64($internalize(new ($global.Date)().getTime(), $Int64), new $Int64(0, 1000000));
+	};
+	now = function() {
+		var $ptr, _tmp, _tmp$1, n, nsec, sec, x;
+		sec = new $Int64(0, 0);
+		nsec = 0;
+		n = runtimeNano();
+		_tmp = $div64(n, new $Int64(0, 1000000000), false);
+		_tmp$1 = ((x = $div64(n, new $Int64(0, 1000000000), true), x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
+		sec = _tmp;
+		nsec = _tmp$1;
+		return [sec, nsec];
+	};
+>>>>>>> track
 	indexByte = function(s, c) {
 		var $ptr, c, s;
 		return $parseInt(s.indexOf($global.String.fromCharCode(c))) >> 0;
@@ -6884,6 +7023,15 @@ $packages["time"] = (function() {
 		}
 	};
 	Time.prototype.Sub = function(u) { return this.$val.Sub(u); };
+<<<<<<< HEAD
+=======
+	Since = function(t) {
+		var $ptr, t;
+		t = $clone(t, Time);
+		return Now().Sub(t);
+	};
+	$pkg.Since = Since;
+>>>>>>> track
 	Time.ptr.prototype.AddDate = function(years, months$1, days$1) {
 		var $ptr, _r$1, _r$2, _r$3, _tuple$1, _tuple$2, day, days$1, hour, min, month, months$1, sec, t, year, years, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; day = $f.day; days$1 = $f.days$1; hour = $f.hour; min = $f.min; month = $f.month; months$1 = $f.months$1; sec = $f.sec; t = $f.t; year = $f.year; years = $f.years; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -6980,6 +7128,17 @@ $packages["time"] = (function() {
 		}
 		return ((((m < 0 || m >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[m]) - (x = m - 1 >> 0, ((x < 0 || x >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[x])) >> 0) >> 0);
 	};
+<<<<<<< HEAD
+=======
+	Now = function() {
+		var $ptr, _tuple$1, nsec, sec;
+		_tuple$1 = now();
+		sec = _tuple$1[0];
+		nsec = _tuple$1[1];
+		return new Time.ptr(new $Int64(sec.$high + 14, sec.$low + 2006054656), nsec, $pkg.Local);
+	};
+	$pkg.Now = Now;
+>>>>>>> track
 	Time.ptr.prototype.UTC = function() {
 		var $ptr, t;
 		t = $clone(this, Time);
@@ -13530,7 +13689,293 @@ $packages["bytes"] = (function() {
 	return $pkg;
 })();
 $packages["sort"] = (function() {
+<<<<<<< HEAD
 	var $pkg = {}, $init;
+=======
+	var $pkg = {}, $init, insertionSort, siftDown, heapSort, medianOfThree, doPivot, quickSort, Sort;
+	insertionSort = function(data, a, b) {
+		var $ptr, _r, _v, a, b, data, i, j, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _v = $f._v; a = $f.a; b = $f.b; data = $f.data; i = $f.i; j = $f.j; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		i = a + 1 >> 0;
+		/* while (true) { */ case 1:
+			/* if (!(i < b)) { break; } */ if(!(i < b)) { $s = 2; continue; }
+			j = i;
+			/* while (true) { */ case 3:
+				if (!(j > a)) { _v = false; $s = 5; continue s; }
+				_r = data.Less(j, j - 1 >> 0); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_v = _r; case 5:
+				/* if (!(_v)) { break; } */ if(!(_v)) { $s = 4; continue; }
+				$r = data.Swap(j, j - 1 >> 0); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				j = j - (1) >> 0;
+			/* } */ $s = 3; continue; case 4:
+			i = i + (1) >> 0;
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: insertionSort }; } $f.$ptr = $ptr; $f._r = _r; $f._v = _v; $f.a = a; $f.b = b; $f.data = data; $f.i = i; $f.j = j; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	siftDown = function(data, lo, hi, first) {
+		var $ptr, _r, _r$1, _v, child, data, first, hi, lo, root, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _v = $f._v; child = $f.child; data = $f.data; first = $f.first; hi = $f.hi; lo = $f.lo; root = $f.root; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		root = lo;
+		/* while (true) { */ case 1:
+			child = ($imul(2, root)) + 1 >> 0;
+			if (child >= hi) {
+				/* break; */ $s = 2; continue;
+			}
+			if (!((child + 1 >> 0) < hi)) { _v = false; $s = 5; continue s; }
+			_r = data.Less(first + child >> 0, (first + child >> 0) + 1 >> 0); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_v = _r; case 5:
+			/* */ if (_v) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (_v) { */ case 3:
+				child = child + (1) >> 0;
+			/* } */ case 4:
+			_r$1 = data.Less(first + root >> 0, first + child >> 0); /* */ $s = 9; case 9: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			/* */ if (!_r$1) { $s = 7; continue; }
+			/* */ $s = 8; continue;
+			/* if (!_r$1) { */ case 7:
+				$s = -1; return;
+				return;
+			/* } */ case 8:
+			$r = data.Swap(first + root >> 0, first + child >> 0); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			root = child;
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: siftDown }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._v = _v; $f.child = child; $f.data = data; $f.first = first; $f.hi = hi; $f.lo = lo; $f.root = root; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	heapSort = function(data, a, b) {
+		var $ptr, _q, a, b, data, first, hi, i, i$1, lo, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; a = $f.a; b = $f.b; data = $f.data; first = $f.first; hi = $f.hi; i = $f.i; i$1 = $f.i$1; lo = $f.lo; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		first = a;
+		lo = 0;
+		hi = b - a >> 0;
+		i = (_q = ((hi - 1 >> 0)) / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
+		/* while (true) { */ case 1:
+			/* if (!(i >= 0)) { break; } */ if(!(i >= 0)) { $s = 2; continue; }
+			$r = siftDown(data, i, hi, first); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			i = i - (1) >> 0;
+		/* } */ $s = 1; continue; case 2:
+		i$1 = hi - 1 >> 0;
+		/* while (true) { */ case 4:
+			/* if (!(i$1 >= 0)) { break; } */ if(!(i$1 >= 0)) { $s = 5; continue; }
+			$r = data.Swap(first, first + i$1 >> 0); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			$r = siftDown(data, lo, i$1, first); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			i$1 = i$1 - (1) >> 0;
+		/* } */ $s = 4; continue; case 5:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: heapSort }; } $f.$ptr = $ptr; $f._q = _q; $f.a = a; $f.b = b; $f.data = data; $f.first = first; $f.hi = hi; $f.i = i; $f.i$1 = i$1; $f.lo = lo; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	medianOfThree = function(data, m1, m0, m2) {
+		var $ptr, _r, _r$1, _r$2, data, m0, m1, m2, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; data = $f.data; m0 = $f.m0; m1 = $f.m1; m2 = $f.m2; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		_r = data.Less(m1, m0); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		/* */ if (_r) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (_r) { */ case 1:
+			$r = data.Swap(m1, m0); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 2:
+		_r$1 = data.Less(m2, m1); /* */ $s = 7; case 7: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		/* */ if (_r$1) { $s = 5; continue; }
+		/* */ $s = 6; continue;
+		/* if (_r$1) { */ case 5:
+			$r = data.Swap(m2, m1); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			_r$2 = data.Less(m1, m0); /* */ $s = 11; case 11: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+			/* */ if (_r$2) { $s = 9; continue; }
+			/* */ $s = 10; continue;
+			/* if (_r$2) { */ case 9:
+				$r = data.Swap(m1, m0); /* */ $s = 12; case 12: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* } */ case 10:
+		/* } */ case 6:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: medianOfThree }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.data = data; $f.m0 = m0; $f.m1 = m1; $f.m2 = m2; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	doPivot = function(data, lo, hi) {
+		var $ptr, _q, _q$1, _q$2, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, _tmp, _tmp$1, _tmp$2, _tmp$3, _v, _v$1, _v$2, _v$3, _v$4, a, b, c, data, dups, hi, lo, m, midhi, midlo, pivot, protect, s, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _q$1 = $f._q$1; _q$2 = $f._q$2; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _r$7 = $f._r$7; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _v = $f._v; _v$1 = $f._v$1; _v$2 = $f._v$2; _v$3 = $f._v$3; _v$4 = $f._v$4; a = $f.a; b = $f.b; c = $f.c; data = $f.data; dups = $f.dups; hi = $f.hi; lo = $f.lo; m = $f.m; midhi = $f.midhi; midlo = $f.midlo; pivot = $f.pivot; protect = $f.protect; s = $f.s; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		midlo = 0;
+		midhi = 0;
+		m = lo + (_q = ((hi - lo >> 0)) / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")) >> 0;
+		/* */ if ((hi - lo >> 0) > 40) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if ((hi - lo >> 0) > 40) { */ case 1:
+			s = (_q$1 = ((hi - lo >> 0)) / 8, (_q$1 === _q$1 && _q$1 !== 1/0 && _q$1 !== -1/0) ? _q$1 >> 0 : $throwRuntimeError("integer divide by zero"));
+			$r = medianOfThree(data, lo, lo + s >> 0, lo + ($imul(2, s)) >> 0); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			$r = medianOfThree(data, m, m - s >> 0, m + s >> 0); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			$r = medianOfThree(data, hi - 1 >> 0, (hi - 1 >> 0) - s >> 0, (hi - 1 >> 0) - ($imul(2, s)) >> 0); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 2:
+		$r = medianOfThree(data, lo, m, hi - 1 >> 0); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		pivot = lo;
+		_tmp = lo + 1 >> 0;
+		_tmp$1 = hi - 1 >> 0;
+		a = _tmp;
+		c = _tmp$1;
+		/* while (true) { */ case 7:
+			if (!(a < c)) { _v = false; $s = 9; continue s; }
+			_r = data.Less(a, pivot); /* */ $s = 10; case 10: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_v = _r; case 9:
+			/* if (!(_v)) { break; } */ if(!(_v)) { $s = 8; continue; }
+			a = a + (1) >> 0;
+		/* } */ $s = 7; continue; case 8:
+		b = a;
+		/* while (true) { */ case 11:
+			/* while (true) { */ case 13:
+				if (!(b < c)) { _v$1 = false; $s = 15; continue s; }
+				_r$1 = data.Less(pivot, b); /* */ $s = 16; case 16: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+				_v$1 = !_r$1; case 15:
+				/* if (!(_v$1)) { break; } */ if(!(_v$1)) { $s = 14; continue; }
+				b = b + (1) >> 0;
+			/* } */ $s = 13; continue; case 14:
+			/* while (true) { */ case 17:
+				if (!(b < c)) { _v$2 = false; $s = 19; continue s; }
+				_r$2 = data.Less(pivot, c - 1 >> 0); /* */ $s = 20; case 20: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				_v$2 = _r$2; case 19:
+				/* if (!(_v$2)) { break; } */ if(!(_v$2)) { $s = 18; continue; }
+				c = c - (1) >> 0;
+			/* } */ $s = 17; continue; case 18:
+			if (b >= c) {
+				/* break; */ $s = 12; continue;
+			}
+			$r = data.Swap(b, c - 1 >> 0); /* */ $s = 21; case 21: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			b = b + (1) >> 0;
+			c = c - (1) >> 0;
+		/* } */ $s = 11; continue; case 12:
+		protect = (hi - c >> 0) < 5;
+		/* */ if (!protect && (hi - c >> 0) < (_q$2 = ((hi - lo >> 0)) / 4, (_q$2 === _q$2 && _q$2 !== 1/0 && _q$2 !== -1/0) ? _q$2 >> 0 : $throwRuntimeError("integer divide by zero"))) { $s = 22; continue; }
+		/* */ $s = 23; continue;
+		/* if (!protect && (hi - c >> 0) < (_q$2 = ((hi - lo >> 0)) / 4, (_q$2 === _q$2 && _q$2 !== 1/0 && _q$2 !== -1/0) ? _q$2 >> 0 : $throwRuntimeError("integer divide by zero"))) { */ case 22:
+			dups = 0;
+			_r$3 = data.Less(pivot, hi - 1 >> 0); /* */ $s = 26; case 26: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+			/* */ if (!_r$3) { $s = 24; continue; }
+			/* */ $s = 25; continue;
+			/* if (!_r$3) { */ case 24:
+				$r = data.Swap(c, hi - 1 >> 0); /* */ $s = 27; case 27: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				c = c + (1) >> 0;
+				dups = dups + (1) >> 0;
+			/* } */ case 25:
+			_r$4 = data.Less(b - 1 >> 0, pivot); /* */ $s = 30; case 30: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+			/* */ if (!_r$4) { $s = 28; continue; }
+			/* */ $s = 29; continue;
+			/* if (!_r$4) { */ case 28:
+				b = b - (1) >> 0;
+				dups = dups + (1) >> 0;
+			/* } */ case 29:
+			_r$5 = data.Less(m, pivot); /* */ $s = 33; case 33: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
+			/* */ if (!_r$5) { $s = 31; continue; }
+			/* */ $s = 32; continue;
+			/* if (!_r$5) { */ case 31:
+				$r = data.Swap(m, b - 1 >> 0); /* */ $s = 34; case 34: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				b = b - (1) >> 0;
+				dups = dups + (1) >> 0;
+			/* } */ case 32:
+			protect = dups > 1;
+		/* } */ case 23:
+		/* */ if (protect) { $s = 35; continue; }
+		/* */ $s = 36; continue;
+		/* if (protect) { */ case 35:
+			/* while (true) { */ case 37:
+				/* while (true) { */ case 39:
+					if (!(a < b)) { _v$3 = false; $s = 41; continue s; }
+					_r$6 = data.Less(b - 1 >> 0, pivot); /* */ $s = 42; case 42: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
+					_v$3 = !_r$6; case 41:
+					/* if (!(_v$3)) { break; } */ if(!(_v$3)) { $s = 40; continue; }
+					b = b - (1) >> 0;
+				/* } */ $s = 39; continue; case 40:
+				/* while (true) { */ case 43:
+					if (!(a < b)) { _v$4 = false; $s = 45; continue s; }
+					_r$7 = data.Less(a, pivot); /* */ $s = 46; case 46: if($c) { $c = false; _r$7 = _r$7.$blk(); } if (_r$7 && _r$7.$blk !== undefined) { break s; }
+					_v$4 = _r$7; case 45:
+					/* if (!(_v$4)) { break; } */ if(!(_v$4)) { $s = 44; continue; }
+					a = a + (1) >> 0;
+				/* } */ $s = 43; continue; case 44:
+				if (a >= b) {
+					/* break; */ $s = 38; continue;
+				}
+				$r = data.Swap(a, b - 1 >> 0); /* */ $s = 47; case 47: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				a = a + (1) >> 0;
+				b = b - (1) >> 0;
+			/* } */ $s = 37; continue; case 38:
+		/* } */ case 36:
+		$r = data.Swap(pivot, b - 1 >> 0); /* */ $s = 48; case 48: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		_tmp$2 = b - 1 >> 0;
+		_tmp$3 = c;
+		midlo = _tmp$2;
+		midhi = _tmp$3;
+		$s = -1; return [midlo, midhi];
+		return [midlo, midhi];
+		/* */ } return; } if ($f === undefined) { $f = { $blk: doPivot }; } $f.$ptr = $ptr; $f._q = _q; $f._q$1 = _q$1; $f._q$2 = _q$2; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._v = _v; $f._v$1 = _v$1; $f._v$2 = _v$2; $f._v$3 = _v$3; $f._v$4 = _v$4; $f.a = a; $f.b = b; $f.c = c; $f.data = data; $f.dups = dups; $f.hi = hi; $f.lo = lo; $f.m = m; $f.midhi = midhi; $f.midlo = midlo; $f.pivot = pivot; $f.protect = protect; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	quickSort = function(data, a, b, maxDepth) {
+		var $ptr, _r, _r$1, _tuple, a, b, data, i, maxDepth, mhi, mlo, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple = $f._tuple; a = $f.a; b = $f.b; data = $f.data; i = $f.i; maxDepth = $f.maxDepth; mhi = $f.mhi; mlo = $f.mlo; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		/* while (true) { */ case 1:
+			/* if (!((b - a >> 0) > 12)) { break; } */ if(!((b - a >> 0) > 12)) { $s = 2; continue; }
+			/* */ if (maxDepth === 0) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (maxDepth === 0) { */ case 3:
+				$r = heapSort(data, a, b); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$s = -1; return;
+				return;
+			/* } */ case 4:
+			maxDepth = maxDepth - (1) >> 0;
+			_r = doPivot(data, a, b); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_tuple = _r;
+			mlo = _tuple[0];
+			mhi = _tuple[1];
+			/* */ if ((mlo - a >> 0) < (b - mhi >> 0)) { $s = 7; continue; }
+			/* */ $s = 8; continue;
+			/* if ((mlo - a >> 0) < (b - mhi >> 0)) { */ case 7:
+				$r = quickSort(data, a, mlo, maxDepth); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				a = mhi;
+				$s = 9; continue;
+			/* } else { */ case 8:
+				$r = quickSort(data, mhi, b, maxDepth); /* */ $s = 11; case 11: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				b = mlo;
+			/* } */ case 9:
+		/* } */ $s = 1; continue; case 2:
+		/* */ if ((b - a >> 0) > 1) { $s = 12; continue; }
+		/* */ $s = 13; continue;
+		/* if ((b - a >> 0) > 1) { */ case 12:
+			i = a + 6 >> 0;
+			/* while (true) { */ case 14:
+				/* if (!(i < b)) { break; } */ if(!(i < b)) { $s = 15; continue; }
+				_r$1 = data.Less(i, i - 6 >> 0); /* */ $s = 18; case 18: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+				/* */ if (_r$1) { $s = 16; continue; }
+				/* */ $s = 17; continue;
+				/* if (_r$1) { */ case 16:
+					$r = data.Swap(i, i - 6 >> 0); /* */ $s = 19; case 19: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				/* } */ case 17:
+				i = i + (1) >> 0;
+			/* } */ $s = 14; continue; case 15:
+			$r = insertionSort(data, a, b); /* */ $s = 20; case 20: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 13:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: quickSort }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.a = a; $f.b = b; $f.data = data; $f.i = i; $f.maxDepth = maxDepth; $f.mhi = mhi; $f.mlo = mlo; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Sort = function(data) {
+		var $ptr, _r, data, i, maxDepth, n, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; data = $f.data; i = $f.i; maxDepth = $f.maxDepth; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		_r = data.Len(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		n = _r;
+		maxDepth = 0;
+		i = n;
+		while (true) {
+			if (!(i > 0)) { break; }
+			maxDepth = maxDepth + (1) >> 0;
+			i = (i >> $min((1), 31)) >> 0;
+		}
+		maxDepth = $imul(maxDepth, (2));
+		$r = quickSort(data, 0, n, maxDepth); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Sort }; } $f.$ptr = $ptr; $f._r = _r; $f.data = data; $f.i = i; $f.maxDepth = maxDepth; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.Sort = Sort;
+>>>>>>> track
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -13618,7 +14063,11 @@ $packages["io/ioutil"] = (function() {
 	return $pkg;
 })();
 $packages["github.com/tidwall/rbush"] = (function() {
+<<<<<<< HEAD
 	var $pkg = {}, $init, md5, fmt, ioutil, math, os, sort, strconv, strings, nodeT, RBush, ptrType, sliceType$1, ptrType$1, New, createNode;
+=======
+	var $pkg = {}, $init, md5, fmt, ioutil, math, os, sort, strconv, strings, Node, RBush, byMinX, byMinY, ptrType, sliceType$1, sliceType$2, ptrType$1, New, calcBBox, distBBox, extend, bboxArea, bboxMargin, enlargedArea, intersectionArea, createNode, multiSelect, splice, ncopy, quickselect, sortNodes;
+>>>>>>> track
 	md5 = $packages["crypto/md5"];
 	fmt = $packages["fmt"];
 	ioutil = $packages["io/ioutil"];
@@ -13627,6 +14076,7 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	sort = $packages["sort"];
 	strconv = $packages["strconv"];
 	strings = $packages["strings"];
+<<<<<<< HEAD
 	nodeT = $pkg.nodeT = $newType(0, $kindStruct, "rbush.nodeT", true, "github.com/tidwall/rbush", false, function(minX_, minY_, maxX_, maxY_, children_, height_, leaf_) {
 		this.$val = this;
 		if (arguments.length === 0) {
@@ -13662,18 +14112,152 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	ptrType = $ptrType(nodeT);
 	sliceType$1 = $sliceType(ptrType);
 	ptrType$1 = $ptrType(RBush);
+=======
+	Node = $pkg.Node = $newType(0, $kindStruct, "rbush.Node", true, "github.com/tidwall/rbush", true, function(MinX_, MinY_, MaxX_, MaxY_, Children_, Height_, Leaf_, Item_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.MinX = 0;
+			this.MinY = 0;
+			this.MaxX = 0;
+			this.MaxY = 0;
+			this.Children = sliceType$1.nil;
+			this.Height = 0;
+			this.Leaf = false;
+			this.Item = $ifaceNil;
+			return;
+		}
+		this.MinX = MinX_;
+		this.MinY = MinY_;
+		this.MaxX = MaxX_;
+		this.MaxY = MaxY_;
+		this.Children = Children_;
+		this.Height = Height_;
+		this.Leaf = Leaf_;
+		this.Item = Item_;
+	});
+	RBush = $pkg.RBush = $newType(0, $kindStruct, "rbush.RBush", true, "github.com/tidwall/rbush", true, function(MaxEntries_, MinEntries_, Data_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.MaxEntries = 0;
+			this.MinEntries = 0;
+			this.Data = ptrType.nil;
+			return;
+		}
+		this.MaxEntries = MaxEntries_;
+		this.MinEntries = MinEntries_;
+		this.Data = Data_;
+	});
+	byMinX = $pkg.byMinX = $newType(12, $kindSlice, "rbush.byMinX", true, "github.com/tidwall/rbush", false, null);
+	byMinY = $pkg.byMinY = $newType(12, $kindSlice, "rbush.byMinY", true, "github.com/tidwall/rbush", false, null);
+	ptrType = $ptrType(Node);
+	sliceType$1 = $sliceType(ptrType);
+	sliceType$2 = $sliceType($Int);
+	ptrType$1 = $ptrType(RBush);
+	byMinX.prototype.At = function(i) {
+		var $ptr, arr, i;
+		arr = this;
+		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
+	};
+	$ptrType(byMinX).prototype.At = function(i) { return this.$get().At(i); };
+	byMinX.prototype.Compare = function(a, b) {
+		var $ptr, _tmp, _tmp$1, a, arr, b, na, nb;
+		arr = this;
+		_tmp = $assertType(a, ptrType);
+		_tmp$1 = $assertType(b, ptrType);
+		na = _tmp;
+		nb = _tmp$1;
+		if (na.MinX < nb.MinX) {
+			return -1;
+		}
+		if (na.MinX > nb.MinX) {
+			return 1;
+		}
+		return 0;
+	};
+	$ptrType(byMinX).prototype.Compare = function(a, b) { return this.$get().Compare(a, b); };
+	byMinX.prototype.Less = function(i, j) {
+		var $ptr, arr, i, j;
+		arr = this;
+		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]).MinX < ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]).MinX;
+	};
+	$ptrType(byMinX).prototype.Less = function(i, j) { return this.$get().Less(i, j); };
+	byMinX.prototype.Swap = function(i, j) {
+		var $ptr, _tmp, _tmp$1, arr, i, j;
+		arr = this;
+		_tmp = ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]);
+		_tmp$1 = ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
+		((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i] = _tmp);
+		((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j] = _tmp$1);
+	};
+	$ptrType(byMinX).prototype.Swap = function(i, j) { return this.$get().Swap(i, j); };
+	byMinX.prototype.Len = function() {
+		var $ptr, arr;
+		arr = this;
+		return arr.$length;
+	};
+	$ptrType(byMinX).prototype.Len = function() { return this.$get().Len(); };
+	byMinY.prototype.At = function(i) {
+		var $ptr, arr, i;
+		arr = this;
+		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
+	};
+	$ptrType(byMinY).prototype.At = function(i) { return this.$get().At(i); };
+	byMinY.prototype.Compare = function(a, b) {
+		var $ptr, _tmp, _tmp$1, a, arr, b, na, nb;
+		arr = this;
+		_tmp = $assertType(a, ptrType);
+		_tmp$1 = $assertType(b, ptrType);
+		na = _tmp;
+		nb = _tmp$1;
+		if (na.MinY < nb.MinY) {
+			return -1;
+		}
+		if (na.MinY > nb.MinY) {
+			return 1;
+		}
+		return 0;
+	};
+	$ptrType(byMinY).prototype.Compare = function(a, b) { return this.$get().Compare(a, b); };
+	byMinY.prototype.Less = function(i, j) {
+		var $ptr, arr, i, j;
+		arr = this;
+		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]).MinY < ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]).MinY;
+	};
+	$ptrType(byMinY).prototype.Less = function(i, j) { return this.$get().Less(i, j); };
+	byMinY.prototype.Swap = function(i, j) {
+		var $ptr, _tmp, _tmp$1, arr, i, j;
+		arr = this;
+		_tmp = ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]);
+		_tmp$1 = ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
+		((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i] = _tmp);
+		((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j] = _tmp$1);
+	};
+	$ptrType(byMinY).prototype.Swap = function(i, j) { return this.$get().Swap(i, j); };
+	byMinY.prototype.Len = function() {
+		var $ptr, arr;
+		arr = this;
+		return arr.$length;
+	};
+	$ptrType(byMinY).prototype.Len = function() { return this.$get().Len(); };
+>>>>>>> track
 	New = function(maxEntries) {
 		var $ptr, maxEntries, this$1;
 		this$1 = new RBush.ptr(0, 0, ptrType.nil);
 		if (maxEntries <= 0) {
 			maxEntries = 9;
 		}
+<<<<<<< HEAD
 		this$1._maxEntries = (math.Max(4, maxEntries) >> 0);
 		this$1._minEntries = (math.Max(2, math.Ceil(this$1._maxEntries * 0.4)) >> 0);
+=======
+		this$1.MaxEntries = (math.Max(4, maxEntries) >> 0);
+		this$1.MinEntries = (math.Max(2, math.Ceil(this$1.MaxEntries * 0.4)) >> 0);
+>>>>>>> track
 		this$1.clear();
 		return this$1;
 	};
 	$pkg.New = New;
+<<<<<<< HEAD
 	RBush.ptr.prototype.clear = function() {
 		var $ptr, this$1;
 		this$1 = this;
@@ -13688,6 +14272,564 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	ptrType$1.methods = [{prop: "all", name: "all", pkg: "github.com/tidwall/rbush", typ: $funcType([], [sliceType$1], false)}, {prop: "search", name: "search", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [sliceType$1], false)}, {prop: "collides", name: "collides", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [$Bool], false)}, {prop: "load", name: "load", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [ptrType$1], false)}, {prop: "insert", name: "insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "clear", name: "clear", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType$1], false)}, {prop: "remove", name: "remove", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "toJSON", name: "toJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType], false)}, {prop: "fromJSON", name: "fromJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "_all", name: "_all", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1], [sliceType$1], false)}, {prop: "_build", name: "_build", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int, $Int, $Int], [ptrType], false)}, {prop: "_chooseSubtree", name: "_chooseSubtree", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType, $Int, sliceType$1], [ptrType, sliceType$1], false)}, {prop: "_insert", name: "_insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Bool], [], false)}, {prop: "_split", name: "_split", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int], [sliceType$1], false)}, {prop: "_splitRoot", name: "_splitRoot", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType], [], false)}, {prop: "_chooseSplitIndex", name: "_chooseSplitIndex", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [$Int], false)}, {prop: "_chooseSplitAxis", name: "_chooseSplitAxis", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [], false)}, {prop: "_allDistMargin", name: "_allDistMargin", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int, $Int], [$Float64], false)}, {prop: "_adjustParentBBoxes", name: "_adjustParentBBoxes", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1, $Int], [], false)}, {prop: "_condense", name: "_condense", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [], false)}, {prop: "jsonString", name: "jsonString", pkg: "github.com/tidwall/rbush", typ: $funcType([], [$String], false)}];
 	nodeT.init("github.com/tidwall/rbush", [{prop: "minX", name: "minX", exported: false, typ: $Float64, tag: ""}, {prop: "minY", name: "minY", exported: false, typ: $Float64, tag: ""}, {prop: "maxX", name: "maxX", exported: false, typ: $Float64, tag: ""}, {prop: "maxY", name: "maxY", exported: false, typ: $Float64, tag: ""}, {prop: "children", name: "children", exported: false, typ: sliceType$1, tag: ""}, {prop: "height", name: "height", exported: false, typ: $Int, tag: ""}, {prop: "leaf", name: "leaf", exported: false, typ: $Bool, tag: ""}]);
 	RBush.init("github.com/tidwall/rbush", [{prop: "_maxEntries", name: "_maxEntries", exported: false, typ: $Int, tag: ""}, {prop: "_minEntries", name: "_minEntries", exported: false, typ: $Int, tag: ""}, {prop: "data", name: "data", exported: false, typ: ptrType, tag: ""}]);
+=======
+	RBush.ptr.prototype.Load = function(data) {
+		var $ptr, _r, data, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; data = $f.data; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		_r = this$1.load(data); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r;
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.Load }; } $f.$ptr = $ptr; $f._r = _r; $f.data = data; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype.Load = function(data) { return this.$val.Load(data); };
+	RBush.ptr.prototype.load = function(data) {
+		var $ptr, _r, _r$1, _tmp, _tmp$1, _tmp$2, _tmp$3, data, i, len_, node, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; data = $f.data; i = $f.i; len_ = $f.len_; node = $f.node; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		if (data.$length === 0) {
+			$s = -1; return this$1;
+			return this$1;
+		}
+		data = ncopy(data);
+		/* */ if (data.$length < this$1.MinEntries) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (data.$length < this$1.MinEntries) { */ case 1:
+			_tmp = 0;
+			_tmp$1 = data.$length;
+			i = _tmp;
+			len_ = _tmp$1;
+			/* while (true) { */ case 3:
+				/* if (!(i < len_)) { break; } */ if(!(i < len_)) { $s = 4; continue; }
+				_r = this$1.insert(((i < 0 || i >= data.$length) ? $throwRuntimeError("index out of range") : data.$array[data.$offset + i])); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_r;
+				i = i + (1) >> 0;
+			/* } */ $s = 3; continue; case 4:
+			$s = -1; return this$1;
+			return this$1;
+		/* } */ case 2:
+		_r$1 = this$1._build(data, 0, data.$length - 1 >> 0, 0); /* */ $s = 6; case 6: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		node = _r$1;
+		/* */ if (this$1.Data.Children.$length === 0) { $s = 7; continue; }
+		/* */ if (this$1.Data.Height === node.Height) { $s = 8; continue; }
+		/* */ $s = 9; continue;
+		/* if (this$1.Data.Children.$length === 0) { */ case 7:
+			this$1.Data = node;
+			$s = 10; continue;
+		/* } else if (this$1.Data.Height === node.Height) { */ case 8:
+			this$1._splitRoot(this$1.Data, node);
+			$s = 10; continue;
+		/* } else { */ case 9:
+			if (this$1.Data.Height < node.Height) {
+				_tmp$2 = node;
+				_tmp$3 = this$1.Data;
+				this$1.Data = _tmp$2;
+				node = _tmp$3;
+			}
+			$r = this$1._insert(node, (this$1.Data.Height - node.Height >> 0) - 1 >> 0, true); /* */ $s = 11; case 11: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 10:
+		$s = -1; return this$1;
+		return this$1;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.load }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f.data = data; $f.i = i; $f.len_ = len_; $f.node = node; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype.load = function(data) { return this.$val.load(data); };
+	RBush.ptr.prototype.insert = function(item) {
+		var $ptr, item, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; item = $f.item; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		/* */ if (!(item === ptrType.nil)) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (!(item === ptrType.nil)) { */ case 1:
+			$r = this$1._insert(item, this$1.Data.Height - 1 >> 0, false); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 2:
+		$s = -1; return this$1;
+		return this$1;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.insert }; } $f.$ptr = $ptr; $f.item = item; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype.insert = function(item) { return this.$val.insert(item); };
+	RBush.ptr.prototype.clear = function() {
+		var $ptr, this$1;
+		this$1 = this;
+		this$1.Data = createNode(sliceType$1.nil);
+		return this$1;
+	};
+	RBush.prototype.clear = function() { return this.$val.clear(); };
+	RBush.ptr.prototype._build = function(items, left, right, height) {
+		var $ptr, M, N, N1, N2, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, child, height, i, items, j, left, node, right, right2, right3, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; N = $f.N; N1 = $f.N1; N2 = $f.N2; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; child = $f.child; height = $f.height; i = $f.i; items = $f.items; j = $f.j; left = $f.left; node = $f.node; right = $f.right; right2 = $f.right2; right3 = $f.right3; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		N = (right - left >> 0) + 1 >> 0;
+		M = this$1.MaxEntries;
+		node = ptrType.nil;
+		if (N <= M) {
+			node = createNode($subslice(items, left, (right + 1 >> 0)));
+			calcBBox(node);
+			$s = -1; return node;
+			return node;
+		}
+		if (height === 0) {
+			height = (math.Ceil(math.Log(N) / math.Log(M)) >> 0);
+			M = (math.Ceil(N / math.Pow(M, height - 1)) >> 0);
+		}
+		node = createNode(sliceType$1.nil);
+		node.Leaf = false;
+		node.Height = height;
+		N2 = (math.Ceil(N / M) >> 0);
+		N1 = $imul(N2, (math.Ceil(math.Sqrt(M)) >> 0));
+		_tmp = 0;
+		_tmp$1 = 0;
+		_tmp$2 = 0;
+		_tmp$3 = 0;
+		i = _tmp;
+		j = _tmp$1;
+		right2 = _tmp$2;
+		right3 = _tmp$3;
+		$r = multiSelect($subslice(new byMinX(items.$array), items.$offset, items.$offset + items.$length), left, right, N1); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		i = left;
+		/* while (true) { */ case 2:
+			/* if (!(i <= right)) { break; } */ if(!(i <= right)) { $s = 3; continue; }
+			right2 = (math.Min(((i + N1 >> 0) - 1 >> 0), right) >> 0);
+			$r = multiSelect($subslice(new byMinY(items.$array), items.$offset, items.$offset + items.$length), i, right2, N2); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			j = i;
+			/* while (true) { */ case 5:
+				/* if (!(j <= right2)) { break; } */ if(!(j <= right2)) { $s = 6; continue; }
+				right3 = (math.Min(((j + N2 >> 0) - 1 >> 0), right2) >> 0);
+				_r = this$1._build(items, j, right3, height - 1 >> 0); /* */ $s = 7; case 7: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				child = _r;
+				node.Children = $append(node.Children, child);
+				j = j + (N2) >> 0;
+			/* } */ $s = 5; continue; case 6:
+			i = i + (N1) >> 0;
+		/* } */ $s = 2; continue; case 3:
+		calcBBox(node);
+		$s = -1; return node;
+		return node;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._build }; } $f.$ptr = $ptr; $f.M = M; $f.N = N; $f.N1 = N1; $f.N2 = N2; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f.child = child; $f.height = height; $f.i = i; $f.items = items; $f.j = j; $f.left = left; $f.node = node; $f.right = right; $f.right2 = right2; $f.right3 = right3; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype._build = function(items, left, right, height) { return this.$val._build(items, left, right, height); };
+	RBush.ptr.prototype._chooseSubtree = function(bbox, node, level, path) {
+		var $ptr, _i, _ref, _tmp, _tmp$1, _tmp$2, _tmp$3, area, bbox, child, enlargement, level, minArea, minEnlargement, node, path, targetNode, this$1, x;
+		this$1 = this;
+		targetNode = ptrType.nil;
+		_tmp = 0;
+		_tmp$1 = 0;
+		_tmp$2 = 0;
+		_tmp$3 = 0;
+		area = _tmp;
+		enlargement = _tmp$1;
+		minArea = _tmp$2;
+		minEnlargement = _tmp$3;
+		while (true) {
+			path = $append(path, node);
+			if (node.Leaf || ((path.$length - 1 >> 0) === level)) {
+				break;
+			}
+			minEnlargement = math.Inf(1);
+			minArea = minEnlargement;
+			_ref = node.Children;
+			_i = 0;
+			while (true) {
+				if (!(_i < _ref.$length)) { break; }
+				child = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+				area = bboxArea(child);
+				enlargement = enlargedArea(bbox, child) - area;
+				if (enlargement < minEnlargement) {
+					minEnlargement = enlargement;
+					if (area < minArea) {
+						minArea = area;
+					}
+					targetNode = child;
+				} else if (enlargement === minEnlargement) {
+					if (area < minArea) {
+						minArea = area;
+						targetNode = child;
+					}
+				}
+				_i++;
+			}
+			if (!(targetNode === ptrType.nil)) {
+				node = targetNode;
+			} else if (node.Children.$length > 0) {
+				node = (x = node.Children, (0 >= x.$length ? $throwRuntimeError("index out of range") : x.$array[x.$offset + 0]));
+			} else {
+				node = ptrType.nil;
+			}
+		}
+		return [node, path];
+	};
+	RBush.prototype._chooseSubtree = function(bbox, node, level, path) { return this.$val._chooseSubtree(bbox, node, level, path); };
+	RBush.ptr.prototype._insert = function(item, level, isNode) {
+		var $ptr, _r, _tuple, bbox, insertPath, isNode, item, level, node, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; bbox = $f.bbox; insertPath = $f.insertPath; isNode = $f.isNode; item = $f.item; level = $f.level; node = $f.node; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		bbox = item;
+		insertPath = sliceType$1.nil;
+		node = ptrType.nil;
+		_tuple = this$1._chooseSubtree(bbox, this$1.Data, level, insertPath);
+		node = _tuple[0];
+		insertPath = _tuple[1];
+		node.Children = $append(node.Children, item);
+		extend(node, bbox);
+		/* while (true) { */ case 1:
+			/* if (!(level >= 0)) { break; } */ if(!(level >= 0)) { $s = 2; continue; }
+			/* */ if (((level < 0 || level >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + level]).Children.$length > this$1.MaxEntries) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (((level < 0 || level >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + level]).Children.$length > this$1.MaxEntries) { */ case 3:
+				_r = this$1._split(insertPath, level); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				insertPath = _r;
+				level = level - (1) >> 0;
+				$s = 5; continue;
+			/* } else { */ case 4:
+				/* break; */ $s = 2; continue;
+			/* } */ case 5:
+		/* } */ $s = 1; continue; case 2:
+		this$1._adjustParentBBoxes(bbox, insertPath, level);
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._insert }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.bbox = bbox; $f.insertPath = insertPath; $f.isNode = isNode; $f.item = item; $f.level = level; $f.node = node; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype._insert = function(item, level, isNode) { return this.$val._insert(item, level, isNode); };
+	RBush.ptr.prototype._split = function(insertPath, level) {
+		var $ptr, M, _tuple, insertPath, level, m, newNode, node, spliced, splitIndex, this$1, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; _tuple = $f._tuple; insertPath = $f.insertPath; level = $f.level; m = $f.m; newNode = $f.newNode; node = $f.node; spliced = $f.spliced; splitIndex = $f.splitIndex; this$1 = $f.this$1; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		node = ((level < 0 || level >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + level]);
+		M = node.Children.$length;
+		m = this$1.MinEntries;
+		$r = this$1._chooseSplitAxis(node, m, M); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		splitIndex = this$1._chooseSplitIndex(node, m, M);
+		spliced = sliceType$1.nil;
+		_tuple = splice(node.Children, splitIndex, node.Children.$length - splitIndex >> 0, new sliceType$1([]));
+		node.Children = _tuple[0];
+		spliced = _tuple[1];
+		newNode = createNode(spliced);
+		newNode.Height = node.Height;
+		newNode.Leaf = node.Leaf;
+		calcBBox(node);
+		calcBBox(newNode);
+		if (!((level === 0))) {
+			(x$1 = level - 1 >> 0, ((x$1 < 0 || x$1 >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + x$1])).Children = $append((x = level - 1 >> 0, ((x < 0 || x >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + x])).Children, newNode);
+		} else {
+			this$1._splitRoot(node, newNode);
+		}
+		$s = -1; return insertPath;
+		return insertPath;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._split }; } $f.$ptr = $ptr; $f.M = M; $f._tuple = _tuple; $f.insertPath = insertPath; $f.level = level; $f.m = m; $f.newNode = newNode; $f.node = node; $f.spliced = spliced; $f.splitIndex = splitIndex; $f.this$1 = this$1; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype._split = function(insertPath, level) { return this.$val._split(insertPath, level); };
+	RBush.ptr.prototype._splitRoot = function(node, newNode) {
+		var $ptr, newNode, node, this$1;
+		this$1 = this;
+		this$1.Data = createNode(new sliceType$1([node, newNode]));
+		this$1.Data.Height = node.Height + 1 >> 0;
+		this$1.Data.Leaf = false;
+		calcBBox(this$1.Data);
+	};
+	RBush.prototype._splitRoot = function(node, newNode) { return this.$val._splitRoot(node, newNode); };
+	RBush.ptr.prototype._chooseSplitIndex = function(node, m, M) {
+		var $ptr, M, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, area, bbox1, bbox2, i, index, m, minArea, minOverlap, node, overlap, this$1;
+		this$1 = this;
+		i = 0;
+		_tmp = ptrType.nil;
+		_tmp$1 = ptrType.nil;
+		bbox1 = _tmp;
+		bbox2 = _tmp$1;
+		_tmp$2 = 0;
+		_tmp$3 = 0;
+		_tmp$4 = 0;
+		_tmp$5 = 0;
+		overlap = _tmp$2;
+		area = _tmp$3;
+		minOverlap = _tmp$4;
+		minArea = _tmp$5;
+		index = 0;
+		minArea = math.Inf(1);
+		minOverlap = minArea;
+		i = m;
+		while (true) {
+			if (!(i <= (M - m >> 0))) { break; }
+			bbox1 = distBBox(node, 0, i, ptrType.nil);
+			bbox2 = distBBox(node, i, M, ptrType.nil);
+			overlap = intersectionArea(bbox1, bbox2);
+			area = bboxArea(bbox1) + bboxArea(bbox2);
+			if (overlap < minOverlap) {
+				minOverlap = overlap;
+				index = i;
+				if (area < minArea) {
+					minArea = area;
+				}
+			} else if (overlap === minOverlap) {
+				if (area < minArea) {
+					minArea = area;
+					index = i;
+				}
+			}
+			i = i + (1) >> 0;
+		}
+		return index;
+	};
+	RBush.prototype._chooseSplitIndex = function(node, m, M) { return this.$val._chooseSplitIndex(node, m, M); };
+	RBush.ptr.prototype._chooseSplitAxis = function(node, m, M) {
+		var $ptr, M, _r, _r$1, m, node, this$1, xMargin, yMargin, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; _r = $f._r; _r$1 = $f._r$1; m = $f.m; node = $f.node; this$1 = $f.this$1; xMargin = $f.xMargin; yMargin = $f.yMargin; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		_r = this$1._allDistMargin(node, m, M, 1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		xMargin = _r;
+		_r$1 = this$1._allDistMargin(node, m, M, 2); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		yMargin = _r$1;
+		/* */ if (xMargin < yMargin) { $s = 3; continue; }
+		/* */ $s = 4; continue;
+		/* if (xMargin < yMargin) { */ case 3:
+			$r = sortNodes(node.Children, 1); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		/* } */ case 4:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._chooseSplitAxis }; } $f.$ptr = $ptr; $f.M = M; $f._r = _r; $f._r$1 = _r$1; $f.m = m; $f.node = node; $f.this$1 = this$1; $f.xMargin = xMargin; $f.yMargin = yMargin; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype._chooseSplitAxis = function(node, m, M) { return this.$val._chooseSplitAxis(node, m, M); };
+	RBush.ptr.prototype._allDistMargin = function(node, m, M, dim) {
+		var $ptr, M, child, dim, i, leftBBox, m, margin, node, rightBBox, this$1, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; child = $f.child; dim = $f.dim; i = $f.i; leftBBox = $f.leftBBox; m = $f.m; margin = $f.margin; node = $f.node; rightBBox = $f.rightBBox; this$1 = $f.this$1; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		$r = sortNodes(node.Children, dim); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		leftBBox = distBBox(node, 0, m, ptrType.nil);
+		rightBBox = distBBox(node, M - m >> 0, M, ptrType.nil);
+		margin = bboxMargin(leftBBox) + bboxMargin(rightBBox);
+		i = 0;
+		child = ptrType.nil;
+		i = m;
+		while (true) {
+			if (!(i < (M - m >> 0))) { break; }
+			child = (x = node.Children, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+			extend(leftBBox, child);
+			margin = margin + (bboxMargin(leftBBox));
+			i = i + (1) >> 0;
+		}
+		i = (M - m >> 0) - 1 >> 0;
+		while (true) {
+			if (!(i >= m)) { break; }
+			child = (x$1 = node.Children, ((i < 0 || i >= x$1.$length) ? $throwRuntimeError("index out of range") : x$1.$array[x$1.$offset + i]));
+			extend(rightBBox, child);
+			margin = margin + (bboxMargin(rightBBox));
+			i = i - (1) >> 0;
+		}
+		$s = -1; return margin;
+		return margin;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._allDistMargin }; } $f.$ptr = $ptr; $f.M = M; $f.child = child; $f.dim = dim; $f.i = i; $f.leftBBox = leftBBox; $f.m = m; $f.margin = margin; $f.node = node; $f.rightBBox = rightBBox; $f.this$1 = this$1; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype._allDistMargin = function(node, m, M, dim) { return this.$val._allDistMargin(node, m, M, dim); };
+	RBush.ptr.prototype._adjustParentBBoxes = function(bbox, path, level) {
+		var $ptr, bbox, i, level, path, this$1;
+		this$1 = this;
+		i = level;
+		while (true) {
+			if (!(i >= 0)) { break; }
+			extend(((i < 0 || i >= path.$length) ? $throwRuntimeError("index out of range") : path.$array[path.$offset + i]), bbox);
+			i = i - (1) >> 0;
+		}
+	};
+	RBush.prototype._adjustParentBBoxes = function(bbox, path, level) { return this.$val._adjustParentBBoxes(bbox, path, level); };
+	calcBBox = function(node) {
+		var $ptr, node;
+		distBBox(node, 0, node.Children.$length, node);
+	};
+	distBBox = function(node, k, p, destNode) {
+		var $ptr, child, destNode, i, k, node, p, x;
+		if (destNode === ptrType.nil) {
+			destNode = createNode(sliceType$1.nil);
+		}
+		destNode.MinX = math.Inf(1);
+		destNode.MinY = math.Inf(1);
+		destNode.MaxX = math.Inf(-1);
+		destNode.MaxY = math.Inf(-1);
+		child = ptrType.nil;
+		i = k;
+		while (true) {
+			if (!(i < p)) { break; }
+			child = (x = node.Children, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+			extend(destNode, child);
+			i = i + (1) >> 0;
+		}
+		return destNode;
+	};
+	extend = function(a, b) {
+		var $ptr, a, b;
+		a.MinX = math.Min(a.MinX, b.MinX);
+		a.MinY = math.Min(a.MinY, b.MinY);
+		a.MaxX = math.Max(a.MaxX, b.MaxX);
+		a.MaxY = math.Max(a.MaxY, b.MaxY);
+		return a;
+	};
+	bboxArea = function(a) {
+		var $ptr, a;
+		return (a.MaxX - a.MinX) * (a.MaxY - a.MinY);
+	};
+	bboxMargin = function(a) {
+		var $ptr, a;
+		return (a.MaxX - a.MinX) + (a.MaxY - a.MinY);
+	};
+	enlargedArea = function(a, b) {
+		var $ptr, a, b;
+		return (math.Max(b.MaxX, a.MaxX) - math.Min(b.MinX, a.MinX)) * (math.Max(b.MaxY, a.MaxY) - math.Min(b.MinY, a.MinY));
+	};
+	intersectionArea = function(a, b) {
+		var $ptr, a, b, maxX, maxY, minX, minY;
+		minX = math.Max(a.MinX, b.MinX);
+		minY = math.Max(a.MinY, b.MinY);
+		maxX = math.Min(a.MaxX, b.MaxX);
+		maxY = math.Min(a.MaxY, b.MaxY);
+		return math.Max(0, maxX - minX) * math.Max(0, maxY - minY);
+	};
+	createNode = function(children) {
+		var $ptr, children;
+		return new Node.ptr(math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1), children, 1, true, $ifaceNil);
+	};
+	multiSelect = function(arr, left, right, n) {
+		var $ptr, arr, left, mid, n, right, stack, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; arr = $f.arr; left = $f.left; mid = $f.mid; n = $f.n; right = $f.right; stack = $f.stack; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		stack = new sliceType$2([left, right]);
+		mid = 0;
+		/* while (true) { */ case 1:
+			/* if (!(stack.$length > 0)) { break; } */ if(!(stack.$length > 0)) { $s = 2; continue; }
+			right = (x = stack.$length - 1 >> 0, ((x < 0 || x >= stack.$length) ? $throwRuntimeError("index out of range") : stack.$array[stack.$offset + x]));
+			stack = $subslice(stack, 0, (stack.$length - 1 >> 0));
+			left = (x$1 = stack.$length - 1 >> 0, ((x$1 < 0 || x$1 >= stack.$length) ? $throwRuntimeError("index out of range") : stack.$array[stack.$offset + x$1]));
+			stack = $subslice(stack, 0, (stack.$length - 1 >> 0));
+			/* */ if ((right - left >> 0) <= n) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if ((right - left >> 0) <= n) { */ case 3:
+				/* continue; */ $s = 1; continue;
+			/* } */ case 4:
+			mid = left + ($imul((math.Ceil((right - left >> 0) / n / 2) >> 0), n)) >> 0;
+			$r = quickselect(arr, mid, left, right); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			stack = $append(stack, left, mid, mid, right);
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: multiSelect }; } $f.$ptr = $ptr; $f.arr = arr; $f.left = left; $f.mid = mid; $f.n = n; $f.right = right; $f.stack = stack; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	splice = function(nodes, start, deleteCount, args) {
+		var $ptr, args, deleteCount, deleted, nodes, result, start;
+		result = sliceType$1.nil;
+		deleted = sliceType$1.nil;
+		if (start > nodes.$length) {
+			start = nodes.$length;
+		}
+		if ((start + deleteCount >> 0) > nodes.$length) {
+			deleteCount = nodes.$length - start >> 0;
+		}
+		deleted = $subslice(nodes, start, (start + deleteCount >> 0));
+		result = $appendSlice(ncopy($subslice(nodes, 0, start)), args);
+		result = $appendSlice(result, $subslice(nodes, (start + deleteCount >> 0)));
+		return [result, deleted];
+	};
+	ncopy = function(nodes) {
+		var $ptr, nodes;
+		return $appendSlice(sliceType$1.nil, nodes);
+	};
+	quickselect = function(arr, k, left, right) {
+		var $ptr, _q, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, _r$8, arr, i, j, k, left, m, n, newLeft, newRight, right, s, sd, t, tt, z, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _r$7 = $f._r$7; _r$8 = $f._r$8; arr = $f.arr; i = $f.i; j = $f.j; k = $f.k; left = $f.left; m = $f.m; n = $f.n; newLeft = $f.newLeft; newRight = $f.newRight; right = $f.right; s = $f.s; sd = $f.sd; t = $f.t; tt = $f.tt; z = $f.z; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		/* while (true) { */ case 1:
+			/* if (!(right > left)) { break; } */ if(!(right > left)) { $s = 2; continue; }
+			/* */ if ((right - left >> 0) > 600) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if ((right - left >> 0) > 600) { */ case 3:
+				n = (right - left >> 0) + 1 >> 0;
+				m = (k - left >> 0) + 1 >> 0;
+				z = math.Log(n);
+				s = 0.5 * math.Exp(2 * z / 3);
+				tt = 1;
+				if ((m - (_q = n / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")) >> 0) < 0) {
+					tt = -1;
+				}
+				sd = 0.5 * math.Sqrt(z * s * (n - s) / n) * tt;
+				newLeft = (math.Max(left, math.Floor(k - m * s / n + sd)) >> 0);
+				newRight = (math.Min(right, math.Floor(k + (n - m >> 0) * s / n + sd)) >> 0);
+				$r = quickselect(arr, k, newLeft, newRight); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* } */ case 4:
+			_r = arr.At(k); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			t = _r;
+			i = left;
+			j = right;
+			$r = arr.Swap(left, k); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			_r$1 = arr.At(right); /* */ $s = 10; case 10: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			_r$2 = arr.Compare(_r$1, t); /* */ $s = 11; case 11: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+			/* */ if (_r$2 > 0) { $s = 8; continue; }
+			/* */ $s = 9; continue;
+			/* if (_r$2 > 0) { */ case 8:
+				$r = arr.Swap(left, right); /* */ $s = 12; case 12: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* } */ case 9:
+			/* while (true) { */ case 13:
+				/* if (!(i < j)) { break; } */ if(!(i < j)) { $s = 14; continue; }
+				$r = arr.Swap(i, j); /* */ $s = 15; case 15: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				i = i + (1) >> 0;
+				j = j - (1) >> 0;
+				/* while (true) { */ case 16:
+					_r$3 = arr.At(i); /* */ $s = 18; case 18: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+					_r$4 = arr.Compare(_r$3, t); /* */ $s = 19; case 19: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+					/* if (!(_r$4 < 0)) { break; } */ if(!(_r$4 < 0)) { $s = 17; continue; }
+					i = i + (1) >> 0;
+				/* } */ $s = 16; continue; case 17:
+				/* while (true) { */ case 20:
+					_r$5 = arr.At(j); /* */ $s = 22; case 22: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
+					_r$6 = arr.Compare(_r$5, t); /* */ $s = 23; case 23: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
+					/* if (!(_r$6 > 0)) { break; } */ if(!(_r$6 > 0)) { $s = 21; continue; }
+					j = j - (1) >> 0;
+				/* } */ $s = 20; continue; case 21:
+			/* } */ $s = 13; continue; case 14:
+			_r$7 = arr.At(left); /* */ $s = 27; case 27: if($c) { $c = false; _r$7 = _r$7.$blk(); } if (_r$7 && _r$7.$blk !== undefined) { break s; }
+			_r$8 = arr.Compare(_r$7, t); /* */ $s = 28; case 28: if($c) { $c = false; _r$8 = _r$8.$blk(); } if (_r$8 && _r$8.$blk !== undefined) { break s; }
+			/* */ if (_r$8 === 0) { $s = 24; continue; }
+			/* */ $s = 25; continue;
+			/* if (_r$8 === 0) { */ case 24:
+				$r = arr.Swap(left, j); /* */ $s = 29; case 29: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$s = 26; continue;
+			/* } else { */ case 25:
+				j = j + (1) >> 0;
+				$r = arr.Swap(j, right); /* */ $s = 30; case 30: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* } */ case 26:
+			if (j <= k) {
+				left = j + 1 >> 0;
+			}
+			if (k <= j) {
+				right = j - 1 >> 0;
+			}
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: quickselect }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._r$8 = _r$8; $f.arr = arr; $f.i = i; $f.j = j; $f.k = k; $f.left = left; $f.m = m; $f.n = n; $f.newLeft = newLeft; $f.newRight = newRight; $f.right = right; $f.s = s; $f.sd = sd; $f.t = t; $f.tt = tt; $f.z = z; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	sortNodes = function(nodes, dim) {
+		var $ptr, _1, dim, nodes, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _1 = $f._1; dim = $f.dim; nodes = $f.nodes; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			_1 = dim;
+			/* */ if (_1 === (1)) { $s = 2; continue; }
+			/* */ if (_1 === (2)) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (_1 === (1)) { */ case 2:
+				$r = sort.Sort($subslice(new byMinX(nodes.$array), nodes.$offset, nodes.$offset + nodes.$length)); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$s = 5; continue;
+			/* } else if (_1 === (2)) { */ case 3:
+				$r = sort.Sort($subslice(new byMinY(nodes.$array), nodes.$offset, nodes.$offset + nodes.$length)); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$s = 5; continue;
+			/* } else { */ case 4:
+				$panic(new $String("invalid dimension"));
+			/* } */ case 5:
+		case 1:
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: sortNodes }; } $f.$ptr = $ptr; $f._1 = _1; $f.dim = dim; $f.nodes = nodes; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	ptrType$1.methods = [{prop: "all", name: "all", pkg: "github.com/tidwall/rbush", typ: $funcType([], [sliceType$1], false)}, {prop: "search", name: "search", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [sliceType$1], false)}, {prop: "collides", name: "collides", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [$Bool], false)}, {prop: "Load", name: "Load", pkg: "", typ: $funcType([sliceType$1], [], false)}, {prop: "load", name: "load", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [ptrType$1], false)}, {prop: "insert", name: "insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "clear", name: "clear", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType$1], false)}, {prop: "remove", name: "remove", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "toJSON", name: "toJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType], false)}, {prop: "fromJSON", name: "fromJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "_all", name: "_all", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1], [sliceType$1], false)}, {prop: "_build", name: "_build", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int, $Int, $Int], [ptrType], false)}, {prop: "_chooseSubtree", name: "_chooseSubtree", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType, $Int, sliceType$1], [ptrType, sliceType$1], false)}, {prop: "_insert", name: "_insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Bool], [], false)}, {prop: "_split", name: "_split", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int], [sliceType$1], false)}, {prop: "_splitRoot", name: "_splitRoot", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType], [], false)}, {prop: "_chooseSplitIndex", name: "_chooseSplitIndex", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [$Int], false)}, {prop: "_chooseSplitAxis", name: "_chooseSplitAxis", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [], false)}, {prop: "_allDistMargin", name: "_allDistMargin", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int, $Int], [$Float64], false)}, {prop: "_adjustParentBBoxes", name: "_adjustParentBBoxes", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1, $Int], [], false)}, {prop: "_condense", name: "_condense", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [], false)}, {prop: "jsonString", name: "jsonString", pkg: "github.com/tidwall/rbush", typ: $funcType([], [$String], false)}];
+	byMinX.methods = [{prop: "At", name: "At", pkg: "", typ: $funcType([$Int], [$emptyInterface], false)}, {prop: "Compare", name: "Compare", pkg: "", typ: $funcType([$emptyInterface, $emptyInterface], [$Int], false)}, {prop: "Less", name: "Less", pkg: "", typ: $funcType([$Int, $Int], [$Bool], false)}, {prop: "Swap", name: "Swap", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "Len", name: "Len", pkg: "", typ: $funcType([], [$Int], false)}];
+	byMinY.methods = [{prop: "At", name: "At", pkg: "", typ: $funcType([$Int], [$emptyInterface], false)}, {prop: "Compare", name: "Compare", pkg: "", typ: $funcType([$emptyInterface, $emptyInterface], [$Int], false)}, {prop: "Less", name: "Less", pkg: "", typ: $funcType([$Int, $Int], [$Bool], false)}, {prop: "Swap", name: "Swap", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "Len", name: "Len", pkg: "", typ: $funcType([], [$Int], false)}];
+	Node.init("", [{prop: "MinX", name: "MinX", exported: true, typ: $Float64, tag: ""}, {prop: "MinY", name: "MinY", exported: true, typ: $Float64, tag: ""}, {prop: "MaxX", name: "MaxX", exported: true, typ: $Float64, tag: ""}, {prop: "MaxY", name: "MaxY", exported: true, typ: $Float64, tag: ""}, {prop: "Children", name: "Children", exported: true, typ: sliceType$1, tag: ""}, {prop: "Height", name: "Height", exported: true, typ: $Int, tag: ""}, {prop: "Leaf", name: "Leaf", exported: true, typ: $Bool, tag: ""}, {prop: "Item", name: "Item", exported: true, typ: $emptyInterface, tag: ""}]);
+	RBush.init("", [{prop: "MaxEntries", name: "MaxEntries", exported: true, typ: $Int, tag: ""}, {prop: "MinEntries", name: "MinEntries", exported: true, typ: $Int, tag: ""}, {prop: "Data", name: "Data", exported: true, typ: ptrType, tag: ""}]);
+	byMinX.init(ptrType);
+	byMinY.init(ptrType);
+>>>>>>> track
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -13704,6 +14846,7 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
+<<<<<<< HEAD
 $packages["main"] = (function() {
 	var $pkg = {}, $init, js, rbush, Tree, funcType, ptrType, ptrType$1, main, NewTree;
 	js = $packages["github.com/gopherjs/gopherjs/js"];
@@ -13719,21 +14862,650 @@ $packages["main"] = (function() {
 	funcType = $funcType([], [], false);
 	ptrType = $ptrType(rbush.RBush);
 	ptrType$1 = $ptrType(Tree);
+=======
+$packages["math/rand"] = (function() {
+	var $pkg = {}, $init, nosync, math, Source, Rand, lockedSource, rngSource, arrayType, ptrType, ptrType$1, sliceType, ptrType$2, ptrType$3, sliceType$1, ptrType$5, ke, we, fe, kn, wn, fn, globalRand, rng_cooked, absInt32, NewSource, New, read, Seed, Float64, seedrand;
+	nosync = $packages["github.com/gopherjs/gopherjs/nosync"];
+	math = $packages["math"];
+	Source = $pkg.Source = $newType(8, $kindInterface, "rand.Source", true, "math/rand", true, null);
+	Rand = $pkg.Rand = $newType(0, $kindStruct, "rand.Rand", true, "math/rand", true, function(src_, readVal_, readPos_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.src = $ifaceNil;
+			this.readVal = new $Int64(0, 0);
+			this.readPos = 0;
+			return;
+		}
+		this.src = src_;
+		this.readVal = readVal_;
+		this.readPos = readPos_;
+	});
+	lockedSource = $pkg.lockedSource = $newType(0, $kindStruct, "rand.lockedSource", true, "math/rand", false, function(lk_, src_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.lk = new nosync.Mutex.ptr(false);
+			this.src = $ifaceNil;
+			return;
+		}
+		this.lk = lk_;
+		this.src = src_;
+	});
+	rngSource = $pkg.rngSource = $newType(0, $kindStruct, "rand.rngSource", true, "math/rand", false, function(tap_, feed_, vec_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.tap = 0;
+			this.feed = 0;
+			this.vec = arrayType.zero();
+			return;
+		}
+		this.tap = tap_;
+		this.feed = feed_;
+		this.vec = vec_;
+	});
+	arrayType = $arrayType($Int64, 607);
+	ptrType = $ptrType(lockedSource);
+	ptrType$1 = $ptrType($Int8);
+	sliceType = $sliceType($Int);
+	ptrType$2 = $ptrType($Int64);
+	ptrType$3 = $ptrType(Rand);
+	sliceType$1 = $sliceType($Uint8);
+	ptrType$5 = $ptrType(rngSource);
+	Rand.ptr.prototype.ExpFloat64 = function() {
+		var $ptr, _r, _r$1, _r$2, _r$3, i, j, r, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; i = $f.i; j = $f.j; r = $f.r; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		/* while (true) { */ case 1:
+			_r = r.Uint32(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			j = _r;
+			i = (j & 255) >>> 0;
+			x = j * ((i < 0 || i >= we.length) ? $throwRuntimeError("index out of range") : we[i]);
+			if (j < ((i < 0 || i >= ke.length) ? $throwRuntimeError("index out of range") : ke[i])) {
+				$s = -1; return x;
+				return x;
+			}
+			/* */ if (i === 0) { $s = 4; continue; }
+			/* */ $s = 5; continue;
+			/* if (i === 0) { */ case 4:
+				_r$1 = r.Float64(); /* */ $s = 6; case 6: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+				_r$2 = math.Log(_r$1); /* */ $s = 7; case 7: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				$s = -1; return 7.69711747013105 - _r$2;
+				return 7.69711747013105 - _r$2;
+			/* } */ case 5:
+			_r$3 = r.Float64(); /* */ $s = 10; case 10: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+			/* */ if ($fround(((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]) + $fround($fround(_r$3) * ($fround((x$1 = i - 1 >>> 0, ((x$1 < 0 || x$1 >= fe.length) ? $throwRuntimeError("index out of range") : fe[x$1])) - ((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]))))) < $fround(math.Exp(-x))) { $s = 8; continue; }
+			/* */ $s = 9; continue;
+			/* if ($fround(((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]) + $fround($fround(_r$3) * ($fround((x$1 = i - 1 >>> 0, ((x$1 < 0 || x$1 >= fe.length) ? $throwRuntimeError("index out of range") : fe[x$1])) - ((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]))))) < $fround(math.Exp(-x))) { */ case 8:
+				$s = -1; return x;
+				return x;
+			/* } */ case 9:
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return 0;
+		return 0;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.ExpFloat64 }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f.i = i; $f.j = j; $f.r = r; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.ExpFloat64 = function() { return this.$val.ExpFloat64(); };
+	absInt32 = function(i) {
+		var $ptr, i;
+		if (i < 0) {
+			return (-i >>> 0);
+		}
+		return (i >>> 0);
+	};
+	Rand.ptr.prototype.NormFloat64 = function() {
+		var $ptr, _r, _r$1, _r$2, _r$3, _r$4, _r$5, i, j, r, x, x$1, y, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; i = $f.i; j = $f.j; r = $f.r; x = $f.x; x$1 = $f.x$1; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		/* while (true) { */ case 1:
+			_r = r.Uint32(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			j = (_r >> 0);
+			i = j & 127;
+			x = j * ((i < 0 || i >= wn.length) ? $throwRuntimeError("index out of range") : wn[i]);
+			if (absInt32(j) < ((i < 0 || i >= kn.length) ? $throwRuntimeError("index out of range") : kn[i])) {
+				$s = -1; return x;
+				return x;
+			}
+			/* */ if (i === 0) { $s = 4; continue; }
+			/* */ $s = 5; continue;
+			/* if (i === 0) { */ case 4:
+				/* while (true) { */ case 6:
+					_r$1 = r.Float64(); /* */ $s = 8; case 8: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+					_r$2 = math.Log(_r$1); /* */ $s = 9; case 9: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+					x = -_r$2 * 0.29047645161474317;
+					_r$3 = r.Float64(); /* */ $s = 10; case 10: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+					_r$4 = math.Log(_r$3); /* */ $s = 11; case 11: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+					y = -_r$4;
+					if (y + y >= x * x) {
+						/* break; */ $s = 7; continue;
+					}
+				/* } */ $s = 6; continue; case 7:
+				if (j > 0) {
+					$s = -1; return 3.442619855899 + x;
+					return 3.442619855899 + x;
+				}
+				$s = -1; return -3.442619855899 - x;
+				return -3.442619855899 - x;
+			/* } */ case 5:
+			_r$5 = r.Float64(); /* */ $s = 14; case 14: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
+			/* */ if ($fround(((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]) + $fround($fround(_r$5) * ($fround((x$1 = i - 1 >> 0, ((x$1 < 0 || x$1 >= fn.length) ? $throwRuntimeError("index out of range") : fn[x$1])) - ((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]))))) < $fround(math.Exp(-0.5 * x * x))) { $s = 12; continue; }
+			/* */ $s = 13; continue;
+			/* if ($fround(((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]) + $fround($fround(_r$5) * ($fround((x$1 = i - 1 >> 0, ((x$1 < 0 || x$1 >= fn.length) ? $throwRuntimeError("index out of range") : fn[x$1])) - ((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]))))) < $fround(math.Exp(-0.5 * x * x))) { */ case 12:
+				$s = -1; return x;
+				return x;
+			/* } */ case 13:
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return 0;
+		return 0;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.NormFloat64 }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f.i = i; $f.j = j; $f.r = r; $f.x = x; $f.x$1 = x$1; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.NormFloat64 = function() { return this.$val.NormFloat64(); };
+	NewSource = function(seed) {
+		var $ptr, rng, seed;
+		rng = new rngSource.ptr(0, 0, arrayType.zero());
+		rng.Seed(seed);
+		return rng;
+	};
+	$pkg.NewSource = NewSource;
+	New = function(src) {
+		var $ptr, src;
+		return new Rand.ptr(src, new $Int64(0, 0), 0);
+	};
+	$pkg.New = New;
+	Rand.ptr.prototype.Seed = function(seed) {
+		var $ptr, _tuple, lk, ok, r, seed, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _tuple = $f._tuple; lk = $f.lk; ok = $f.ok; r = $f.r; seed = $f.seed; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		_tuple = $assertType(r.src, ptrType, true);
+		lk = _tuple[0];
+		ok = _tuple[1];
+		/* */ if (ok) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (ok) { */ case 1:
+			$r = lk.seedPos(seed, (r.$ptr_readPos || (r.$ptr_readPos = new ptrType$1(function() { return this.$target.readPos; }, function($v) { this.$target.readPos = $v; }, r)))); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			$s = -1; return;
+			return;
+		/* } */ case 2:
+		$r = r.src.Seed(seed); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		r.readPos = 0;
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Seed }; } $f.$ptr = $ptr; $f._tuple = _tuple; $f.lk = lk; $f.ok = ok; $f.r = r; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Seed = function(seed) { return this.$val.Seed(seed); };
+	Rand.ptr.prototype.Int63 = function() {
+		var $ptr, _r, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		_r = r.src.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return _r;
+		return _r;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int63 }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Int63 = function() { return this.$val.Int63(); };
+	Rand.ptr.prototype.Uint32 = function() {
+		var $ptr, _r, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		_r = r.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return ($shiftRightInt64(_r, 31).$low >>> 0);
+		return ($shiftRightInt64(_r, 31).$low >>> 0);
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Uint32 }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Uint32 = function() { return this.$val.Uint32(); };
+	Rand.ptr.prototype.Int31 = function() {
+		var $ptr, _r, r, x, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; r = $f.r; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		_r = r.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return ((x = $shiftRightInt64(_r, 32), x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
+		return ((x = $shiftRightInt64(_r, 32), x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int31 }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Int31 = function() { return this.$val.Int31(); };
+	Rand.ptr.prototype.Int = function() {
+		var $ptr, _r, r, u, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; r = $f.r; u = $f.u; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		_r = r.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		u = (_r.$low >>> 0);
+		$s = -1; return (((u << 1 >>> 0) >>> 1 >>> 0) >> 0);
+		return (((u << 1 >>> 0) >>> 1 >>> 0) >> 0);
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.u = u; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Int = function() { return this.$val.Int(); };
+	Rand.ptr.prototype.Int63n = function(n) {
+		var $ptr, _r, _r$1, _r$2, max, n, r, v, x, x$1, x$2, x$3, x$4, x$5, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; max = $f.max; n = $f.n; r = $f.r; v = $f.v; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		if ((n.$high < 0 || (n.$high === 0 && n.$low <= 0))) {
+			$panic(new $String("invalid argument to Int63n"));
+		}
+		/* */ if ((x = (x$1 = new $Int64(n.$high - 0, n.$low - 1), new $Int64(n.$high & x$1.$high, (n.$low & x$1.$low) >>> 0)), (x.$high === 0 && x.$low === 0))) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if ((x = (x$1 = new $Int64(n.$high - 0, n.$low - 1), new $Int64(n.$high & x$1.$high, (n.$low & x$1.$low) >>> 0)), (x.$high === 0 && x.$low === 0))) { */ case 1:
+			_r = r.Int63(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			$s = -1; return (x$2 = _r, x$3 = new $Int64(n.$high - 0, n.$low - 1), new $Int64(x$2.$high & x$3.$high, (x$2.$low & x$3.$low) >>> 0));
+			return (x$2 = _r, x$3 = new $Int64(n.$high - 0, n.$low - 1), new $Int64(x$2.$high & x$3.$high, (x$2.$low & x$3.$low) >>> 0));
+		/* } */ case 2:
+		max = (x$4 = (x$5 = $div64(new $Uint64(2147483648, 0), new $Uint64(n.$high, n.$low), true), new $Uint64(2147483647 - x$5.$high, 4294967295 - x$5.$low)), new $Int64(x$4.$high, x$4.$low));
+		_r$1 = r.Int63(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		v = _r$1;
+		/* while (true) { */ case 5:
+			/* if (!((v.$high > max.$high || (v.$high === max.$high && v.$low > max.$low)))) { break; } */ if(!((v.$high > max.$high || (v.$high === max.$high && v.$low > max.$low)))) { $s = 6; continue; }
+			_r$2 = r.Int63(); /* */ $s = 7; case 7: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+			v = _r$2;
+		/* } */ $s = 5; continue; case 6:
+		$s = -1; return $div64(v, n, true);
+		return $div64(v, n, true);
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int63n }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.max = max; $f.n = n; $f.r = r; $f.v = v; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Int63n = function(n) { return this.$val.Int63n(n); };
+	Rand.ptr.prototype.Int31n = function(n) {
+		var $ptr, _r, _r$1, _r$2, _r$3, _r$4, max, n, r, v, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; max = $f.max; n = $f.n; r = $f.r; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		if (n <= 0) {
+			$panic(new $String("invalid argument to Int31n"));
+		}
+		/* */ if ((n & ((n - 1 >> 0))) === 0) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if ((n & ((n - 1 >> 0))) === 0) { */ case 1:
+			_r = r.Int31(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			$s = -1; return _r & ((n - 1 >> 0));
+			return _r & ((n - 1 >> 0));
+		/* } */ case 2:
+		max = ((2147483647 - (_r$1 = 2147483648 % (n >>> 0), _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) >>> 0) >> 0);
+		_r$2 = r.Int31(); /* */ $s = 4; case 4: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		v = _r$2;
+		/* while (true) { */ case 5:
+			/* if (!(v > max)) { break; } */ if(!(v > max)) { $s = 6; continue; }
+			_r$3 = r.Int31(); /* */ $s = 7; case 7: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+			v = _r$3;
+		/* } */ $s = 5; continue; case 6:
+		$s = -1; return (_r$4 = v % n, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
+		return (_r$4 = v % n, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int31n }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f.max = max; $f.n = n; $f.r = r; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Int31n = function(n) { return this.$val.Int31n(n); };
+	Rand.ptr.prototype.Intn = function(n) {
+		var $ptr, _r, _r$1, n, r, x, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; n = $f.n; r = $f.r; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		if (n <= 0) {
+			$panic(new $String("invalid argument to Intn"));
+		}
+		/* */ if (n <= 2147483647) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (n <= 2147483647) { */ case 1:
+			_r = r.Int31n((n >> 0)); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			$s = -1; return (_r >> 0);
+			return (_r >> 0);
+		/* } */ case 2:
+		_r$1 = r.Int63n(new $Int64(0, n)); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		$s = -1; return ((x = _r$1, x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
+		return ((x = _r$1, x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Intn }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.n = n; $f.r = r; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Intn = function(n) { return this.$val.Intn(n); };
+	Rand.ptr.prototype.Float64 = function() {
+		var $ptr, _r, f, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; f = $f.f; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		/* again: */ case 1:
+		_r = r.Int63(); /* */ $s = 2; case 2: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		f = $flatten64(_r) / 9.223372036854776e+18;
+		/* */ if (f === 1) { $s = 3; continue; }
+		/* */ $s = 4; continue;
+		/* if (f === 1) { */ case 3:
+			/* goto again */ $s = 1; continue;
+		/* } */ case 4:
+		$s = -1; return f;
+		return f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Float64 }; } $f.$ptr = $ptr; $f._r = _r; $f.f = f; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Float64 = function() { return this.$val.Float64(); };
+	Rand.ptr.prototype.Float32 = function() {
+		var $ptr, _r, f, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; f = $f.f; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		/* again: */ case 1:
+		_r = r.Float64(); /* */ $s = 2; case 2: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		f = $fround(_r);
+		/* */ if (f === 1) { $s = 3; continue; }
+		/* */ $s = 4; continue;
+		/* if (f === 1) { */ case 3:
+			/* goto again */ $s = 1; continue;
+		/* } */ case 4:
+		$s = -1; return f;
+		return f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Float32 }; } $f.$ptr = $ptr; $f._r = _r; $f.f = f; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Float32 = function() { return this.$val.Float32(); };
+	Rand.ptr.prototype.Perm = function(n) {
+		var $ptr, _r, i, j, m, n, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; i = $f.i; j = $f.j; m = $f.m; n = $f.n; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		m = $makeSlice(sliceType, n);
+		i = 0;
+		/* while (true) { */ case 1:
+			/* if (!(i < n)) { break; } */ if(!(i < n)) { $s = 2; continue; }
+			_r = r.Intn(i + 1 >> 0); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			j = _r;
+			((i < 0 || i >= m.$length) ? $throwRuntimeError("index out of range") : m.$array[m.$offset + i] = ((j < 0 || j >= m.$length) ? $throwRuntimeError("index out of range") : m.$array[m.$offset + j]));
+			((j < 0 || j >= m.$length) ? $throwRuntimeError("index out of range") : m.$array[m.$offset + j] = i);
+			i = i + (1) >> 0;
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return m;
+		return m;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Perm }; } $f.$ptr = $ptr; $f._r = _r; $f.i = i; $f.j = j; $f.m = m; $f.n = n; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Perm = function(n) { return this.$val.Perm(n); };
+	Rand.ptr.prototype.Read = function(p) {
+		var $ptr, _r, _r$1, _tuple, _tuple$1, _tuple$2, err, lk, n, ok, p, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; err = $f.err; lk = $f.lk; n = $f.n; ok = $f.ok; p = $f.p; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		n = 0;
+		err = $ifaceNil;
+		r = this;
+		_tuple = $assertType(r.src, ptrType, true);
+		lk = _tuple[0];
+		ok = _tuple[1];
+		/* */ if (ok) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (ok) { */ case 1:
+			_r = lk.read(p, (r.$ptr_readVal || (r.$ptr_readVal = new ptrType$2(function() { return this.$target.readVal; }, function($v) { this.$target.readVal = $v; }, r))), (r.$ptr_readPos || (r.$ptr_readPos = new ptrType$1(function() { return this.$target.readPos; }, function($v) { this.$target.readPos = $v; }, r)))); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_tuple$1 = _r;
+			n = _tuple$1[0];
+			err = _tuple$1[1];
+			$s = -1; return [n, err];
+			return [n, err];
+		/* } */ case 2:
+		_r$1 = read(p, $methodVal(r, "Int63"), (r.$ptr_readVal || (r.$ptr_readVal = new ptrType$2(function() { return this.$target.readVal; }, function($v) { this.$target.readVal = $v; }, r))), (r.$ptr_readPos || (r.$ptr_readPos = new ptrType$1(function() { return this.$target.readPos; }, function($v) { this.$target.readPos = $v; }, r)))); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_tuple$2 = _r$1;
+		n = _tuple$2[0];
+		err = _tuple$2[1];
+		$s = -1; return [n, err];
+		return [n, err];
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Read }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f.err = err; $f.lk = lk; $f.n = n; $f.ok = ok; $f.p = p; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Read = function(p) { return this.$val.Read(p); };
+	read = function(p, int63, readVal, readPos) {
+		var $ptr, _r, err, int63, n, p, pos, readPos, readVal, val, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; err = $f.err; int63 = $f.int63; n = $f.n; p = $f.p; pos = $f.pos; readPos = $f.readPos; readVal = $f.readVal; val = $f.val; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		n = 0;
+		err = $ifaceNil;
+		pos = readPos.$get();
+		val = readVal.$get();
+		n = 0;
+		/* while (true) { */ case 1:
+			/* if (!(n < p.$length)) { break; } */ if(!(n < p.$length)) { $s = 2; continue; }
+			/* */ if (pos === 0) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (pos === 0) { */ case 3:
+				_r = int63(); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				val = _r;
+				pos = 7;
+			/* } */ case 4:
+			((n < 0 || n >= p.$length) ? $throwRuntimeError("index out of range") : p.$array[p.$offset + n] = (val.$low << 24 >>> 24));
+			val = $shiftRightInt64(val, (8));
+			pos = pos - (1) << 24 >> 24;
+			n = n + (1) >> 0;
+		/* } */ $s = 1; continue; case 2:
+		readPos.$set(pos);
+		readVal.$set(val);
+		$s = -1; return [n, err];
+		return [n, err];
+		/* */ } return; } if ($f === undefined) { $f = { $blk: read }; } $f.$ptr = $ptr; $f._r = _r; $f.err = err; $f.int63 = int63; $f.n = n; $f.p = p; $f.pos = pos; $f.readPos = readPos; $f.readVal = readVal; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Seed = function(seed) {
+		var $ptr, seed, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; seed = $f.seed; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		$r = globalRand.Seed(seed); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Seed }; } $f.$ptr = $ptr; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.Seed = Seed;
+	Float64 = function() {
+		var $ptr, _r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		_r = globalRand.Float64(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return _r;
+		return _r;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Float64 }; } $f.$ptr = $ptr; $f._r = _r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.Float64 = Float64;
+	lockedSource.ptr.prototype.Int63 = function() {
+		var $ptr, _r, n, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; n = $f.n; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		n = new $Int64(0, 0);
+		r = this;
+		r.lk.Lock();
+		_r = r.src.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		n = _r;
+		r.lk.Unlock();
+		$s = -1; return n;
+		return n;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.Int63 }; } $f.$ptr = $ptr; $f._r = _r; $f.n = n; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	lockedSource.prototype.Int63 = function() { return this.$val.Int63(); };
+	lockedSource.ptr.prototype.Seed = function(seed) {
+		var $ptr, r, seed, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; seed = $f.seed; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		r.lk.Lock();
+		$r = r.src.Seed(seed); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		r.lk.Unlock();
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.Seed }; } $f.$ptr = $ptr; $f.r = r; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	lockedSource.prototype.Seed = function(seed) { return this.$val.Seed(seed); };
+	lockedSource.ptr.prototype.seedPos = function(seed, readPos) {
+		var $ptr, r, readPos, seed, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; readPos = $f.readPos; seed = $f.seed; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		r.lk.Lock();
+		$r = r.src.Seed(seed); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		readPos.$set(0);
+		r.lk.Unlock();
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.seedPos }; } $f.$ptr = $ptr; $f.r = r; $f.readPos = readPos; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	lockedSource.prototype.seedPos = function(seed, readPos) { return this.$val.seedPos(seed, readPos); };
+	lockedSource.ptr.prototype.read = function(p, readVal, readPos) {
+		var $ptr, _r, _tuple, err, n, p, r, readPos, readVal, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; err = $f.err; n = $f.n; p = $f.p; r = $f.r; readPos = $f.readPos; readVal = $f.readVal; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		n = 0;
+		err = $ifaceNil;
+		r = this;
+		r.lk.Lock();
+		_r = read(p, $methodVal(r.src, "Int63"), readVal, readPos); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_tuple = _r;
+		n = _tuple[0];
+		err = _tuple[1];
+		r.lk.Unlock();
+		$s = -1; return [n, err];
+		return [n, err];
+		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.read }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.err = err; $f.n = n; $f.p = p; $f.r = r; $f.readPos = readPos; $f.readVal = readVal; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	lockedSource.prototype.read = function(p, readVal, readPos) { return this.$val.read(p, readVal, readPos); };
+	seedrand = function(x) {
+		var $ptr, _q, _r, hi, lo, x;
+		hi = (_q = x / 44488, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
+		lo = (_r = x % 44488, _r === _r ? _r : $throwRuntimeError("integer divide by zero"));
+		x = ($imul(48271, lo)) - ($imul(3399, hi)) >> 0;
+		if (x < 0) {
+			x = x + (2147483647) >> 0;
+		}
+		return x;
+	};
+	rngSource.ptr.prototype.Seed = function(seed) {
+		var $ptr, i, rng, seed, u, x, x$1, x$2, x$3, x$4, x$5;
+		rng = this;
+		rng.tap = 0;
+		rng.feed = 334;
+		seed = $div64(seed, new $Int64(0, 2147483647), true);
+		if ((seed.$high < 0 || (seed.$high === 0 && seed.$low < 0))) {
+			seed = (x = new $Int64(0, 2147483647), new $Int64(seed.$high + x.$high, seed.$low + x.$low));
+		}
+		if ((seed.$high === 0 && seed.$low === 0)) {
+			seed = new $Int64(0, 89482311);
+		}
+		x$1 = ((seed.$low + ((seed.$high >> 31) * 4294967296)) >> 0);
+		i = -20;
+		while (true) {
+			if (!(i < 607)) { break; }
+			x$1 = seedrand(x$1);
+			if (i >= 0) {
+				u = new $Int64(0, 0);
+				u = $shiftLeft64(new $Int64(0, x$1), 40);
+				x$1 = seedrand(x$1);
+				u = (x$2 = $shiftLeft64(new $Int64(0, x$1), 20), new $Int64(u.$high ^ x$2.$high, (u.$low ^ x$2.$low) >>> 0));
+				x$1 = seedrand(x$1);
+				u = (x$3 = new $Int64(0, x$1), new $Int64(u.$high ^ x$3.$high, (u.$low ^ x$3.$low) >>> 0));
+				u = (x$4 = ((i < 0 || i >= rng_cooked.length) ? $throwRuntimeError("index out of range") : rng_cooked[i]), new $Int64(u.$high ^ x$4.$high, (u.$low ^ x$4.$low) >>> 0));
+				(x$5 = rng.vec, ((i < 0 || i >= x$5.length) ? $throwRuntimeError("index out of range") : x$5[i] = new $Int64(u.$high & 2147483647, (u.$low & 4294967295) >>> 0)));
+			}
+			i = i + (1) >> 0;
+		}
+	};
+	rngSource.prototype.Seed = function(seed) { return this.$val.Seed(seed); };
+	rngSource.ptr.prototype.Int63 = function() {
+		var $ptr, rng, x, x$1, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9;
+		rng = this;
+		rng.tap = rng.tap - (1) >> 0;
+		if (rng.tap < 0) {
+			rng.tap = rng.tap + (607) >> 0;
+		}
+		rng.feed = rng.feed - (1) >> 0;
+		if (rng.feed < 0) {
+			rng.feed = rng.feed + (607) >> 0;
+		}
+		x$7 = (x = (x$1 = (x$2 = rng.vec, x$3 = rng.feed, ((x$3 < 0 || x$3 >= x$2.length) ? $throwRuntimeError("index out of range") : x$2[x$3])), x$4 = (x$5 = rng.vec, x$6 = rng.tap, ((x$6 < 0 || x$6 >= x$5.length) ? $throwRuntimeError("index out of range") : x$5[x$6])), new $Int64(x$1.$high + x$4.$high, x$1.$low + x$4.$low)), new $Int64(x.$high & 2147483647, (x.$low & 4294967295) >>> 0));
+		(x$8 = rng.vec, x$9 = rng.feed, ((x$9 < 0 || x$9 >= x$8.length) ? $throwRuntimeError("index out of range") : x$8[x$9] = x$7));
+		return x$7;
+	};
+	rngSource.prototype.Int63 = function() { return this.$val.Int63(); };
+	ptrType$3.methods = [{prop: "ExpFloat64", name: "ExpFloat64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "NormFloat64", name: "NormFloat64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Uint32", name: "Uint32", pkg: "", typ: $funcType([], [$Uint32], false)}, {prop: "Int31", name: "Int31", pkg: "", typ: $funcType([], [$Int32], false)}, {prop: "Int", name: "Int", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Int63n", name: "Int63n", pkg: "", typ: $funcType([$Int64], [$Int64], false)}, {prop: "Int31n", name: "Int31n", pkg: "", typ: $funcType([$Int32], [$Int32], false)}, {prop: "Intn", name: "Intn", pkg: "", typ: $funcType([$Int], [$Int], false)}, {prop: "Float64", name: "Float64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Float32", name: "Float32", pkg: "", typ: $funcType([], [$Float32], false)}, {prop: "Perm", name: "Perm", pkg: "", typ: $funcType([$Int], [sliceType], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}];
+	ptrType.methods = [{prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "seedPos", name: "seedPos", pkg: "math/rand", typ: $funcType([$Int64, ptrType$1], [], false)}, {prop: "read", name: "read", pkg: "math/rand", typ: $funcType([sliceType$1, ptrType$2, ptrType$1], [$Int, $error], false)}];
+	ptrType$5.methods = [{prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}];
+	Source.init([{prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}]);
+	Rand.init("math/rand", [{prop: "src", name: "src", exported: false, typ: Source, tag: ""}, {prop: "readVal", name: "readVal", exported: false, typ: $Int64, tag: ""}, {prop: "readPos", name: "readPos", exported: false, typ: $Int8, tag: ""}]);
+	lockedSource.init("math/rand", [{prop: "lk", name: "lk", exported: false, typ: nosync.Mutex, tag: ""}, {prop: "src", name: "src", exported: false, typ: Source, tag: ""}]);
+	rngSource.init("math/rand", [{prop: "tap", name: "tap", exported: false, typ: $Int, tag: ""}, {prop: "feed", name: "feed", exported: false, typ: $Int, tag: ""}, {prop: "vec", name: "vec", exported: false, typ: arrayType, tag: ""}]);
+	$init = function() {
+		$pkg.$init = function() {};
+		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		$r = nosync.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = math.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		ke = $toNativeArray($kindUint32, [3801129273, 0, 2615860924, 3279400049, 3571300752, 3733536696, 3836274812, 3906990442, 3958562475, 3997804264, 4028649213, 4053523342, 4074002619, 4091154507, 4105727352, 4118261130, 4129155133, 4138710916, 4147160435, 4154685009, 4161428406, 4167506077, 4173011791, 4178022498, 4182601930, 4186803325, 4190671498, 4194244443, 4197554582, 4200629752, 4203493986, 4206168142, 4208670408, 4211016720, 4213221098, 4215295924, 4217252177, 4219099625, 4220846988, 4222502074, 4224071896, 4225562770, 4226980400, 4228329951, 4229616109, 4230843138, 4232014925, 4233135020, 4234206673, 4235232866, 4236216336, 4237159604, 4238064994, 4238934652, 4239770563, 4240574564, 4241348362, 4242093539, 4242811568, 4243503822, 4244171579, 4244816032, 4245438297, 4246039419, 4246620374, 4247182079, 4247725394, 4248251127, 4248760037, 4249252839, 4249730206, 4250192773, 4250641138, 4251075867, 4251497493, 4251906522, 4252303431, 4252688672, 4253062674, 4253425844, 4253778565, 4254121205, 4254454110, 4254777611, 4255092022, 4255397640, 4255694750, 4255983622, 4256264513, 4256537670, 4256803325, 4257061702, 4257313014, 4257557464, 4257795244, 4258026541, 4258251531, 4258470383, 4258683258, 4258890309, 4259091685, 4259287526, 4259477966, 4259663135, 4259843154, 4260018142, 4260188212, 4260353470, 4260514019, 4260669958, 4260821380, 4260968374, 4261111028, 4261249421, 4261383632, 4261513736, 4261639802, 4261761900, 4261880092, 4261994441, 4262105003, 4262211835, 4262314988, 4262414513, 4262510454, 4262602857, 4262691764, 4262777212, 4262859239, 4262937878, 4263013162, 4263085118, 4263153776, 4263219158, 4263281289, 4263340187, 4263395872, 4263448358, 4263497660, 4263543789, 4263586755, 4263626565, 4263663224, 4263696735, 4263727099, 4263754314, 4263778377, 4263799282, 4263817020, 4263831582, 4263842955, 4263851124, 4263856071, 4263857776, 4263856218, 4263851370, 4263843206, 4263831695, 4263816804, 4263798497, 4263776735, 4263751476, 4263722676, 4263690284, 4263654251, 4263614520, 4263571032, 4263523724, 4263472530, 4263417377, 4263358192, 4263294892, 4263227394, 4263155608, 4263079437, 4262998781, 4262913534, 4262823581, 4262728804, 4262629075, 4262524261, 4262414220, 4262298801, 4262177846, 4262051187, 4261918645, 4261780032, 4261635148, 4261483780, 4261325704, 4261160681, 4260988457, 4260808763, 4260621313, 4260425802, 4260221905, 4260009277, 4259787550, 4259556329, 4259315195, 4259063697, 4258801357, 4258527656, 4258242044, 4257943926, 4257632664, 4257307571, 4256967906, 4256612870, 4256241598, 4255853155, 4255446525, 4255020608, 4254574202, 4254106002, 4253614578, 4253098370, 4252555662, 4251984571, 4251383021, 4250748722, 4250079132, 4249371435, 4248622490, 4247828790, 4246986404, 4246090910, 4245137315, 4244119963, 4243032411, 4241867296, 4240616155, 4239269214, 4237815118, 4236240596, 4234530035, 4232664930, 4230623176, 4228378137, 4225897409, 4223141146, 4220059768, 4216590757, 4212654085, 4208145538, 4202926710, 4196809522, 4189531420, 4180713890, 4169789475, 4155865042, 4137444620, 4111806704, 4073393724, 4008685917, 3873074895]);
+		we = $toNativeArray($kindFloat32, [2.0249555365836613e-09, 1.4866739783681027e-11, 2.4409616689036184e-11, 3.1968806074589295e-11, 3.844677007314168e-11, 4.42282044321729e-11, 4.951644302919611e-11, 5.443358958023836e-11, 5.905943789574764e-11, 6.34494193296753e-11, 6.764381416113352e-11, 7.167294535648239e-11, 7.556032188826833e-11, 7.932458162551725e-11, 8.298078890689453e-11, 8.654132271912474e-11, 9.001651507523079e-11, 9.341507428706208e-11, 9.674443190998971e-11, 1.0001099254308699e-10, 1.0322031424037093e-10, 1.0637725422757427e-10, 1.0948611461891744e-10, 1.1255067711157807e-10, 1.1557434870246297e-10, 1.1856014781042035e-10, 1.2151082917633005e-10, 1.2442885610752796e-10, 1.2731647680563896e-10, 1.3017574518325858e-10, 1.330085347417409e-10, 1.3581656632677408e-10, 1.386014220061682e-10, 1.413645728254309e-10, 1.4410737880776736e-10, 1.4683107507629245e-10, 1.4953686899854546e-10, 1.522258291641876e-10, 1.5489899640730442e-10, 1.575573282952547e-10, 1.6020171300645814e-10, 1.628330109637588e-10, 1.6545202707884954e-10, 1.68059510752272e-10, 1.7065616975120435e-10, 1.73242697965037e-10, 1.758197337720091e-10, 1.783878739169964e-10, 1.8094774290045024e-10, 1.834998542005195e-10, 1.8604476292871652e-10, 1.8858298256319017e-10, 1.9111498494872592e-10, 1.9364125580789704e-10, 1.9616222535212557e-10, 1.9867835154840918e-10, 2.011900368525943e-10, 2.0369768372052732e-10, 2.062016807302669e-10, 2.0870240258208383e-10, 2.1120022397624894e-10, 2.136955057352452e-10, 2.1618855317040442e-10, 2.1867974098199738e-10, 2.2116936060356807e-10, 2.2365774510202385e-10, 2.2614519978869652e-10, 2.2863201609713002e-10, 2.3111849933865614e-10, 2.3360494094681883e-10, 2.3609159072179864e-10, 2.3857874009713953e-10, 2.4106666662859766e-10, 2.4355562011635357e-10, 2.460458781161634e-10, 2.485376904282077e-10, 2.5103127909709144e-10, 2.5352694943414633e-10, 2.560248957284017e-10, 2.585253955356137e-10, 2.610286709003873e-10, 2.6353494386732734e-10, 2.6604446423661443e-10, 2.6855745405285347e-10, 2.71074163116225e-10, 2.7359478571575835e-10, 2.7611959940720965e-10, 2.786487707240326e-10, 2.8118254946640775e-10, 2.8372118543451563e-10, 2.8626484516180994e-10, 2.8881380620404684e-10, 2.9136826285025563e-10, 2.9392840938946563e-10, 2.96494523377433e-10, 2.990667713476114e-10, 3.016454031001814e-10, 3.042306406797479e-10, 3.068226783753403e-10, 3.09421765987139e-10, 3.12028125559749e-10, 3.1464195138219964e-10, 3.17263521010247e-10, 3.1989300097734485e-10, 3.225306410836737e-10, 3.2517669112941405e-10, 3.2783134540359526e-10, 3.3049485370639786e-10, 3.3316743808242677e-10, 3.3584937608743815e-10, 3.385408342548857e-10, 3.4124211789610115e-10, 3.4395342130011386e-10, 3.4667499426710435e-10, 3.494071143528288e-10, 3.521500313574677e-10, 3.54903967325626e-10, 3.576691720574843e-10, 3.6044595086437425e-10, 3.632345535464765e-10, 3.660352021483959e-10, 3.688482297370399e-10, 3.716738583570134e-10, 3.7451239331964814e-10, 3.773641121807003e-10, 3.802292924959261e-10, 3.831082673322328e-10, 3.8600128648980103e-10, 3.8890865527996255e-10, 3.9183070676962473e-10, 3.9476774627011935e-10, 3.977200790927782e-10, 4.006880383045086e-10, 4.0367195697221803e-10, 4.066721681628138e-10, 4.0968900494320337e-10, 4.127228558914453e-10, 4.15774054074447e-10, 4.188429603146915e-10, 4.2192993543466173e-10, 4.25035395767992e-10, 4.2815970213716525e-10, 4.313032986313914e-10, 4.3446651831757777e-10, 4.376498607960855e-10, 4.408536868893975e-10, 4.4407846844229937e-10, 4.4732464954400086e-10, 4.5059267428371186e-10, 4.538830145062178e-10, 4.5719619756745544e-10, 4.605326675566346e-10, 4.638929240741163e-10, 4.672775499869886e-10, 4.706869893844612e-10, 4.74121908400349e-10, 4.775827511238617e-10, 4.810701836888143e-10, 4.845848167178701e-10, 4.881271498113904e-10, 4.916979601254923e-10, 4.952977472605369e-10, 4.989272883726414e-10, 5.025872495956207e-10, 5.062783525744408e-10, 5.100013189540675e-10, 5.13756870379467e-10, 5.175458395179078e-10, 5.21369003525507e-10, 5.252272505806843e-10, 5.29121357839557e-10, 5.330522134805449e-10, 5.3702081670437e-10, 5.41028055689452e-10, 5.450749851476644e-10, 5.491624932574268e-10, 5.532918012640664e-10, 5.574638528571541e-10, 5.616799247931681e-10, 5.659410717839819e-10, 5.702485705860738e-10, 5.746036979559221e-10, 5.790077306500052e-10, 5.83462111958255e-10, 5.879682296594524e-10, 5.925275825546805e-10, 5.971417249561739e-10, 6.01812211176167e-10, 6.065408175714992e-10, 6.113292094767075e-10, 6.16179329782085e-10, 6.21092954844471e-10, 6.260721940876124e-10, 6.311191569352559e-10, 6.362359528111483e-10, 6.414249686947926e-10, 6.466885360545405e-10, 6.520292639144998e-10, 6.574497612987784e-10, 6.629528592760892e-10, 6.685415554485985e-10, 6.742187919073217e-10, 6.799880103436351e-10, 6.858525969377638e-10, 6.918161599145378e-10, 6.978825850545434e-10, 7.040559801829716e-10, 7.103406751696184e-10, 7.167412219288849e-10, 7.232625609532306e-10, 7.2990985477972e-10, 7.366885990123251e-10, 7.436047333442275e-10, 7.506645305355164e-10, 7.57874762946642e-10, 7.652426470272644e-10, 7.727759543385559e-10, 7.804830115532013e-10, 7.883728114777e-10, 7.964550685635174e-10, 8.047402189070851e-10, 8.132396422944055e-10, 8.219657177122031e-10, 8.309318788590758e-10, 8.401527806789488e-10, 8.496445214056791e-10, 8.594246980742071e-10, 8.695127395874636e-10, 8.799300732498239e-10, 8.90700457834015e-10, 9.01850316648023e-10, 9.134091816243028e-10, 9.254100818978372e-10, 9.37890431984556e-10, 9.508922538259412e-10, 9.64463842123564e-10, 9.78660263939446e-10, 9.935448019859905e-10, 1.0091912860943353e-09, 1.0256859805934937e-09, 1.0431305819125214e-09, 1.0616465484503124e-09, 1.0813799855569073e-09, 1.1025096391392708e-09, 1.1252564435793033e-09, 1.149898620766976e-09, 1.176793218427008e-09, 1.2064089727203964e-09, 1.2393785997488749e-09, 1.2765849488616254e-09, 1.319313880365769e-09, 1.36954347862428e-09, 1.4305497897382224e-09, 1.5083649884672923e-09, 1.6160853766322703e-09, 1.7921247819074893e-09]);
+		fe = $toNativeArray($kindFloat32, [1, 0.9381436705589294, 0.900469958782196, 0.8717043399810791, 0.847785472869873, 0.8269932866096497, 0.8084216713905334, 0.7915276288986206, 0.7759568691253662, 0.7614634037017822, 0.7478685975074768, 0.7350381016731262, 0.7228676676750183, 0.7112747430801392, 0.7001926302909851, 0.6895664930343628, 0.6793505549430847, 0.669506311416626, 0.6600008606910706, 0.6508058309555054, 0.6418967247009277, 0.633251965045929, 0.62485271692276, 0.6166821718215942, 0.608725368976593, 0.6009689569473267, 0.5934008955955505, 0.5860103368759155, 0.5787873864173889, 0.5717230439186096, 0.5648092031478882, 0.5580382943153381, 0.5514034032821655, 0.5448982119560242, 0.5385168790817261, 0.5322538614273071, 0.526104211807251, 0.5200631618499756, 0.5141264200210571, 0.5082897543907166, 0.5025495290756226, 0.4969019889831543, 0.4913438558578491, 0.4858720004558563, 0.48048335313796997, 0.4751752018928528, 0.4699448347091675, 0.4647897481918335, 0.4597076177597046, 0.4546961486339569, 0.4497532546520233, 0.44487687945365906, 0.4400651156902313, 0.4353161156177521, 0.4306281507015228, 0.42599955201148987, 0.42142874002456665, 0.4169141948223114, 0.4124544560909271, 0.40804818272590637, 0.4036940038204193, 0.39939069747924805, 0.3951369822025299, 0.39093172550201416, 0.38677382469177246, 0.38266217708587646, 0.378595769405365, 0.37457355856895447, 0.37059465050697327, 0.366658091545105, 0.362762987613678, 0.358908474445343, 0.35509374737739563, 0.35131800174713135, 0.3475804924964905, 0.34388044476509094, 0.34021714329719543, 0.33658990263938904, 0.3329980671405792, 0.3294409513473511, 0.32591795921325684, 0.32242849469184875, 0.3189719021320343, 0.3155476748943329, 0.31215524673461914, 0.3087940812110901, 0.30546361207962036, 0.30216339230537415, 0.29889291524887085, 0.29565170407295227, 0.2924392819404602, 0.2892552316188812, 0.28609907627105713, 0.2829704284667969, 0.27986884117126465, 0.2767939269542694, 0.2737452983856201, 0.2707225978374481, 0.26772540807724, 0.26475343108177185, 0.2618062496185303, 0.258883535861969, 0.2559850215911865, 0.25311028957366943, 0.25025907158851624, 0.24743106961250305, 0.2446259707212448, 0.24184346199035645, 0.23908329010009766, 0.23634515702724457, 0.2336287796497345, 0.23093391954898834, 0.22826029360294342, 0.22560766339302063, 0.22297576069831848, 0.22036437690258026, 0.21777324378490448, 0.21520215272903442, 0.212650865316391, 0.21011915802955627, 0.20760682225227356, 0.20511364936828613, 0.20263944566249847, 0.20018397271633148, 0.19774706661701202, 0.1953285187482834, 0.19292815029621124, 0.19054576754570007, 0.18818120658397675, 0.18583425879478455, 0.18350479006767273, 0.18119260668754578, 0.17889754474163055, 0.17661945521831512, 0.17435817420482635, 0.1721135377883911, 0.16988539695739746, 0.16767361760139465, 0.16547803580760956, 0.16329853236675262, 0.16113494336605072, 0.1589871346950531, 0.15685498714447021, 0.15473836660385132, 0.15263713896274567, 0.1505511850118637, 0.1484803706407547, 0.14642459154129028, 0.1443837285041809, 0.14235764741897583, 0.1403462439775467, 0.13834942877292633, 0.136367067694664, 0.13439907133579254, 0.1324453204870224, 0.1305057406425476, 0.12858019769191742, 0.12666863203048706, 0.12477091699838638, 0.12288697808980942, 0.1210167184472084, 0.11916005611419678, 0.11731690168380737, 0.11548716574907303, 0.11367076635360718, 0.11186762899160385, 0.11007767915725708, 0.1083008274435997, 0.10653700679540634, 0.10478614270687103, 0.1030481606721878, 0.10132300108671188, 0.0996105819940567, 0.09791085124015808, 0.09622374176979065, 0.09454918652772903, 0.09288713335990906, 0.09123751521110535, 0.08960027992725372, 0.08797537535429001, 0.08636274188756943, 0.0847623273730278, 0.08317409455776215, 0.08159798383712769, 0.08003395050764084, 0.07848194986581802, 0.07694194465875626, 0.07541389018297195, 0.07389774918556213, 0.07239348441362381, 0.070901058614254, 0.06942043453454971, 0.06795158982276917, 0.06649449467658997, 0.06504911929368973, 0.06361543387174606, 0.06219341605901718, 0.06078304722905159, 0.0593843050301075, 0.05799717456102371, 0.05662164092063904, 0.05525768920779228, 0.05390531197190285, 0.05256449431180954, 0.05123523622751236, 0.04991753399372101, 0.04861138388514519, 0.047316793352365494, 0.04603376239538193, 0.044762298464775085, 0.04350241273641586, 0.04225412383675575, 0.04101744294166565, 0.039792392402887344, 0.03857899457216263, 0.03737728297710419, 0.03618728369474411, 0.03500903770327568, 0.03384258225560188, 0.0326879620552063, 0.031545232981443405, 0.030414443463087082, 0.0292956605553627, 0.028188949450850487, 0.027094384655356407, 0.02601204626262188, 0.024942025542259216, 0.023884421214461327, 0.022839335724711418, 0.021806888282299042, 0.020787203684449196, 0.019780423492193222, 0.018786700442433357, 0.017806200310587883, 0.016839107498526573, 0.015885621309280396, 0.014945968054234982, 0.01402039173990488, 0.013109165243804455, 0.012212592177093029, 0.011331013403832912, 0.010464809834957123, 0.009614413604140282, 0.008780314587056637, 0.007963077165186405, 0.007163353264331818, 0.0063819061033427715, 0.005619642324745655, 0.004877655766904354, 0.004157294984906912, 0.003460264764726162, 0.0027887988835573196, 0.0021459676790982485, 0.001536299823783338, 0.0009672692976891994, 0.0004541343660093844]);
+		kn = $toNativeArray($kindUint32, [1991057938, 0, 1611602771, 1826899878, 1918584482, 1969227037, 2001281515, 2023368125, 2039498179, 2051788381, 2061460127, 2069267110, 2075699398, 2081089314, 2085670119, 2089610331, 2093034710, 2096037586, 2098691595, 2101053571, 2103168620, 2105072996, 2106796166, 2108362327, 2109791536, 2111100552, 2112303493, 2113412330, 2114437283, 2115387130, 2116269447, 2117090813, 2117856962, 2118572919, 2119243101, 2119871411, 2120461303, 2121015852, 2121537798, 2122029592, 2122493434, 2122931299, 2123344971, 2123736059, 2124106020, 2124456175, 2124787725, 2125101763, 2125399283, 2125681194, 2125948325, 2126201433, 2126441213, 2126668298, 2126883268, 2127086657, 2127278949, 2127460589, 2127631985, 2127793506, 2127945490, 2128088244, 2128222044, 2128347141, 2128463758, 2128572095, 2128672327, 2128764606, 2128849065, 2128925811, 2128994934, 2129056501, 2129110560, 2129157136, 2129196237, 2129227847, 2129251929, 2129268426, 2129277255, 2129278312, 2129271467, 2129256561, 2129233410, 2129201800, 2129161480, 2129112170, 2129053545, 2128985244, 2128906855, 2128817916, 2128717911, 2128606255, 2128482298, 2128345305, 2128194452, 2128028813, 2127847342, 2127648860, 2127432031, 2127195339, 2126937058, 2126655214, 2126347546, 2126011445, 2125643893, 2125241376, 2124799783, 2124314271, 2123779094, 2123187386, 2122530867, 2121799464, 2120980787, 2120059418, 2119015917, 2117825402, 2116455471, 2114863093, 2112989789, 2110753906, 2108037662, 2104664315, 2100355223, 2094642347, 2086670106, 2074676188, 2054300022, 2010539237]);
+		wn = $toNativeArray($kindFloat32, [1.7290404663583558e-09, 1.2680928529462676e-10, 1.689751810696194e-10, 1.9862687883343e-10, 2.223243117382978e-10, 2.4244936613904144e-10, 2.601613091623989e-10, 2.761198769629658e-10, 2.9073962681813725e-10, 3.042996965518796e-10, 3.169979556627567e-10, 3.289802041894774e-10, 3.4035738116777736e-10, 3.5121602848242617e-10, 3.61625090983253e-10, 3.7164057942185025e-10, 3.813085680537398e-10, 3.906675816178762e-10, 3.997501218933053e-10, 4.0858399996679395e-10, 4.1719308563337165e-10, 4.255982233303257e-10, 4.3381759295968436e-10, 4.4186720948857783e-10, 4.497613115272969e-10, 4.57512583373898e-10, 4.6513240481438345e-10, 4.726310454117311e-10, 4.800177477726209e-10, 4.873009773476156e-10, 4.944885056978876e-10, 5.015873272284921e-10, 5.086040477664255e-10, 5.155446070048697e-10, 5.224146670812502e-10, 5.292193350214802e-10, 5.359634958068682e-10, 5.426517013518151e-10, 5.492881705038144e-10, 5.558769555769061e-10, 5.624218868405251e-10, 5.689264614971989e-10, 5.75394121238304e-10, 5.818281967329142e-10, 5.882316855831959e-10, 5.946076964136182e-10, 6.009590047817426e-10, 6.072883862451306e-10, 6.135985053390414e-10, 6.19892026598734e-10, 6.261713370037114e-10, 6.324390455780815e-10, 6.386973727678935e-10, 6.449488165749528e-10, 6.511955974453087e-10, 6.574400468473129e-10, 6.636843297158634e-10, 6.699307220081607e-10, 6.761814441702541e-10, 6.824387166481927e-10, 6.887046488657234e-10, 6.949815167800466e-10, 7.012714853260604e-10, 7.075767749498141e-10, 7.13899661608508e-10, 7.202424212593428e-10, 7.266072743483676e-10, 7.329966078550854e-10, 7.394128087589991e-10, 7.458582640396116e-10, 7.523354716987285e-10, 7.588469852493063e-10, 7.653954137154528e-10, 7.719834771435785e-10, 7.786139510912449e-10, 7.852897221383159e-10, 7.920137878869582e-10, 7.987892014504894e-10, 8.056192379868321e-10, 8.125072836762115e-10, 8.194568912323064e-10, 8.264716688799467e-10, 8.3355555791087e-10, 8.407127216614185e-10, 8.479473234679347e-10, 8.552640262671218e-10, 8.626675485068347e-10, 8.701631637464402e-10, 8.777562010564566e-10, 8.854524335966119e-10, 8.932581896381464e-10, 9.011799639857543e-10, 9.092249730890956e-10, 9.174008219758889e-10, 9.25715837318819e-10, 9.341788453909317e-10, 9.42799727177146e-10, 9.515889187738935e-10, 9.605578554783278e-10, 9.697193048552322e-10, 9.790869226478094e-10, 9.886760299337993e-10, 9.985036131254788e-10, 1.008588212947359e-09, 1.0189509236369076e-09, 1.0296150598776421e-09, 1.040606933955246e-09, 1.0519566329136865e-09, 1.0636980185552147e-09, 1.0758701707302976e-09, 1.0885182755160372e-09, 1.101694735439196e-09, 1.115461056855338e-09, 1.1298901814171813e-09, 1.1450695946990663e-09, 1.1611052119775422e-09, 1.178127595480305e-09, 1.1962995039027646e-09, 1.2158286599728285e-09, 1.2369856250415978e-09, 1.2601323318151003e-09, 1.2857697129220469e-09, 1.3146201904845611e-09, 1.3477839955200466e-09, 1.3870635751089821e-09, 1.43574030442295e-09, 1.5008658760251592e-09, 1.6030947680434338e-09]);
+		fn = $toNativeArray($kindFloat32, [1, 0.963599681854248, 0.9362826943397522, 0.9130436182022095, 0.8922816514968872, 0.8732430338859558, 0.8555005788803101, 0.8387836217880249, 0.8229072093963623, 0.8077383041381836, 0.7931770086288452, 0.7791460752487183, 0.7655841708183289, 0.7524415850639343, 0.7396772503852844, 0.7272568941116333, 0.7151514887809753, 0.7033361196517944, 0.6917891502380371, 0.6804918646812439, 0.6694276928901672, 0.6585819721221924, 0.6479418277740479, 0.6374954581260681, 0.6272324919700623, 0.6171433925628662, 0.6072195172309875, 0.5974531769752502, 0.5878370404243469, 0.5783646702766418, 0.5690299868583679, 0.5598273873329163, 0.550751805305481, 0.5417983531951904, 0.5329626798629761, 0.5242405533790588, 0.5156282186508179, 0.5071220397949219, 0.49871864914894104, 0.4904148280620575, 0.48220765590667725, 0.47409430146217346, 0.466072142124176, 0.45813870429992676, 0.45029163360595703, 0.44252872467041016, 0.4348478317260742, 0.42724698781967163, 0.41972434520721436, 0.41227802634239197, 0.40490642189979553, 0.39760786294937134, 0.3903807997703552, 0.3832238018512726, 0.3761354684829712, 0.3691144585609436, 0.36215949058532715, 0.3552693724632263, 0.3484429717063904, 0.3416791558265686, 0.33497685194015503, 0.32833510637283325, 0.3217529058456421, 0.3152293860912323, 0.30876362323760986, 0.3023548424243927, 0.2960021495819092, 0.2897048592567444, 0.28346219658851624, 0.2772735059261322, 0.271138072013855, 0.2650552988052368, 0.25902456045150757, 0.25304529070854187, 0.24711695313453674, 0.24123899638652802, 0.23541094362735748, 0.22963231801986694, 0.22390270233154297, 0.21822164952754974, 0.21258877217769623, 0.20700371265411377, 0.20146611332893372, 0.1959756463766098, 0.19053204357624054, 0.18513499200344086, 0.17978426814079285, 0.1744796335697174, 0.16922089457511902, 0.16400785744190216, 0.1588403731584549, 0.15371830761432648, 0.14864157140254974, 0.14361007511615753, 0.13862377405166626, 0.13368265330791473, 0.12878671288490295, 0.12393598258495331, 0.11913054436445236, 0.11437050998210907, 0.10965602099895477, 0.1049872562289238, 0.10036443918943405, 0.09578784555196762, 0.09125780314207077, 0.08677466958761215, 0.08233889937400818, 0.07795098423957825, 0.07361150532960892, 0.06932111829519272, 0.06508058309555054, 0.06089077144861221, 0.05675266310572624, 0.05266740173101425, 0.048636294901371, 0.044660862535238266, 0.040742866694927216, 0.03688438981771469, 0.03308788686990738, 0.029356317594647408, 0.025693291798233986, 0.02210330404341221, 0.018592102453112602, 0.015167297795414925, 0.011839478276669979, 0.0086244847625494, 0.005548994988203049, 0.0026696291752159595]);
+		rng_cooked = $toNativeArray($kindInt64, [new $Int64(1173834291, 3952672746), new $Int64(1081821761, 3130416987), new $Int64(324977939, 3414273807), new $Int64(1241840476, 2806224363), new $Int64(669549340, 1997590414), new $Int64(2103305448, 2402795971), new $Int64(1663160183, 1140819369), new $Int64(1120601685, 1788868961), new $Int64(1848035537, 1089001426), new $Int64(1235702047, 873593504), new $Int64(1911387977, 581324885), new $Int64(492609478, 1609182556), new $Int64(1069394745, 1241596776), new $Int64(1895445337, 1771189259), new $Int64(772864846, 3467012610), new $Int64(2006957225, 2344407434), new $Int64(402115761, 782467244), new $Int64(26335124, 3404933915), new $Int64(1063924276, 618867887), new $Int64(1178782866, 520164395), new $Int64(555910815, 1341358184), new $Int64(632398609, 665794848), new $Int64(1527227641, 3183648150), new $Int64(1781176124, 696329606), new $Int64(1789146075, 4151988961), new $Int64(60039534, 998951326), new $Int64(1535158725, 1364957564), new $Int64(63173359, 4090230633), new $Int64(649454641, 4009697548), new $Int64(248009524, 2569622517), new $Int64(778703922, 3742421481), new $Int64(1038377625, 1506914633), new $Int64(1738099768, 1983412561), new $Int64(236311649, 1436266083), new $Int64(1035966148, 3922894967), new $Int64(810508934, 1792680179), new $Int64(563141142, 1188796351), new $Int64(1349617468, 405968250), new $Int64(1044074554, 433754187), new $Int64(870549669, 4073162024), new $Int64(1053232044, 433121399), new $Int64(2451824, 4162580594), new $Int64(2010221076, 4132415622), new $Int64(611252600, 3033822028), new $Int64(2016407895, 824682382), new $Int64(2366218, 3583765414), new $Int64(1522878809, 535386927), new $Int64(1637219058, 2286693689), new $Int64(1453075389, 2968466525), new $Int64(193683513, 1351410206), new $Int64(1863677552, 1412813499), new $Int64(492736522, 4126267639), new $Int64(512765208, 2105529399), new $Int64(2132966268, 2413882233), new $Int64(947457634, 32226200), new $Int64(1149341356, 2032329073), new $Int64(106485445, 1356518208), new $Int64(79673492, 3430061722), new $Int64(663048513, 3820169661), new $Int64(481498454, 2981816134), new $Int64(1017155588, 4184371017), new $Int64(206574701, 2119206761), new $Int64(1295374591, 2472200560), new $Int64(1587026100, 2853524696), new $Int64(1307803389, 1681119904), new $Int64(1972496813, 95608918), new $Int64(392686347, 3690479145), new $Int64(941912722, 1397922290), new $Int64(988169623, 1516129515), new $Int64(1827305493, 1547420459), new $Int64(1311333971, 1470949486), new $Int64(194013850, 1336785672), new $Int64(2102397034, 4131677129), new $Int64(755205548, 4246329084), new $Int64(1004983461, 3788585631), new $Int64(2081005363, 3080389532), new $Int64(1501045284, 2215402037), new $Int64(391002300, 1171593935), new $Int64(1408774047, 1423855166), new $Int64(1628305930, 2276716302), new $Int64(1779030508, 2068027241), new $Int64(1369359303, 3427553297), new $Int64(189241615, 3289637845), new $Int64(1057480830, 3486407650), new $Int64(634572984, 3071877822), new $Int64(1159653919, 3363620705), new $Int64(1213226718, 4159821533), new $Int64(2070861710, 1894661), new $Int64(1472989750, 1156868282), new $Int64(348271067, 776219088), new $Int64(1646054810, 2425634259), new $Int64(1716021749, 680510161), new $Int64(1573220192, 1310101429), new $Int64(1095885995, 2964454134), new $Int64(1821788136, 3467098407), new $Int64(1990672920, 2109628894), new $Int64(7834944, 1232604732), new $Int64(309412934, 3261916179), new $Int64(1699175360, 434597899), new $Int64(235436061, 1624796439), new $Int64(521080809, 3589632480), new $Int64(1198416575, 864579159), new $Int64(208735487, 1380889830), new $Int64(619206309, 2654509477), new $Int64(1419738251, 1468209306), new $Int64(403198876, 100794388), new $Int64(956062190, 2991674471), new $Int64(1938816907, 2224662036), new $Int64(1973824487, 977097250), new $Int64(1351320195, 726419512), new $Int64(1964023751, 1747974366), new $Int64(1394388465, 1556430604), new $Int64(1097991433, 1080776742), new $Int64(1761636690, 280794874), new $Int64(117767733, 919835643), new $Int64(1180474222, 3434019658), new $Int64(196069168, 2461941785), new $Int64(133215641, 3615001066), new $Int64(417204809, 3103414427), new $Int64(790056561, 3380809712), new $Int64(879802240, 2724693469), new $Int64(547796833, 598827710), new $Int64(300924196, 3452273442), new $Int64(2071705424, 649274915), new $Int64(1346182319, 2585724112), new $Int64(636549385, 3165579553), new $Int64(1185578221, 2635894283), new $Int64(2094573470, 2053289721), new $Int64(985976581, 3169337108), new $Int64(1170569632, 144717764), new $Int64(1079216270, 1383666384), new $Int64(2022678706, 681540375), new $Int64(1375448925, 537050586), new $Int64(182715304, 315246468), new $Int64(226402871, 849323088), new $Int64(1262421183, 45543944), new $Int64(1201038398, 2319052083), new $Int64(2106775454, 3613090841), new $Int64(560472520, 2992171180), new $Int64(1765620479, 2068244785), new $Int64(917538188, 4239862634), new $Int64(777927839, 3892253031), new $Int64(720683925, 958186149), new $Int64(1724185863, 1877702262), new $Int64(1357886971, 837674867), new $Int64(1837048883, 1507589294), new $Int64(1905518400, 873336795), new $Int64(267722611, 2764496274), new $Int64(341003118, 4196182374), new $Int64(1080717893, 550964545), new $Int64(818747069, 420611474), new $Int64(222653272, 204265180), new $Int64(1549974541, 1787046383), new $Int64(1215581865, 3102292318), new $Int64(418321538, 1552199393), new $Int64(1243493047, 980542004), new $Int64(267284263, 3293718720), new $Int64(1179528763, 3771917473), new $Int64(599484404, 2195808264), new $Int64(252818753, 3894702887), new $Int64(780007692, 2099949527), new $Int64(1424094358, 338442522), new $Int64(490737398, 637158004), new $Int64(419862118, 281976339), new $Int64(574970164, 3619802330), new $Int64(1715552825, 3084554784), new $Int64(882872465, 4129772886), new $Int64(43084605, 1680378557), new $Int64(525521057, 3339087776), new $Int64(1680500332, 4220317857), new $Int64(211654685, 2959322499), new $Int64(1675600481, 1488354890), new $Int64(1312620086, 3958162143), new $Int64(920972075, 2773705983), new $Int64(1876039582, 225908689), new $Int64(963748535, 908216283), new $Int64(1541787429, 3574646075), new $Int64(319760557, 1936937569), new $Int64(1519770881, 75492235), new $Int64(816689472, 1935193178), new $Int64(2142521206, 2018250883), new $Int64(455141620, 3943126022), new $Int64(1546084160, 3066544345), new $Int64(1932392669, 2793082663), new $Int64(908474287, 3297036421), new $Int64(1640597065, 2206987825), new $Int64(1594236910, 807894872), new $Int64(366158341, 766252117), new $Int64(2060649606, 3833114345), new $Int64(845619743, 1255067973), new $Int64(1201145605, 741697208), new $Int64(671241040, 2810093753), new $Int64(1109032642, 4229340371), new $Int64(1462188720, 1361684224), new $Int64(988084219, 1906263026), new $Int64(475781207, 3904421704), new $Int64(1523946520, 1769075545), new $Int64(1062308525, 2621599764), new $Int64(1279509432, 3431891480), new $Int64(404732502, 1871896503), new $Int64(128756421, 1412808876), new $Int64(1605404688, 952876175), new $Int64(1917039957, 1824438899), new $Int64(1662295856, 1005035476), new $Int64(1990909507, 527508597), new $Int64(1288873303, 3066806859), new $Int64(565995893, 3244940914), new $Int64(1257737460, 209092916), new $Int64(1899814242, 1242699167), new $Int64(1433653252, 456723774), new $Int64(1776978905, 1001252870), new $Int64(1468772157, 2026725874), new $Int64(857254202, 2137562569), new $Int64(765939740, 3183366709), new $Int64(1533887628, 2612072960), new $Int64(56977098, 1727148468), new $Int64(949899753, 3803658212), new $Int64(1883670356, 479946959), new $Int64(685713571, 1562982345), new $Int64(201241205, 1766109365), new $Int64(700596547, 3257093788), new $Int64(1962768719, 2365720207), new $Int64(93384808, 3742754173), new $Int64(1689098413, 2878193673), new $Int64(1096135042, 2174002182), new $Int64(1313222695, 3573511231), new $Int64(1392911121, 1760299077), new $Int64(771856457, 2260779833), new $Int64(1281464374, 1452805722), new $Int64(917811730, 2940011802), new $Int64(1890251082, 1886183802), new $Int64(893897673, 2514369088), new $Int64(1644345561, 3924317791), new $Int64(172616216, 500935732), new $Int64(1403501753, 676580929), new $Int64(581571365, 1184984890), new $Int64(1455515235, 1271474274), new $Int64(318728910, 3163791473), new $Int64(2051027584, 2842487377), new $Int64(1511537551, 2170968612), new $Int64(573262976, 3535856740), new $Int64(94256461, 1488599718), new $Int64(966951817, 3408913763), new $Int64(60951736, 2501050084), new $Int64(1272353200, 1639124157), new $Int64(138001144, 4088176393), new $Int64(1574896563, 3989947576), new $Int64(1982239940, 3414355209), new $Int64(1355154361, 2275136352), new $Int64(89709303, 2151835223), new $Int64(1216338715, 1654534827), new $Int64(1467562197, 377892833), new $Int64(1664767638, 660204544), new $Int64(85706799, 390828249), new $Int64(725310955, 3402783878), new $Int64(678849488, 3717936603), new $Int64(1113532086, 2211058823), new $Int64(1564224320, 2692150867), new $Int64(1952770442, 1928910388), new $Int64(788716862, 3931011137), new $Int64(1083670504, 1112701047), new $Int64(2079333076, 2452299106), new $Int64(1251318826, 2337204777), new $Int64(1774877857, 273889282), new $Int64(1798719843, 1462008793), new $Int64(2138834788, 1554494002), new $Int64(952516517, 182675323), new $Int64(548928884, 1882802136), new $Int64(589279648, 3700220025), new $Int64(381039426, 3083431543), new $Int64(1295624457, 3622207527), new $Int64(338126939, 432729309), new $Int64(480013522, 2391914317), new $Int64(297925497, 235747924), new $Int64(2120733629, 3088823825), new $Int64(1402403853, 2314658321), new $Int64(1165929723, 2957634338), new $Int64(501323675, 4117056981), new $Int64(1564699815, 1482500298), new $Int64(1406657158, 840489337), new $Int64(799522364, 3483178565), new $Int64(532129761, 2074004656), new $Int64(724246478, 3643392642), new $Int64(1482330167, 1583624461), new $Int64(1261660694, 287473085), new $Int64(1667835381, 3136843981), new $Int64(1138806821, 1266970974), new $Int64(135185781, 1998688839), new $Int64(392094735, 1492900209), new $Int64(1031326774, 1538112737), new $Int64(76914806, 2207265429), new $Int64(260686035, 963263315), new $Int64(1671145500, 2295892134), new $Int64(1068469660, 2002560897), new $Int64(1791233343, 1369254035), new $Int64(33436120, 3353312708), new $Int64(57507843, 947771099), new $Int64(201728503, 1747061399), new $Int64(1507240140, 2047354631), new $Int64(720000810, 4165367136), new $Int64(479265078, 3388864963), new $Int64(1195302398, 286492130), new $Int64(2045622690, 2795735007), new $Int64(1431753082, 3703961339), new $Int64(1999047161, 1797825479), new $Int64(1429039600, 1116589674), new $Int64(482063550, 2593309206), new $Int64(1329049334, 3404995677), new $Int64(1396904208, 3453462936), new $Int64(1014767077, 3016498634), new $Int64(75698599, 1650371545), new $Int64(1592007860, 212344364), new $Int64(1127766888, 3843932156), new $Int64(1399463792, 3573129983), new $Int64(1256901817, 665897820), new $Int64(1071492673, 1675628772), new $Int64(243225682, 2831752928), new $Int64(2120298836, 1486294219), new $Int64(193076235, 268782709), new $Int64(1145360145, 4186179080), new $Int64(624342951, 1613720397), new $Int64(857179861, 2703686015), new $Int64(1235864944, 2205342611), new $Int64(1474779655, 1411666394), new $Int64(619028749, 677744900), new $Int64(270855115, 4172867247), new $Int64(135494707, 2163418403), new $Int64(849547544, 2841526879), new $Int64(1029966689, 1082141470), new $Int64(377371856, 4046134367), new $Int64(51415528, 2142943655), new $Int64(1897659315, 3124627521), new $Int64(998228909, 219992939), new $Int64(1068692697, 1756846531), new $Int64(1283749206, 1225118210), new $Int64(1621625642, 1647770243), new $Int64(111523943, 444807907), new $Int64(2036369448, 3952076173), new $Int64(53201823, 1461839639), new $Int64(315761893, 3699250910), new $Int64(702974850, 1373688981), new $Int64(734022261, 147523747), new $Int64(100152742, 1211276581), new $Int64(1294440951, 2548832680), new $Int64(1144696256, 1995631888), new $Int64(154500578, 2011457303), new $Int64(796460974, 3057425772), new $Int64(667839456, 81484597), new $Int64(465502760, 3646681560), new $Int64(775020923, 635548515), new $Int64(602489502, 2508044581), new $Int64(353263531, 1014917157), new $Int64(719992433, 3214891315), new $Int64(852684611, 959582252), new $Int64(226415134, 3347040449), new $Int64(1784615552, 4102971975), new $Int64(397887437, 4078022210), new $Int64(1610679822, 2851767182), new $Int64(749162636, 1540160644), new $Int64(598384772, 1057290595), new $Int64(2034890660, 3907769253), new $Int64(579300318, 4248952684), new $Int64(1092907599, 132554364), new $Int64(1061621234, 1029351092), new $Int64(697840928, 2583007416), new $Int64(298619124, 1486185789), new $Int64(55905697, 2871589073), new $Int64(2017643612, 723203291), new $Int64(146250550, 2494333952), new $Int64(1064490251, 2230939180), new $Int64(342915576, 3943232912), new $Int64(1768732449, 2181367922), new $Int64(1418222537, 2889274791), new $Int64(1824032949, 2046728161), new $Int64(1653899792, 1376052477), new $Int64(1022327048, 381236993), new $Int64(1034385958, 3188942166), new $Int64(2073003539, 350070824), new $Int64(144881592, 61758415), new $Int64(1405659422, 3492950336), new $Int64(117440928, 3093818430), new $Int64(1693893113, 2962480613), new $Int64(235432940, 3154871160), new $Int64(511005079, 3228564679), new $Int64(610731502, 888276216), new $Int64(1200780674, 3574998604), new $Int64(870415268, 1967526716), new $Int64(591335707, 1554691298), new $Int64(574459414, 339944798), new $Int64(1223764147, 1154515356), new $Int64(1825645307, 967516237), new $Int64(1546195135, 596588202), new $Int64(279882768, 3764362170), new $Int64(492091056, 266611402), new $Int64(1754227768, 2047856075), new $Int64(1146757215, 21444105), new $Int64(1198058894, 3065563181), new $Int64(1915064845, 1140663212), new $Int64(633187674, 2323741028), new $Int64(2126290159, 3103873707), new $Int64(1008658319, 2766828349), new $Int64(1661896145, 1970872996), new $Int64(1628585413, 3766615585), new $Int64(1552335120, 2036813414), new $Int64(152606527, 3105536507), new $Int64(13954645, 3396176938), new $Int64(1426081645, 1377154485), new $Int64(2085644467, 3807014186), new $Int64(543009040, 3710110597), new $Int64(396058129, 916420443), new $Int64(734556788, 2103831255), new $Int64(381322154, 717331943), new $Int64(572884752, 3550505941), new $Int64(45939673, 378749927), new $Int64(149867929, 611017331), new $Int64(592130075, 758907650), new $Int64(1012992349, 154266815), new $Int64(1107028706, 1407468696), new $Int64(469292398, 970098704), new $Int64(1862426162, 1971660656), new $Int64(998365243, 3332747885), new $Int64(1947089649, 1935189867), new $Int64(1510248801, 203520055), new $Int64(842317902, 3916463034), new $Int64(1758884993, 3474113316), new $Int64(1036101639, 316544223), new $Int64(373738757, 1650844677), new $Int64(1240292229, 4267565603), new $Int64(1077208624, 2501167616), new $Int64(626831785, 3929401789), new $Int64(56122796, 337170252), new $Int64(1186981558, 2061966842), new $Int64(1843292800, 2508461464), new $Int64(206012532, 2791377107), new $Int64(1240791848, 1227227588), new $Int64(1813978778, 1709681848), new $Int64(1153692192, 3768820575), new $Int64(1145186199, 2887126398), new $Int64(700372314, 296561685), new $Int64(700300844, 3729960077), new $Int64(575172304, 372833036), new $Int64(2078875613, 2409779288), new $Int64(1829161290, 555274064), new $Int64(1041887929, 4239804901), new $Int64(1839403216, 3723486978), new $Int64(498390553, 2145871984), new $Int64(564717933, 3565480803), new $Int64(578829821, 2197313814), new $Int64(974785092, 3613674566), new $Int64(438638731, 3042093666), new $Int64(2050927384, 3324034321), new $Int64(869420878, 3708873369), new $Int64(946682149, 1698090092), new $Int64(1618900382, 4213940712), new $Int64(304003901, 2087477361), new $Int64(381315848, 2407950639), new $Int64(851258090, 3942568569), new $Int64(923583198, 4088074412), new $Int64(723260036, 2964773675), new $Int64(1473561819, 1539178386), new $Int64(1062961552, 2694849566), new $Int64(460977733, 2120273838), new $Int64(542912908, 2484608657), new $Int64(880846449, 2956190677), new $Int64(1970902366, 4223313749), new $Int64(662161910, 3502682327), new $Int64(705634754, 4133891139), new $Int64(1116124348, 1166449596), new $Int64(1038247601, 3362705993), new $Int64(93734798, 3892921029), new $Int64(1876124043, 786869787), new $Int64(1057490746, 1046342263), new $Int64(242763728, 493777327), new $Int64(1293910447, 3304827646), new $Int64(616460742, 125356352), new $Int64(499300063, 74094113), new $Int64(1351896723, 2500816079), new $Int64(1657235204, 514015239), new $Int64(1377565129, 543520454), new $Int64(107706923, 3614531153), new $Int64(2056746300, 2356753985), new $Int64(1390062617, 2018141668), new $Int64(131272971, 2087974891), new $Int64(644556607, 3166972343), new $Int64(372256200, 1517638666), new $Int64(1212207984, 173466846), new $Int64(1451709187, 4241513471), new $Int64(733932806, 2783126920), new $Int64(1972004134, 4167264826), new $Int64(29260506, 3907395640), new $Int64(1236582087, 1539634186), new $Int64(1551526350, 178241987), new $Int64(2034206012, 182168164), new $Int64(1044953189, 2386154934), new $Int64(1379126408, 4077374341), new $Int64(32803926, 1732699140), new $Int64(1726425903, 1041306002), new $Int64(1860414813, 2068001749), new $Int64(1005320202, 3208962910), new $Int64(844054010, 697710380), new $Int64(638124245, 2228431183), new $Int64(1337169671, 3554678728), new $Int64(1396494601, 173470263), new $Int64(2061597383, 3848297795), new $Int64(1220546671, 246236185), new $Int64(163293187, 2066374846), new $Int64(1771673660, 312890749), new $Int64(703378057, 3573310289), new $Int64(1548631747, 143166754), new $Int64(613554316, 2081511079), new $Int64(1197802104, 486038032), new $Int64(240999859, 2982218564), new $Int64(364901986, 1000939191), new $Int64(1902782651, 2750454885), new $Int64(1475638791, 3375313137), new $Int64(503615608, 881302957), new $Int64(638698903, 2514186393), new $Int64(443860803, 360024739), new $Int64(1399671872, 292500025), new $Int64(1381210821, 2276300752), new $Int64(521803381, 4069087683), new $Int64(208500981, 1637778212), new $Int64(720490469, 1676670893), new $Int64(1067262482, 3855174429), new $Int64(2114075974, 2067248671), new $Int64(2058057389, 2884561259), new $Int64(1341742553, 2456511185), new $Int64(983726246, 561175414), new $Int64(427994085, 432588903), new $Int64(885133709, 4059399550), new $Int64(2054387382, 1075014784), new $Int64(413651020, 2728058415), new $Int64(1839142064, 1299703678), new $Int64(1262333188, 2347583393), new $Int64(1285481956, 2468164145), new $Int64(989129637, 1140014346), new $Int64(2033889184, 1936972070), new $Int64(409904655, 3870530098), new $Int64(1662989391, 1717789158), new $Int64(1914486492, 1153452491), new $Int64(1157059232, 3948827651), new $Int64(790338018, 2101413152), new $Int64(1495744672, 3854091229), new $Int64(83644069, 4215565463), new $Int64(762206335, 1202710438), new $Int64(1582574611, 2072216740), new $Int64(705690639, 2066751068), new $Int64(33900336, 173902580), new $Int64(1405499842, 142459001), new $Int64(172391592, 1889151926), new $Int64(1648540523, 3034199774), new $Int64(1618587731, 516490102), new $Int64(93114264, 3692577783), new $Int64(68662295, 2953948865), new $Int64(1826544975, 4041040923), new $Int64(204965672, 592046130), new $Int64(1441840008, 384297211), new $Int64(95834184, 265863924), new $Int64(2101717619, 1333136237), new $Int64(1499611781, 1406273556), new $Int64(1074670496, 426305476), new $Int64(125704633, 2750898176), new $Int64(488068495, 1633944332), new $Int64(2037723464, 3236349343), new $Int64(444060402, 4013676611), new $Int64(1718532237, 2265047407), new $Int64(1433593806, 875071080), new $Int64(1804436145, 1418843655), new $Int64(2009228711, 451657300), new $Int64(1229446621, 1866374663), new $Int64(1653472867, 1551455622), new $Int64(577191481, 3560962459), new $Int64(1669204077, 3347903778), new $Int64(1849156454, 2675874918), new $Int64(316128071, 2762991672), new $Int64(530492383, 3689068477), new $Int64(844089962, 4071997905), new $Int64(1508155730, 1381702441), new $Int64(2089931018, 2373284878), new $Int64(1283216186, 2143983064), new $Int64(308739063, 1938207195), new $Int64(1754949306, 1188152253), new $Int64(1272345009, 615870490), new $Int64(742653194, 2662252621), new $Int64(1477718295, 3839976789), new $Int64(56149435, 306752547), new $Int64(720795581, 2162363077), new $Int64(2090431015, 2767224719), new $Int64(675859549, 2628837712), new $Int64(1678405918, 2967771969), new $Int64(1694285728, 499792248), new $Int64(403352367, 4285253508), new $Int64(962357072, 2856511070), new $Int64(679471692, 2526409716), new $Int64(353777175, 1240875658), new $Int64(1232590226, 2577342868), new $Int64(1146185433, 4136853496), new $Int64(670368674, 2403540137), new $Int64(1372824515, 1371410668), new $Int64(1970921600, 371758825), new $Int64(1706420536, 1528834084), new $Int64(2075795018, 1504757260), new $Int64(685663576, 699052551), new $Int64(1641940109, 3347789870), new $Int64(1951619734, 3430604759), new $Int64(2119672219, 1935601723), new $Int64(966789690, 834676166)]);
+		globalRand = New(new lockedSource.ptr(new nosync.Mutex.ptr(false), NewSource(new $Int64(0, 1))));
+		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.$init = $init;
+	return $pkg;
+})();
+$packages["main"] = (function() {
+	var $pkg = {}, $init, js, rbush, math, rand, time, Tree, rectT, ptrType, sliceType, funcType, ptrType$1, ptrType$2, sliceType$1, sliceType$2, ptrType$3, funcType$1, ptrType$4, start, leafColor, colors, pad, main, itoa, ftoa, NewTree, genRandomData, consoleTime, consoleTimeEnd;
+	js = $packages["github.com/gopherjs/gopherjs/js"];
+	rbush = $packages["github.com/tidwall/rbush"];
+	math = $packages["math"];
+	rand = $packages["math/rand"];
+	time = $packages["time"];
+	Tree = $pkg.Tree = $newType(0, $kindStruct, "main.Tree", true, "main", true, function(tr_, data_, parent_, canvas_, width_, height_, ratio_, ctx_, rects_, ts_, dirty_, linkover_, Clicked_, showWireframes_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.tr = ptrType$1.nil;
+			this.data = sliceType$1.nil;
+			this.parent = null;
+			this.canvas = null;
+			this.width = 0;
+			this.height = 0;
+			this.ratio = 0;
+			this.ctx = null;
+			this.rects = sliceType$2.nil;
+			this.ts = 0;
+			this.dirty = false;
+			this.linkover = false;
+			this.Clicked = $throwNilPointerError;
+			this.showWireframes = false;
+			return;
+		}
+		this.tr = tr_;
+		this.data = data_;
+		this.parent = parent_;
+		this.canvas = canvas_;
+		this.width = width_;
+		this.height = height_;
+		this.ratio = ratio_;
+		this.ctx = ctx_;
+		this.rects = rects_;
+		this.ts = ts_;
+		this.dirty = dirty_;
+		this.linkover = linkover_;
+		this.Clicked = Clicked_;
+		this.showWireframes = showWireframes_;
+	});
+	rectT = $pkg.rectT = $newType(0, $kindStruct, "main.rectT", true, "main", false, function(color_, stroke_, node_, ts_, dur_, backwards_, loop_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.color = "";
+			this.stroke = 0;
+			this.node = ptrType$2.nil;
+			this.ts = 0;
+			this.dur = 0;
+			this.backwards = false;
+			this.loop = 0;
+			return;
+		}
+		this.color = color_;
+		this.stroke = stroke_;
+		this.node = node_;
+		this.ts = ts_;
+		this.dur = dur_;
+		this.backwards = backwards_;
+		this.loop = loop_;
+	});
+	ptrType = $ptrType(time.Location);
+	sliceType = $sliceType($String);
+	funcType = $funcType([], [], false);
+	ptrType$1 = $ptrType(rbush.RBush);
+	ptrType$2 = $ptrType(rbush.Node);
+	sliceType$1 = $sliceType(ptrType$2);
+	sliceType$2 = $sliceType(rectT);
+	ptrType$3 = $ptrType(js.Object);
+	funcType$1 = $funcType([ptrType$3], [], false);
+	ptrType$4 = $ptrType(Tree);
+>>>>>>> track
 	main = function() {
 		var $ptr, sheet;
 		sheet = $global.document.createElement($externalize("style", $String));
 		sheet.innerHTML = $externalize("html, body { \n\t\t\tpadding:0; margin:0; border:0; width:100%; height:100%; overflow:hidden;\n\t\t}\n\t\thtml{\n\t\t\tbackground: black;\n\t\t}", $String);
 		$global.document.head.appendChild(sheet);
 		$global.document.title = $externalize("uh huh", $String);
+<<<<<<< HEAD
 		$global.addEventListener($externalize("load", $String), $externalize((function() {
 			var $ptr, cover, tree;
 			tree = NewTree($global.document.body);
+=======
+		$global.addEventListener($externalize("load", $String), $externalize((function $b() {
+			var $ptr, _r, cover, tree, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; cover = $f.cover; tree = $f.tree; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			tree = [tree];
+>>>>>>> track
 			cover = $global.document.createElement($externalize("div", $String));
 			cover.style.height = $externalize("100%", $String);
 			cover.style.width = $externalize("100%", $String);
 			cover.style[$externalize("background-image", $String)] = $externalize("radial-gradient(ellipse farthest-corner at 45px 45px , #00FFFF 0%, rgba(0, 0, 255, 0) 50%, #0000FF 95%)", $String);
 			cover.style.opacity = $externalize("0.15", $String);
 			cover.style.position = $externalize("absolute", $String);
+<<<<<<< HEAD
 			$global.addEventListener($externalize("resize", $String), $externalize((function() {
 				var $ptr;
 				tree.layout();
@@ -13754,11 +15526,446 @@ $packages["main"] = (function() {
 	Tree.prototype.layout = function() { return this.$val.layout(); };
 	ptrType$1.methods = [{prop: "layout", name: "layout", pkg: "main", typ: $funcType([], [], false)}];
 	Tree.init("main", [{prop: "tr", name: "tr", exported: false, typ: ptrType, tag: ""}]);
+=======
+			$global.document.body.appendChild(cover);
+			_r = NewTree($global.document.body); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			tree[0] = _r;
+			$global.addEventListener($externalize("resize", $String), $externalize((function(tree) { return function() {
+				var $ptr;
+				tree[0].layout();
+			}; })(tree), funcType));
+			$s = -1; return;
+			return;
+			/* */ } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r = _r; $f.cover = cover; $f.tree = tree; $f.$s = $s; $f.$r = $r; return $f;
+		}), funcType));
+	};
+	itoa = function(i) {
+		var $ptr, i;
+		return $internalize(new ($global.String)(i), $String);
+	};
+	ftoa = function(f) {
+		var $ptr, f;
+		return $internalize(new ($global.String)(f), $String);
+	};
+	NewTree = function(parent) {
+		var $ptr, parent, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; parent = $f.parent; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		t = new Tree.ptr(rbush.New(16), sliceType$1.nil, parent, null, 0, 0, 0, null, sliceType$2.nil, 0, true, false, $throwNilPointerError, false);
+		$r = t.genBulkInsert(7500, 30); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		t.rects = t.buildRects(sliceType$2.nil, t.tr.Data, 0);
+		t.start();
+		$s = -1; return t;
+		return t;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: NewTree }; } $f.$ptr = $ptr; $f.parent = parent; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.NewTree = NewTree;
+	Tree.ptr.prototype.start = function() {
+		var $ptr, _i, _ref, f, raf, s, t, $deferred;
+		/* */ var $err = null; try { $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
+		t = this;
+		raf = "";
+		_ref = new sliceType(["requestAnimationFrame", "webkitRequestAnimationFrame", "mozRequestAnimationFrame"]);
+		_i = 0;
+		while (true) {
+			if (!(_i < _ref.$length)) { break; }
+			s = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			if (!($global[$externalize(s, $String)] === undefined)) {
+				raf = s;
+				break;
+			}
+			_i++;
+		}
+		if (raf === "") {
+			$panic(new $String("requestAnimationFrame is not available"));
+		}
+		$deferred.push([$methodVal(t, "layout"), []]);
+		f = $throwNilPointerError;
+		f = (function $b(timestampJS) {
+			var $ptr, timestampJS, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; timestampJS = $f.timestampJS; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			$global[$externalize(raf, $String)]($externalize(f, funcType$1));
+			$r = t.loop($parseFloat(timestampJS) / 1000); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			$s = -1; return;
+			return;
+			/* */ } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f.timestampJS = timestampJS; $f.$s = $s; $f.$r = $r; return $f;
+		});
+		$global[$externalize(raf, $String)]($externalize(f, funcType$1));
+		/* */ } catch(err) { $err = err; } finally { $callDeferred($deferred, $err); }
+	};
+	Tree.prototype.start = function() { return this.$val.start(); };
+	Tree.ptr.prototype.genBulkInsert = function(K, M) {
+		var $ptr, K, M, _r, data2, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; K = $f.K; M = $f.M; _r = $f._r; data2 = $f.data2; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		t = this;
+		_r = genRandomData(K); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		data2 = _r;
+		consoleTime("bulk-insert " + itoa(K) + " items");
+		$r = t.tr.Load(data2); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		consoleTimeEnd("bulk-insert " + itoa(K) + " items");
+		t.data = $appendSlice(t.data, data2);
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Tree.ptr.prototype.genBulkInsert }; } $f.$ptr = $ptr; $f.K = K; $f.M = M; $f._r = _r; $f.data2 = data2; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Tree.prototype.genBulkInsert = function(K, M) { return this.$val.genBulkInsert(K, M); };
+	genRandomData = function(N) {
+		var $ptr, N, _r, _r$1, _r$2, _r$3, data, h, i, w, x, y, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; N = $f.N; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; data = $f.data; h = $f.h; i = $f.i; w = $f.w; x = $f.x; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		$r = rand.Seed(time.Now().UnixNano()); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		data = sliceType$1.nil;
+		i = 0;
+		/* while (true) { */ case 2:
+			/* if (!(i < N)) { break; } */ if(!(i < N)) { $s = 3; continue; }
+			_r = rand.Float64(); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			w = 1 * _r;
+			_r$1 = rand.Float64(); /* */ $s = 5; case 5: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			h = 1 * _r$1;
+			_r$2 = rand.Float64(); /* */ $s = 6; case 6: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+			x = (1000 - w) * _r$2;
+			_r$3 = rand.Float64(); /* */ $s = 7; case 7: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+			y = (1000 - w) * _r$3;
+			data = $append(data, new rbush.Node.ptr(x, y, x + w, y + h, sliceType$1.nil, 0, false, new $Bool(true)));
+			i = i + (1) >> 0;
+		/* } */ $s = 2; continue; case 3:
+		$s = -1; return data;
+		return data;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: genRandomData }; } $f.$ptr = $ptr; $f.N = N; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f.data = data; $f.h = h; $f.i = i; $f.w = w; $f.x = x; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	consoleTime = function(s) {
+		var $ptr, s;
+		time.Time.copy(start, time.Now());
+	};
+	consoleTimeEnd = function(s) {
+		var $ptr, end, s, x;
+		end = time.Since(start);
+		console.log(s + ": " + itoa(((x = $div64(end, new time.Duration(0, 1000000), false), x.$low + ((x.$high >> 31) * 4294967296)) >> 0)) + "ms");
+	};
+	Tree.ptr.prototype.layout = function() {
+		var $ptr, _tmp, _tmp$1, _tmp$2, height, ratio, t, width;
+		t = this;
+		ratio = $parseFloat($global.devicePixelRatio);
+		width = $parseFloat(t.parent.offsetWidth) * ratio;
+		height = $parseFloat(t.parent.offsetHeight) * ratio;
+		if (!(t.canvas === null) && (t.width === width) && (t.height === height) && (t.ratio === ratio)) {
+			return;
+		}
+		_tmp = width;
+		_tmp$1 = height;
+		_tmp$2 = ratio;
+		t.width = _tmp;
+		t.height = _tmp$1;
+		t.ratio = _tmp$2;
+		if (!(t.canvas === null)) {
+			t.parent.removeChild(t.canvas);
+		}
+		t.canvas = $global.document.createElement($externalize("canvas", $String));
+		t.ctx = t.canvas.getContext($externalize("2d", $String));
+		t.canvas.width = t.width;
+		t.canvas.height = t.height;
+		t.canvas.style.width = $externalize(ftoa(t.width / t.ratio) + "px", $String);
+		t.canvas.style.height = $externalize(ftoa(t.height / t.ratio) + "px", $String);
+		t.canvas.style.position = $externalize("absolute", $String);
+		t.parent.appendChild(t.canvas);
+		t.canvas.addEventListener($externalize("click", $String), $externalize((function $b(ev) {
+			var $ptr, ev, $s, $r;
+			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; ev = $f.ev; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+			/* */ if (t.overLink($parseInt(ev.x) >> 0, $parseInt(ev.y) >> 0)) { $s = 1; continue; }
+			/* */ $s = 2; continue;
+			/* if (t.overLink($parseInt(ev.x) >> 0, $parseInt(ev.y) >> 0)) { */ case 1:
+				$global.location = $externalize("http://github.com/tidwall/rbush", $String);
+				$s = 3; continue;
+			/* } else { */ case 2:
+				/* */ if (!(t.Clicked === $throwNilPointerError)) { $s = 4; continue; }
+				/* */ $s = 5; continue;
+				/* if (!(t.Clicked === $throwNilPointerError)) { */ case 4:
+					$r = t.Clicked(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				/* } */ case 5:
+			/* } */ case 3:
+			$s = -1; return;
+			return;
+			/* */ } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f.ev = ev; $f.$s = $s; $f.$r = $r; return $f;
+		}), funcType$1));
+		t.canvas.addEventListener($externalize("mousemove", $String), $externalize((function(ev) {
+			var $ptr, ev;
+			if (t.overLink($parseInt(ev.x) >> 0, $parseInt(ev.y) >> 0)) {
+				t.canvas.style.cursor = $externalize("pointer", $String);
+				t.linkover = true;
+			} else {
+				t.canvas.style.cursor = $externalize("default", $String);
+				t.linkover = false;
+			}
+		}), funcType$1));
+		t.Clicked = (function() {
+			var $ptr;
+			t.showWireframes = !t.showWireframes;
+		});
+		t.dirty = true;
+	};
+	Tree.prototype.layout = function() { return this.$val.layout(); };
+	Tree.ptr.prototype.overLink = function(x, y) {
+		var $ptr, t, x, y;
+		t = this;
+		return x > ((t.width / t.ratio >> 0) - 320 >> 0) && y > ((t.height / t.ratio >> 0) - 50 >> 0);
+	};
+	Tree.prototype.overLink = function(x, y) { return this.$val.overLink(x, y); };
+	Tree.ptr.prototype.buildRects = function(rects, node, level) {
+		var $ptr, _i, _r, _ref, child, level, node, rect, rects, t, x;
+		t = this;
+		if (node === ptrType$2.nil) {
+			return rects;
+		}
+		rect = new rectT.ptr("", 0, ptrType$2.nil, 0, 0, false, 0);
+		if (node.Leaf) {
+			rect.color = leafColor;
+			rect.stroke = 0.8;
+		} else {
+			if (level === 0) {
+				rect.color = "grey";
+			} else {
+				rect.color = (x = (_r = ((node.Height - 1 >> 0)) % colors.$length, _r === _r ? _r : $throwRuntimeError("integer divide by zero")), ((x < 0 || x >= colors.$length) ? $throwRuntimeError("index out of range") : colors.$array[colors.$offset + x]));
+			}
+			if (level === 0) {
+				rect.stroke = 0.2;
+			} else {
+				rect.stroke = 1 / math.Pow(level, 1);
+			}
+			rect.stroke = 0.8;
+		}
+		rect.node = node;
+		rects = $append(rects, rect);
+		if (node.Leaf) {
+			return rects;
+		}
+		if (level === 6) {
+			return rects;
+		}
+		_ref = node.Children;
+		_i = 0;
+		while (true) {
+			if (!(_i < _ref.$length)) { break; }
+			child = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			rects = t.buildRects(rects, child, level + 1 >> 0);
+			_i++;
+		}
+		return rects;
+	};
+	Tree.prototype.buildRects = function(rects, node, level) { return this.$val.buildRects(rects, node, level); };
+	Tree.ptr.prototype.tx = function(x) {
+		var $ptr, t, x;
+		t = this;
+		if (t.width > t.height) {
+			x = x / 1000 * (t.height - (pad * 2 * t.ratio));
+		} else {
+			x = x / 1000 * (t.width - (pad * 2 * t.ratio));
+		}
+		return x;
+	};
+	Tree.prototype.tx = function(x) { return this.$val.tx(x); };
+	Tree.ptr.prototype.ty = function(y) {
+		var $ptr, t, y;
+		t = this;
+		if (t.width > t.height) {
+			y = y / 1000 * (t.height - (pad * 2 * t.ratio));
+		} else {
+			y = y / 1000 * (t.width - (pad * 2 * t.ratio));
+		}
+		return y;
+	};
+	Tree.prototype.ty = function(y) { return this.$val.ty(y); };
+	Tree.ptr.prototype.draw = function() {
+		var $ptr, _i, _r, _r$1, _ref, child, diff, h, i, opacity, rect, stroke, t, w, x, x$1, x$2, x$3, y, y$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _r = $f._r; _r$1 = $f._r$1; _ref = $f._ref; child = $f.child; diff = $f.diff; h = $f.h; i = $f.i; opacity = $f.opacity; rect = $f.rect; stroke = $f.stroke; t = $f.t; w = $f.w; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; y = $f.y; y$1 = $f.y$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		t = this;
+		if (!t.dirty) {
+		}
+		t.ctx.clearRect(0, 0, t.width, t.height);
+		t.ctx.fillStyle = $externalize("rgba(0,128,255,0.05)", $String);
+		stroke = 0;
+		i = t.rects.$length - 1 >> 0;
+		/* while (true) { */ case 1:
+			/* if (!(i >= 0)) { break; } */ if(!(i >= 0)) { $s = 2; continue; }
+			rect = $clone((x = t.rects, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i])), rectT);
+			opacity = 0;
+			/* */ if (rect.node.Leaf) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (rect.node.Leaf) { */ case 3:
+				/* */ if (rect.ts === 0) { $s = 6; continue; }
+				/* */ $s = 7; continue;
+				/* if (rect.ts === 0) { */ case 6:
+					rect.ts = t.ts;
+					/* */ if (rect.loop === 0) { $s = 8; continue; }
+					/* */ $s = 9; continue;
+					/* if (rect.loop === 0) { */ case 8:
+						_r = rand.Float64(); /* */ $s = 11; case 11: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+						rect.dur = _r * 1 + 0.5;
+						$s = 10; continue;
+					/* } else { */ case 9:
+						_r$1 = rand.Float64(); /* */ $s = 12; case 12: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+						rect.dur = _r$1 * 1 + 0.5;
+					/* } */ case 10:
+				/* } */ case 7:
+				diff = t.ts - rect.ts;
+				if (rect.backwards) {
+					opacity = 1 - (diff / rect.dur);
+					if (opacity < 0.5) {
+						opacity = 0.5;
+						rect.ts = 0;
+						rect.backwards = !rect.backwards;
+						rect.loop = rect.loop + (1) >> 0;
+					}
+				} else {
+					opacity = diff / rect.dur;
+					if (rect.loop > 0) {
+						opacity = opacity * 0.5 + 0.5;
+					}
+					if (opacity > 1) {
+						opacity = 1;
+						rect.ts = 0;
+						rect.backwards = !rect.backwards;
+						rect.loop = rect.loop + (1) >> 0;
+					}
+				}
+				$s = 5; continue;
+			/* } else { */ case 4:
+				if (t.showWireframes) {
+					opacity = 1;
+				}
+			/* } */ case 5:
+			x$1 = t.tx(rect.node.MinX);
+			y = t.ty(rect.node.MinY);
+			w = t.tx(rect.node.MaxX) - t.tx(rect.node.MinX);
+			h = t.ty(rect.node.MaxY) - t.ty(rect.node.MinY);
+			if (t.width > t.height) {
+				x$1 = x$1 + (t.width / 2 - (t.height - pad * t.ratio) / 2 + pad / 2 * t.ratio);
+				y = y + (pad * t.ratio);
+			} else {
+				x$1 = x$1 + (pad * t.ratio);
+				y = y + (t.height / 2 - (t.width - pad * t.ratio) / 2 + pad / 2 * t.ratio);
+			}
+			t.ctx.strokeStyle = $externalize(rect.color + ftoa(opacity) + ")", $String);
+			if (!((rect.stroke === stroke))) {
+				t.ctx.lineWidth = rect.stroke * t.ratio;
+				stroke = rect.stroke;
+			}
+			if (rect.node.Leaf) {
+				if (t.showWireframes) {
+					t.ctx.beginPath();
+					_ref = rect.node.Children;
+					_i = 0;
+					while (true) {
+						if (!(_i < _ref.$length)) { break; }
+						child = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+						x$2 = t.tx(child.MinX);
+						y$1 = t.ty(child.MinY);
+						if (t.width > t.height) {
+							x$2 = x$2 + (t.width / 2 - (t.height - pad * t.ratio) / 2 + pad / 2 * t.ratio);
+							y$1 = y$1 + (pad * t.ratio);
+						} else {
+							x$2 = x$2 + (pad * t.ratio);
+							y$1 = y$1 + (t.height / 2 - (t.width - pad * t.ratio) / 2 + pad / 2 * t.ratio);
+						}
+						t.ctx.moveTo(x$2, y$1);
+						t.ctx.arc(x$2, y$1, 1 * t.ratio, 0, 3.141592653589793, $externalize(false, $Bool));
+						t.ctx.fill();
+						_i++;
+					}
+				}
+				t.strokeRect(x$1, y, w, h, 5 * t.ratio);
+			} else {
+				t.strokeRect(x$1, y, w, h, 1 * t.ratio);
+			}
+			rectT.copy((x$3 = t.rects, ((i < 0 || i >= x$3.$length) ? $throwRuntimeError("index out of range") : x$3.$array[x$3.$offset + i])), rect);
+			i = i - (1) >> 0;
+		/* } */ $s = 1; continue; case 2:
+		t.drawTitles();
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Tree.ptr.prototype.draw }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._r$1 = _r$1; $f._ref = _ref; $f.child = child; $f.diff = diff; $f.h = h; $f.i = i; $f.opacity = opacity; $f.rect = rect; $f.stroke = stroke; $f.t = t; $f.w = w; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.y = y; $f.y$1 = y$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Tree.prototype.draw = function() { return this.$val.draw(); };
+	Tree.ptr.prototype.strokeRect = function(x, y, width, height, radius) {
+		var $ptr, height, radius, t, width, x, y;
+		t = this;
+		if (radius * 2 > width) {
+			radius = width / 2;
+		}
+		if (radius * 2 > height) {
+			radius = height / 2;
+		}
+		t.ctx.beginPath();
+		t.ctx.moveTo(x + radius, y);
+		t.ctx.lineTo(x + width - radius, y);
+		t.ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+		t.ctx.lineTo(x + width, y + height - radius);
+		t.ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+		t.ctx.lineTo(x + radius, y + height);
+		t.ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+		t.ctx.lineTo(x, y + radius);
+		t.ctx.quadraticCurveTo(x, y, x + radius, y);
+		t.ctx.closePath();
+		t.ctx.stroke();
+	};
+	Tree.prototype.strokeRect = function(x, y, width, height, radius) { return this.$val.strokeRect(x, y, width, height, radius); };
+	Tree.ptr.prototype.loop = function(dur) {
+		var $ptr, dur, t, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; dur = $f.dur; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		t = this;
+		t.ts = dur;
+		$r = t.draw(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$s = -1; return;
+		return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Tree.ptr.prototype.loop }; } $f.$ptr = $ptr; $f.dur = dur; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Tree.prototype.loop = function(dur) { return this.$val.loop(dur); };
+	Tree.ptr.prototype.drawTitles = function() {
+		var $ptr, t, y;
+		t = this;
+		y = 0;
+		if (t.linkover) {
+			y = t.drawTitle("github.com/tidwall/rbush", leafColor + "1.0)", 15 * t.ratio, y);
+		} else {
+			y = t.drawTitle("github.com/tidwall/rbush", leafColor + "0.7)", 15 * t.ratio, y);
+		}
+	};
+	Tree.prototype.drawTitles = function() { return this.$val.drawTitles(); };
+	Tree.ptr.prototype.drawTitle = function(text, color, fontSize, y) {
+		var $ptr, color, fontSize, ny, pad$1, t, text, x, y;
+		t = this;
+		ny = y + (fontSize * 1.5);
+		pad$1 = 15 * t.ratio;
+		x = t.width - pad$1;
+		y = t.height - pad$1 - y;
+		t.ctx.save();
+		t.ctx.font = $externalize(itoa((fontSize >> 0)) + "px Menlo, Consolas, Monospace, Helvetica, Arial, Sans-Serif", $String);
+		t.ctx.textAlign = $externalize("right", $String);
+		t.ctx.lineWidth = 0;
+		t.ctx.shadowColor = $externalize(color, $String);
+		t.ctx.shadowBlur = fontSize;
+		t.ctx.fillStyle = $externalize(color, $String);
+		t.ctx.fillText($externalize(text, $String), x, y);
+		t.ctx.restore();
+		return ny;
+	};
+	Tree.prototype.drawTitle = function(text, color, fontSize, y) { return this.$val.drawTitle(text, color, fontSize, y); };
+	ptrType$4.methods = [{prop: "start", name: "start", pkg: "main", typ: $funcType([], [], false)}, {prop: "genBulkInsert", name: "genBulkInsert", pkg: "main", typ: $funcType([$Int, $Int], [], false)}, {prop: "layout", name: "layout", pkg: "main", typ: $funcType([], [], false)}, {prop: "overLink", name: "overLink", pkg: "main", typ: $funcType([$Int, $Int], [$Bool], false)}, {prop: "buildRects", name: "buildRects", pkg: "main", typ: $funcType([sliceType$2, ptrType$2, $Int], [sliceType$2], false)}, {prop: "tx", name: "tx", pkg: "main", typ: $funcType([$Float64], [$Float64], false)}, {prop: "ty", name: "ty", pkg: "main", typ: $funcType([$Float64], [$Float64], false)}, {prop: "draw", name: "draw", pkg: "main", typ: $funcType([], [], false)}, {prop: "strokeRect", name: "strokeRect", pkg: "main", typ: $funcType([$Float64, $Float64, $Float64, $Float64, $Float64], [], false)}, {prop: "loop", name: "loop", pkg: "main", typ: $funcType([$Float64], [], false)}, {prop: "drawTitles", name: "drawTitles", pkg: "main", typ: $funcType([], [], false)}, {prop: "drawTitle", name: "drawTitle", pkg: "main", typ: $funcType([$String, $String, $Float64, $Float64], [$Float64], false)}];
+	Tree.init("main", [{prop: "tr", name: "tr", exported: false, typ: ptrType$1, tag: ""}, {prop: "data", name: "data", exported: false, typ: sliceType$1, tag: ""}, {prop: "parent", name: "parent", exported: false, typ: ptrType$3, tag: ""}, {prop: "canvas", name: "canvas", exported: false, typ: ptrType$3, tag: ""}, {prop: "width", name: "width", exported: false, typ: $Float64, tag: ""}, {prop: "height", name: "height", exported: false, typ: $Float64, tag: ""}, {prop: "ratio", name: "ratio", exported: false, typ: $Float64, tag: ""}, {prop: "ctx", name: "ctx", exported: false, typ: ptrType$3, tag: ""}, {prop: "rects", name: "rects", exported: false, typ: sliceType$2, tag: ""}, {prop: "ts", name: "ts", exported: false, typ: $Float64, tag: ""}, {prop: "dirty", name: "dirty", exported: false, typ: $Bool, tag: ""}, {prop: "linkover", name: "linkover", exported: false, typ: $Bool, tag: ""}, {prop: "Clicked", name: "Clicked", exported: true, typ: funcType, tag: ""}, {prop: "showWireframes", name: "showWireframes", exported: false, typ: $Bool, tag: ""}]);
+	rectT.init("main", [{prop: "color", name: "color", exported: false, typ: $String, tag: ""}, {prop: "stroke", name: "stroke", exported: false, typ: $Float64, tag: ""}, {prop: "node", name: "node", exported: false, typ: ptrType$2, tag: ""}, {prop: "ts", name: "ts", exported: false, typ: $Float64, tag: ""}, {prop: "dur", name: "dur", exported: false, typ: $Float64, tag: ""}, {prop: "backwards", name: "backwards", exported: false, typ: $Bool, tag: ""}, {prop: "loop", name: "loop", exported: false, typ: $Int, tag: ""}]);
+>>>>>>> track
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = js.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = rbush.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+<<<<<<< HEAD
+=======
+		$r = math.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = rand.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = time.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		start = new time.Time.ptr(new $Int64(0, 0), 0, ptrType.nil);
+		leafColor = "rgba(200,39,33,";
+		colors = new sliceType(["rgba(" + itoa(0) + "," + itoa(0) + "," + itoa(255) + ",", "rgba(" + itoa(255) + "," + itoa(0) + "," + itoa(255) + ","]);
+		pad = 50;
+>>>>>>> track
 		if ($pkg === $mainPkg) {
 			main();
 			$mainFinished = true;

@@ -8,22 +8,52 @@ import (
 const defaultMaxEntries = 9
 const DIMS = 2
 
+<<<<<<< HEAD
 type nodeT struct {
 	min, max [DIMS]float64
 	children []*nodeT
 	height   int
 	leaf     bool
+=======
+type Node struct {
+	MinX, MinY float64
+	MaxX, MaxY float64
+	Children   []*Node
+	Height     int
+	Leaf       bool
+	Item       interface{}
+>>>>>>> track
 }
 
 type RBush struct {
-	_maxEntries int
-	_minEntries int
-	data        *nodeT
+	MaxEntries int
+	MinEntries int
+	Data       *Node
 }
 
+<<<<<<< HEAD
 type byDim struct {
 	arr []*nodeT
 	dim int
+=======
+type byMinX []*Node
+
+func (arr byMinX) At(i int) interface{} {
+	return arr[i]
+}
+func (arr byMinX) Compare(a, b interface{}) int {
+	na, nb := a.(*Node), b.(*Node)
+	if na.MinX < nb.MinX {
+		return -1
+	}
+	if na.MinX > nb.MinX {
+		return +1
+	}
+	return 0
+}
+func (arr byMinX) Less(i, j int) bool {
+	return arr[i].MinX < arr[j].MinX
+>>>>>>> track
 }
 
 func (v byDim) Len() int {
@@ -32,8 +62,37 @@ func (v byDim) Len() int {
 func (v byDim) Less(i, j int) bool {
 	return v.arr[i].min[v.dim] < v.arr[j].min[v.dim]
 }
+<<<<<<< HEAD
 func (v byDim) Swap(i, j int) {
 	v.arr[i], v.arr[j] = v.arr[j], v.arr[i]
+=======
+
+type byMinY []*Node
+
+func (arr byMinY) At(i int) interface{} {
+	return arr[i]
+}
+func (arr byMinY) Compare(a, b interface{}) int {
+	na, nb := a.(*Node), b.(*Node)
+	if na.MinY < nb.MinY {
+		return -1
+	}
+	if na.MinY > nb.MinY {
+		return +1
+	}
+	return 0
+}
+func (arr byMinY) Less(i, j int) bool {
+	return arr[i].MinY < arr[j].MinY
+}
+
+func (arr byMinY) Swap(i, j int) {
+	arr[i], arr[j] = arr[j], arr[i]
+}
+
+func (arr byMinY) Len() int {
+	return len(arr)
+>>>>>>> track
 }
 
 // New returns a new RBush object
@@ -43,27 +102,27 @@ func New(maxEntries int) *RBush {
 	if maxEntries <= 0 {
 		maxEntries = defaultMaxEntries
 	}
-	this._maxEntries = int(math.Max(4, float64(maxEntries)))
-	this._minEntries = int(math.Max(2, math.Ceil(float64(this._maxEntries)*0.4)))
+	this.MaxEntries = int(math.Max(4, float64(maxEntries)))
+	this.MinEntries = int(math.Max(2, math.Ceil(float64(this.MaxEntries)*0.4)))
 	this.clear()
 	return this
 }
 
-func (this *RBush) all() []*nodeT {
-	return this._all(this.data, nil)
+func (this *RBush) all() []*Node {
+	return this._all(this.Data, nil)
 }
 
-func (this *RBush) search(bbox *nodeT) []*nodeT {
-	var node = this.data
-	var result []*nodeT
+func (this *RBush) search(bbox *Node) []*Node {
+	var node = this.Data
+	var result []*Node
 	if !intersects(bbox, node) {
 		return result
 	}
-	var nodesToSearch []*nodeT
+	var nodesToSearch []*Node
 	for node != nil {
-		for _, child := range node.children {
+		for _, child := range node.Children {
 			if intersects(bbox, child) {
-				if node.leaf {
+				if node.Leaf {
 					result = append(result, child)
 				} else if contains(bbox, child) {
 					result = this._all(child, result)
@@ -82,22 +141,22 @@ func (this *RBush) search(bbox *nodeT) []*nodeT {
 	return result
 }
 
-func (this *RBush) collides(bbox *nodeT) bool {
-	node := this.data
+func (this *RBush) collides(bbox *Node) bool {
+	node := this.Data
 	if !intersects(bbox, node) {
 		return false
 	}
-	var nodesToSearch []*nodeT
+	var nodesToSearch []*Node
 	var i int
 	var len_ int
-	var child *nodeT
-	var childBBox *nodeT
+	var child *Node
+	var childBBox *Node
 	for node != nil {
-		for i, len_ = 0, len(node.children); i < len_; i++ {
-			child = node.children[i]
+		for i, len_ = 0, len(node.Children); i < len_; i++ {
+			child = node.Children[i]
 			childBBox = child
 			if intersects(bbox, childBBox) {
-				if node.leaf || contains(bbox, childBBox) {
+				if node.Leaf || contains(bbox, childBBox) {
 					return true
 				}
 				nodesToSearch = append(nodesToSearch, child)
@@ -112,62 +171,66 @@ func (this *RBush) collides(bbox *nodeT) bool {
 	}
 	return false
 }
-
-func (this *RBush) load(data []*nodeT) *RBush {
+func (this *RBush) Load(data []*Node) {
+	this.load(data)
+}
+func (this *RBush) load(data []*Node) *RBush {
 	if len(data) == 0 {
 		return this
 	}
 
-	if len(data) < this._minEntries {
+	data = ncopy(data) // shallow copy
+	if len(data) < this.MinEntries {
 		for i, len_ := 0, len(data); i < len_; i++ {
 			this.insert(data[i])
 		}
 		return this
 	}
 	// recursively build the tree with the given data from scratch using OMT algorithm
-	var node = this._build(ncopy(data), 0, len(data)-1, 0)
-	if len(this.data.children) == 0 {
+	// -- ncopy var node = this._build(ncopy(data), 0, len(data)-1, 0)
+	var node = this._build(data, 0, len(data)-1, 0)
+	if len(this.Data.Children) == 0 {
 		// save as is if tree is empty
-		this.data = node
-	} else if this.data.height == node.height {
+		this.Data = node
+	} else if this.Data.Height == node.Height {
 		// split root if trees have the same height
-		this._splitRoot(this.data, node)
+		this._splitRoot(this.Data, node)
 	} else {
-		if this.data.height < node.height {
+		if this.Data.Height < node.Height {
 			// swap trees if inserted one is bigger
-			this.data, node = node, this.data
+			this.Data, node = node, this.Data
 		}
 
 		// insert the small tree into the large tree at appropriate level
-		this._insert(node, this.data.height-node.height-1, true)
+		this._insert(node, this.Data.Height-node.Height-1, true)
 	}
 	return this
 }
 
-func (this *RBush) insert(item *nodeT) *RBush {
+func (this *RBush) insert(item *Node) *RBush {
 	if item != nil {
-		this._insert(item, this.data.height-1, false)
+		this._insert(item, this.Data.Height-1, false)
 	}
 	return this
 }
 
 func (this *RBush) clear() *RBush {
-	this.data = createNode(nil)
+	this.Data = createNode(nil)
 	return this
 }
 
-func (this *RBush) remove(item *nodeT) *RBush {
+func (this *RBush) remove(item *Node) *RBush {
 	if item == nil {
 		return this
 	}
 
-	var node = this.data
-	var bbox *nodeT = item
-	var path []*nodeT
+	var node = this.Data
+	var bbox *Node = item
+	var path []*Node
 	var indexes []int
 
 	var i int
-	var parent *nodeT
+	var parent *Node
 	var index int
 	var goingUp bool
 
@@ -185,29 +248,29 @@ func (this *RBush) remove(item *nodeT) *RBush {
 			goingUp = true
 		}
 
-		if node.leaf {
-			index = findItem(item, node.children)
+		if node.Leaf {
+			index = findItem(item, node.Children)
 			if index != -1 {
 				// item found, remove the item and condense tree upwards
-				node.children, _ = splice(node.children, index, 1)
+				node.Children, _ = splice(node.Children, index, 1)
 				path = append(path, node)
 				this._condense(path)
 				return this
 			}
 		}
 
-		if !goingUp && !node.leaf && contains(node, bbox) { // go down
+		if !goingUp && !node.Leaf && contains(node, bbox) { // go down
 			path = append(path, node)
 			indexes = append(indexes, i)
 			i = 0
 			parent = node
-			node = node.children[0]
+			node = node.Children[0]
 		} else if parent != nil { // go right
 			i++
-			if i == len(parent.children) {
+			if i == len(parent.Children) {
 				node = nil
 			} else {
-				node = parent.children[i]
+				node = parent.Children[i]
 			}
 			goingUp = false
 		} else {
@@ -218,33 +281,34 @@ func (this *RBush) remove(item *nodeT) *RBush {
 }
 
 // fromJSON really has nothing to do with JSON. It's just here because JS.
-func (this *RBush) toJSON() *nodeT {
-	return this.data
+func (this *RBush) toJSON() *Node {
+	return this.Data
 }
 
 // fromJSON really has nothing to do with JSON. It's just here because JS.
-func (this *RBush) fromJSON(data *nodeT) *RBush {
-	this.data = data
+func (this *RBush) fromJSON(data *Node) *RBush {
+	this.Data = data
 	return this
 }
 
-func (this *RBush) _all(node *nodeT, result []*nodeT) []*nodeT {
-	if node.leaf {
-		return append(result, node.children...)
+func (this *RBush) _all(node *Node, result []*Node) []*Node {
+	if node.Leaf {
+		return append(result, node.Children...)
 	}
-	for i := len(node.children) - 1; i >= 0; i-- {
-		result = this._all(node.children[i], result)
+	for i := len(node.Children) - 1; i >= 0; i-- {
+		result = this._all(node.Children[i], result)
 	}
 	return result
 }
 
-func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
+func (this *RBush) _build(items []*Node, left, right, height int) *Node {
 	var N = right - left + 1
-	var M = this._maxEntries
-	var node *nodeT
+	var M = this.MaxEntries
+	var node *Node
 	if N <= M {
 		// reached leaf level; return leaf
-		node = createNode(ncopy(items[left : right+1]))
+		//-- ncopy node = createNode(ncopy(items[left : right+1]))
+		node = createNode(items[left : right+1])
 		calcBBox(node)
 		return node
 	}
@@ -255,8 +319,8 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 		M = int(math.Ceil(float64(N) / math.Pow(float64(M), float64(height)-1)))
 	}
 	node = createNode(nil)
-	node.leaf = false
-	node.height = height
+	node.Leaf = false
+	node.Height = height
 	// split the items into M mostly square tiles
 	var N2 = int(math.Ceil(float64(N) / float64(M)))
 	var N1 = N2 * int(math.Ceil(math.Sqrt(float64(M))))
@@ -269,26 +333,26 @@ func (this *RBush) _build(items []*nodeT, left, right, height int) *nodeT {
 			right3 = int(math.Min(float64(j+N2-1), float64(right2)))
 			// pack each entry recursively
 			child := this._build(items, j, right3, height-1)
-			node.children = append(node.children, child)
+			node.Children = append(node.Children, child)
 		}
 	}
 	calcBBox(node)
 	return node
 }
 
-func (this *RBush) _chooseSubtree(bbox *nodeT, node *nodeT, level int, path []*nodeT) (
-	*nodeT, []*nodeT,
+func (this *RBush) _chooseSubtree(bbox *Node, node *Node, level int, path []*Node) (
+	*Node, []*Node,
 ) {
-	var targetNode *nodeT
+	var targetNode *Node
 	var area, enlargement, minArea, minEnlargement float64
 	for {
 		path = append(path, node)
-		if node.leaf || len(path)-1 == level {
+		if node.Leaf || len(path)-1 == level {
 			break
 		}
 		minEnlargement = math.Inf(+1)
 		minArea = minEnlargement
-		for _, child := range node.children {
+		for _, child := range node.Children {
 			area = bboxArea(child)
 			enlargement = enlargedArea(bbox, child) - area
 			if enlargement < minEnlargement {
@@ -306,8 +370,8 @@ func (this *RBush) _chooseSubtree(bbox *nodeT, node *nodeT, level int, path []*n
 		}
 		if targetNode != nil {
 			node = targetNode
-		} else if len(node.children) > 0 {
-			node = node.children[0]
+		} else if len(node.Children) > 0 {
+			node = node.Children[0]
 		} else {
 			node = nil
 		}
@@ -315,15 +379,15 @@ func (this *RBush) _chooseSubtree(bbox *nodeT, node *nodeT, level int, path []*n
 	return node, path
 }
 
-func (this *RBush) _insert(item *nodeT, level int, isNode bool) {
-	var bbox *nodeT = item
-	var insertPath []*nodeT
-	var node *nodeT
-	node, insertPath = this._chooseSubtree(bbox, this.data, level, insertPath)
-	node.children = append(node.children, item)
+func (this *RBush) _insert(item *Node, level int, isNode bool) {
+	var bbox *Node = item
+	var insertPath []*Node
+	var node *Node
+	node, insertPath = this._chooseSubtree(bbox, this.Data, level, insertPath)
+	node.Children = append(node.Children, item)
 	extend(node, bbox)
 	for level >= 0 {
-		if len(insertPath[level].children) > this._maxEntries {
+		if len(insertPath[level].Children) > this.MaxEntries {
 			insertPath = this._split(insertPath, level)
 			level--
 		} else {
@@ -334,42 +398,43 @@ func (this *RBush) _insert(item *nodeT, level int, isNode bool) {
 }
 
 // split overflowed node into two
-func (this *RBush) _split(insertPath []*nodeT, level int) []*nodeT {
+func (this *RBush) _split(insertPath []*Node, level int) []*Node {
 	var node = insertPath[level]
-	var M = len(node.children)
-	var m = this._minEntries
+	var M = len(node.Children)
+	var m = this.MinEntries
 
 	this._chooseSplitAxis(node, m, M)
 
 	splitIndex := this._chooseSplitIndex(node, m, M)
 
-	var spliced []*nodeT
-	node.children, spliced = splice(node.children, splitIndex, len(node.children)-splitIndex)
+	var spliced []*Node
+	node.Children, spliced = splice(node.Children, splitIndex, len(node.Children)-splitIndex)
 	var newNode = createNode(spliced)
-	newNode.height = node.height
-	newNode.leaf = node.leaf
+	newNode.Height = node.Height
+	newNode.Leaf = node.Leaf
 
 	calcBBox(node)
 	calcBBox(newNode)
 
 	if level != 0 {
-		insertPath[level-1].children = append(ncopy(insertPath[level-1].children), newNode)
+		// -- ncopy removal insertPath[level-1].children = append(ncopy(insertPath[level-1].children), newNode)
+		insertPath[level-1].Children = append(insertPath[level-1].Children, newNode)
 	} else {
 		this._splitRoot(node, newNode)
 	}
 	return insertPath
 }
 
-func (this *RBush) _splitRoot(node *nodeT, newNode *nodeT) {
-	this.data = createNode([]*nodeT{node, newNode})
-	this.data.height = node.height + 1
-	this.data.leaf = false
-	calcBBox(this.data)
+func (this *RBush) _splitRoot(node *Node, newNode *Node) {
+	this.Data = createNode([]*Node{node, newNode})
+	this.Data.Height = node.Height + 1
+	this.Data.Leaf = false
+	calcBBox(this.Data)
 }
 
-func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
+func (this *RBush) _chooseSplitIndex(node *Node, m, M int) int {
 	var i int
-	var bbox1, bbox2 *nodeT
+	var bbox1, bbox2 *Node
 	var overlap, area, minOverlap, minArea float64
 	var index int
 
@@ -403,6 +468,7 @@ func (this *RBush) _chooseSplitIndex(node *nodeT, m, M int) int {
 }
 
 // sorts node children by the best axis for split
+<<<<<<< HEAD
 func (this *RBush) _chooseSplitAxis(node *nodeT, m, M int) {
 	var xMargin = this._allDistMargin(node, m, M, 0)
 	var yMargin = this._allDistMargin(node, m, M, 1)
@@ -410,28 +476,42 @@ func (this *RBush) _chooseSplitAxis(node *nodeT, m, M int) {
 	// otherwise it's already sorted by minY
 	if xMargin < yMargin {
 		sort.Sort(byDim{node.children, 0})
+=======
+func (this *RBush) _chooseSplitAxis(node *Node, m, M int) {
+	var xMargin = this._allDistMargin(node, m, M, 1)
+	var yMargin = this._allDistMargin(node, m, M, 2)
+	// if total distributions margin value is minimal for x, sort by minX,
+	// otherwise it's already sorted by minY
+	if xMargin < yMargin {
+		sortNodes(node.Children, 1)
+>>>>>>> track
 	}
 }
 
 // total margin of all possible split distributions where each node is at least m full
+<<<<<<< HEAD
 func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
 	sort.Sort(byDim{node.children, dim})
 
+=======
+func (this *RBush) _allDistMargin(node *Node, m, M int, dim int) float64 {
+	sortNodes(node.Children, dim)
+>>>>>>> track
 	var leftBBox = distBBox(node, 0, m, nil)
 	var rightBBox = distBBox(node, M-m, M, nil)
 	var margin = bboxMargin(leftBBox) + bboxMargin(rightBBox)
 
 	var i int
-	var child *nodeT
+	var child *Node
 
 	for i = m; i < M-m; i++ {
-		child = node.children[i]
+		child = node.Children[i]
 		extend(leftBBox, child)
 		margin += bboxMargin(leftBBox)
 	}
 
 	for i = M - m - 1; i >= m; i-- {
-		child = node.children[i]
+		child = node.Children[i]
 		extend(rightBBox, child)
 		margin += bboxMargin(rightBBox)
 	}
@@ -439,20 +519,20 @@ func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
 	return margin
 }
 
-func (this *RBush) _adjustParentBBoxes(bbox *nodeT, path []*nodeT, level int) {
+func (this *RBush) _adjustParentBBoxes(bbox *Node, path []*Node, level int) {
 	// adjust bboxes along the given tree path
 	for i := level; i >= 0; i-- {
 		extend(path[i], bbox)
 	}
 }
 
-func (this *RBush) _condense(path []*nodeT) {
+func (this *RBush) _condense(path []*Node) {
 	// go through the path, removing empty nodes and updating bboxes
-	var siblings []*nodeT
+	var siblings []*Node
 	for i := len(path) - 1; i >= 0; i-- {
-		if len(path[i].children) == 0 {
+		if len(path[i].Children) == 0 {
 			if i > 0 {
-				siblings = path[i-1].children
+				siblings = path[i-1].Children
 				index := -1
 				for j := 0; j < len(siblings); j++ {
 					if siblings[j] == path[i] {
@@ -460,8 +540,9 @@ func (this *RBush) _condense(path []*nodeT) {
 						break
 					}
 				}
-				siblings, _ = splice(ncopy(siblings), index, 1)
-				path[i-1].children = siblings
+				// -- ncopy siblings, _ = splice(ncopy(siblings), index, 1)
+				siblings, _ = splice(siblings, index, 1)
+				path[i-1].Children = siblings
 			} else {
 				this.clear()
 			}
@@ -471,7 +552,7 @@ func (this *RBush) _condense(path []*nodeT) {
 	}
 }
 
-func findItem(item *nodeT, items []*nodeT) int {
+func findItem(item *Node, items []*Node) int {
 	for i := 0; i < len(items); i++ {
 		if items[i] == item {
 			return i
@@ -481,12 +562,12 @@ func findItem(item *nodeT, items []*nodeT) int {
 }
 
 // calculate node's bbox from bboxes of its children
-func calcBBox(node *nodeT) {
-	distBBox(node, 0, len(node.children), node)
+func calcBBox(node *Node) {
+	distBBox(node, 0, len(node.Children), node)
 }
 
 // min bounding rectangle of node children from k to p-1
-func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
+func distBBox(node *Node, k, p int, destNode *Node) *Node {
 	if destNode == nil {
 		destNode = createNode(nil)
 	} else {
@@ -495,14 +576,24 @@ func distBBox(node *nodeT, k, p int, destNode *nodeT) *nodeT {
 			destNode.max[i] = math.Inf(-1)
 		}
 	}
+<<<<<<< HEAD
 	var child *nodeT
+=======
+	destNode.MinX = math.Inf(+1)
+	destNode.MinY = math.Inf(+1)
+	destNode.MaxX = math.Inf(-1)
+	destNode.MaxY = math.Inf(-1)
+
+	var child *Node
+>>>>>>> track
 	for i := k; i < p; i++ {
-		child = node.children[i]
+		child = node.Children[i]
 		extend(destNode, child)
 	}
 	return destNode
 }
 
+<<<<<<< HEAD
 func extend(a *nodeT, b *nodeT) *nodeT {
 	for i := 0; i < DIMS; i++ {
 		a.min[i] = math.Min(a.min[i], b.min[i])
@@ -570,6 +661,60 @@ func createNode(children []*nodeT) *nodeT {
 		children: children,
 		height:   1,
 		leaf:     true,
+=======
+func extend(a *Node, b *Node) *Node {
+	a.MinX = math.Min(a.MinX, b.MinX)
+	a.MinY = math.Min(a.MinY, b.MinY)
+	a.MaxX = math.Max(a.MaxX, b.MaxX)
+	a.MaxY = math.Max(a.MaxY, b.MaxY)
+	return a
+}
+
+func bboxArea(a *Node) float64 {
+	return (a.MaxX - a.MinX) * (a.MaxY - a.MinY)
+}
+
+func bboxMargin(a *Node) float64 {
+	return (a.MaxX - a.MinX) + (a.MaxY - a.MinY)
+}
+
+func enlargedArea(a, b *Node) float64 {
+	return (math.Max(b.MaxX, a.MaxX) - math.Min(b.MinX, a.MinX)) *
+		(math.Max(b.MaxY, a.MaxY) - math.Min(b.MinY, a.MinY))
+}
+
+func intersectionArea(a, b *Node) float64 {
+	var minX = math.Max(a.MinX, b.MinX)
+	var minY = math.Max(a.MinY, b.MinY)
+	var maxX = math.Min(a.MaxX, b.MaxX)
+	var maxY = math.Min(a.MaxY, b.MaxY)
+	return math.Max(0, maxX-minX) * math.Max(0, maxY-minY)
+}
+
+func contains(a, b *Node) bool {
+	return a.MinX <= b.MinX &&
+		a.MinY <= b.MinY &&
+		b.MaxX <= a.MaxX &&
+		b.MaxY <= a.MaxY
+}
+
+func intersects(a, b *Node) bool {
+	return b.MinX <= a.MaxX &&
+		b.MinY <= a.MaxY &&
+		b.MaxX >= a.MinX &&
+		b.MaxY >= a.MinY
+}
+
+func createNode(children []*Node) *Node {
+	return &Node{
+		Children: children,
+		Height:   1,
+		Leaf:     true,
+		MinX:     math.Inf(+1),
+		MinY:     math.Inf(+1),
+		MaxX:     math.Inf(-1),
+		MaxY:     math.Inf(-1),
+>>>>>>> track
 	}
 	for i := 0; i < DIMS; i++ {
 		n.min[i] = math.Inf(+1)
@@ -580,7 +725,11 @@ func createNode(children []*nodeT) *nodeT {
 
 // sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
 // combines selection algorithm with binary divide & conquer approach
+<<<<<<< HEAD
 func multiSelect(arr []*nodeT, left, right, n int, dim int) {
+=======
+func multiSelect(arr quickSelectArr, left, right, n int) {
+>>>>>>> track
 	var stack = []int{left, right}
 	var mid int
 
@@ -595,15 +744,19 @@ func multiSelect(arr []*nodeT, left, right, n int, dim int) {
 		}
 
 		mid = left + int(math.Ceil(float64(right-left)/float64(n)/2))*n
+<<<<<<< HEAD
 		quickselect(arr, mid, left, right, dim)
+=======
+		quickselect(arr, mid, left, right)
+>>>>>>> track
 
 		stack = append(stack, left, mid, mid, right)
 	}
 }
 
-func splice(nodes []*nodeT, start, deleteCount int, args ...*nodeT) (
-	result []*nodeT,
-	deleted []*nodeT,
+func splice(nodes []*Node, start, deleteCount int, args ...*Node) (
+	result []*Node,
+	deleted []*Node,
 ) {
 	if start > len(nodes) {
 		start = len(nodes)
@@ -617,19 +770,95 @@ func splice(nodes []*nodeT, start, deleteCount int, args ...*nodeT) (
 	return
 }
 
-func count(node *nodeT) int {
-	if len(node.children) == 0 {
+func count(node *Node) int {
+	if len(node.Children) == 0 {
 		return 1
 	}
 	var n int
-	for i := 0; i < len(node.children); i++ {
-		n += count(node.children[i])
+	for i := 0; i < len(node.Children); i++ {
+		n += count(node.Children[i])
 	}
 	return n
 }
+<<<<<<< HEAD
 
 func ncopy(nodes []*nodeT) []*nodeT {
 	return append([]*nodeT(nil), nodes...)
+=======
+func nodeString(node *Node) string {
+	if node == nil {
+		return "<nil>"
+	}
+	sum := nodeSum(node)
+	return fmt.Sprintf(`&{children:"%d:%d"`+
+		` height:%v`+
+		` leaf:%v`+
+		` minX:%v`+
+		` minY:%v`+
+		` maxX:%v`+
+		` maxY:%v`+
+		`} (%v)`,
+		len(node.Children), count(node),
+		node.Height, node.Leaf,
+		node.MinX, node.MinY, node.MaxX, node.MaxY,
+		sum[len(sum)-7:],
+	)
+}
+
+func (this *RBush) jsonString() string {
+	var b []byte
+	b = append(b, `{`+
+		`"maxEntries":`+strconv.FormatInt(int64(this.MaxEntries), 10)+`,`+
+		`"minEntries":`+strconv.FormatInt(int64(this.MinEntries), 10)+`,`+
+		`"data":`...)
+	b = appendNodeJSON(b, this.Data, 1)
+	b = append(b, '}')
+	return string(b)
+}
+
+func appendNodeJSON(b []byte, node *Node, depth int) []byte {
+	if node == nil {
+		return append(b, "null"...)
+	}
+	b = append(b, '{')
+	if len(node.Children) > 0 {
+		b = append(b, `"children":[`...)
+		for i, child := range node.Children {
+			if i > 0 {
+				b = append(b, ',')
+			}
+			b = appendNodeJSON(b, child, depth+1)
+		}
+		b = append(b, ']', ',')
+	}
+	b = append(b, `"leaf":`...)
+	if node.Leaf {
+		b = append(b, "true"...)
+	} else {
+		b = append(b, "false"...)
+	}
+	b = append(b, `,"height":`...)
+	b = append(b, strconv.FormatInt(int64(node.Height), 10)...)
+	b = append(b, `,"minX":`...)
+	b = append(b, strconv.FormatFloat(node.MinX, 'f', -1, 64)...)
+	b = append(b, `,"minY":`...)
+	b = append(b, strconv.FormatFloat(node.MinY, 'f', -1, 64)...)
+	b = append(b, `,"maxX":`...)
+	b = append(b, strconv.FormatFloat(node.MaxX, 'f', -1, 64)...)
+	b = append(b, `,"maxY":`...)
+	b = append(b, strconv.FormatFloat(node.MaxY, 'f', -1, 64)...)
+	b = append(b, '}')
+	return b
+}
+func nodeJSONString(n *Node) string {
+	return string(appendNodeJSON([]byte(nil), n, 0))
+}
+func nodeSum(n *Node) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(nodeJSONString(n))))
+}
+func ncopy(nodes []*Node) []*Node {
+	return append([]*Node(nil), nodes...)
+>>>>>>> track
 }
 
 func quickselect(arr []*nodeT, k, left, right, dim int) {
@@ -686,6 +915,7 @@ func quickselect(arr []*nodeT, k, left, right, dim int) {
 	}
 }
 
+<<<<<<< HEAD
 func qsCompare(arr []*nodeT, a, b *nodeT) int {
 	for i := 0; i < DIMS; i++ {
 		if a.min[i] < b.min[i] {
@@ -699,4 +929,15 @@ func qsCompare(arr []*nodeT, a, b *nodeT) int {
 }
 func qsSwap(arr []*nodeT, i, j int) {
 	arr[i], arr[j] = arr[j], arr[i]
+=======
+func sortNodes(nodes []*Node, dim int) {
+	switch dim {
+	default:
+		panic("invalid dimension")
+	case 1:
+		sort.Sort(byMinX(nodes))
+	case 2:
+		sort.Sort(byMinY(nodes))
+	}
+>>>>>>> track
 }
