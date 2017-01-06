@@ -2996,11 +2996,7 @@ $packages["hash"] = (function() {
 	return $pkg;
 })();
 $packages["math"] = (function() {
-<<<<<<< HEAD
-	var $pkg = {}, $init, js, arrayType, arrayType$1, arrayType$2, structType, arrayType$3, math, zero, posInf, negInf, nan, buf, pow10tab, Ceil, Inf, IsInf, IsNaN, Max, NaN, Signbit, init, max, init$1;
-=======
 	var $pkg = {}, $init, js, arrayType, arrayType$1, arrayType$2, structType, arrayType$3, math, zero, posInf, negInf, nan, buf, pow10tab, Ceil, Exp, Floor, Inf, IsInf, IsNaN, Log, Max, Min, NaN, Pow, Signbit, Sqrt, init, max, min, init$1;
->>>>>>> track
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	arrayType = $arrayType($Uint32, 2);
 	arrayType$1 = $arrayType($Float32, 2);
@@ -3012,8 +3008,6 @@ $packages["math"] = (function() {
 		return $parseFloat(math.ceil(x));
 	};
 	$pkg.Ceil = Ceil;
-<<<<<<< HEAD
-=======
 	Exp = function(x) {
 		var $ptr, x;
 		return $parseFloat(math.exp(x));
@@ -3024,7 +3018,6 @@ $packages["math"] = (function() {
 		return $parseFloat(math.floor(x));
 	};
 	$pkg.Floor = Floor;
->>>>>>> track
 	Inf = function(sign) {
 		var $ptr, sign;
 		if (sign >= 0) {
@@ -3052,8 +3045,6 @@ $packages["math"] = (function() {
 		return is;
 	};
 	$pkg.IsNaN = IsNaN;
-<<<<<<< HEAD
-=======
 	Log = function(x) {
 		var $ptr, x;
 		if (!((x === x))) {
@@ -3062,27 +3053,21 @@ $packages["math"] = (function() {
 		return $parseFloat(math.log(x));
 	};
 	$pkg.Log = Log;
->>>>>>> track
 	Max = function(x, y) {
 		var $ptr, x, y;
 		return max(x, y);
 	};
 	$pkg.Max = Max;
-<<<<<<< HEAD
-=======
 	Min = function(x, y) {
 		var $ptr, x, y;
 		return min(x, y);
 	};
 	$pkg.Min = Min;
->>>>>>> track
 	NaN = function() {
 		var $ptr;
 		return nan;
 	};
 	$pkg.NaN = NaN;
-<<<<<<< HEAD
-=======
 	Pow = function(x, y) {
 		var $ptr, x, y;
 		if ((x === 1) || ((x === -1) && ((y === posInf) || (y === negInf)))) {
@@ -3091,20 +3076,16 @@ $packages["math"] = (function() {
 		return $parseFloat(math.pow(x, y));
 	};
 	$pkg.Pow = Pow;
->>>>>>> track
 	Signbit = function(x) {
 		var $ptr, x;
 		return x < 0 || (1 / x === negInf);
 	};
 	$pkg.Signbit = Signbit;
-<<<<<<< HEAD
-=======
 	Sqrt = function(x) {
 		var $ptr, x;
 		return $parseFloat(math.sqrt(x));
 	};
 	$pkg.Sqrt = Sqrt;
->>>>>>> track
 	init = function() {
 		var $ptr, ab;
 		ab = new ($global.ArrayBuffer)(8);
@@ -3129,8 +3110,6 @@ $packages["math"] = (function() {
 		}
 		return y;
 	};
-<<<<<<< HEAD
-=======
 	min = function(x, y) {
 		var $ptr, x, y;
 		if (IsInf(x, -1) || IsInf(y, -1)) {
@@ -3148,7 +3127,6 @@ $packages["math"] = (function() {
 		}
 		return y;
 	};
->>>>>>> track
 	init$1 = function() {
 		var $ptr, _q, i, m, x;
 		pow10tab[0] = 1;
@@ -5054,9 +5032,6 @@ $packages["syscall"] = (function() {
 	return $pkg;
 })();
 $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
-<<<<<<< HEAD
-	var $pkg = {}, $init, Once, funcType, ptrType$3;
-=======
 	var $pkg = {}, $init, Mutex, Once, ptrType, funcType, ptrType$3;
 	Mutex = $pkg.Mutex = $newType(0, $kindStruct, "nosync.Mutex", true, "github.com/gopherjs/gopherjs/nosync", true, function(locked_) {
 		this.$val = this;
@@ -5066,7 +5041,6 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		}
 		this.locked = locked_;
 	});
->>>>>>> track
 	Once = $pkg.Once = $newType(0, $kindStruct, "nosync.Once", true, "github.com/gopherjs/gopherjs/nosync", true, function(doing_, done_) {
 		this.$val = this;
 		if (arguments.length === 0) {
@@ -5077,10 +5051,6 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		this.doing = doing_;
 		this.done = done_;
 	});
-<<<<<<< HEAD
-	funcType = $funcType([], [], false);
-	ptrType$3 = $ptrType(Once);
-=======
 	ptrType = $ptrType(Mutex);
 	funcType = $funcType([], [], false);
 	ptrType$3 = $ptrType(Once);
@@ -5102,7 +5072,6 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		m.locked = false;
 	};
 	Mutex.prototype.Unlock = function() { return this.$val.Unlock(); };
->>>>>>> track
 	Once.ptr.prototype.Do = function(f) {
 		var $ptr, f, o, $s, $deferred, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; f = $f.f; o = $f.o; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
@@ -5127,13 +5096,9 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: Once.ptr.prototype.Do }; } $f.$ptr = $ptr; $f.f = f; $f.o = o; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	Once.prototype.Do = function(f) { return this.$val.Do(f); };
-<<<<<<< HEAD
-	ptrType$3.methods = [{prop: "Do", name: "Do", pkg: "", typ: $funcType([funcType], [], false)}];
-=======
 	ptrType.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
 	ptrType$3.methods = [{prop: "Do", name: "Do", pkg: "", typ: $funcType([funcType], [], false)}];
 	Mutex.init("github.com/gopherjs/gopherjs/nosync", [{prop: "locked", name: "locked", exported: false, typ: $Bool, tag: ""}]);
->>>>>>> track
 	Once.init("github.com/gopherjs/gopherjs/nosync", [{prop: "doing", name: "doing", exported: false, typ: $Bool, tag: ""}, {prop: "done", name: "done", exported: false, typ: $Bool, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
@@ -5144,11 +5109,7 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 	return $pkg;
 })();
 $packages["time"] = (function() {
-<<<<<<< HEAD
-	var $pkg = {}, $init, errors, js, nosync, runtime, syscall, ParseError, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, ptrType, sliceType$2, arrayType, sliceType$3, arrayType$1, arrayType$2, ptrType$1, arrayType$4, ptrType$3, ptrType$6, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, months, days, daysBefore, utcLoc, utcLoc$24ptr, localLoc, localLoc$24ptr, localOnce, zoneinfo, badData, _tuple, _r, init, initLocal, indexByte, startsWithLowerCase, nextStdChunk, match, lookup, appendInt, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, absWeekday, absClock, fmtFrac, fmtInt, absDate, daysIn, Unix, isLeap, norm, Date, div, FixedZone;
-=======
 	var $pkg = {}, $init, errors, js, nosync, runtime, syscall, ParseError, Time, Month, Weekday, Duration, Location, zone, zoneTrans, sliceType, sliceType$1, ptrType, sliceType$2, arrayType, sliceType$3, arrayType$1, arrayType$2, ptrType$1, arrayType$4, ptrType$3, ptrType$6, std0x, longDayNames, shortDayNames, shortMonthNames, longMonthNames, atoiError, errBad, errLeadingInt, months, days, daysBefore, utcLoc, utcLoc$24ptr, localLoc, localLoc$24ptr, localOnce, zoneinfo, badData, _tuple, _r, init, initLocal, runtimeNano, now, indexByte, startsWithLowerCase, nextStdChunk, match, lookup, appendInt, atoi, formatNano, quote, isDigit, getnum, cutspace, skip, Parse, parse, parseTimeZone, parseGMT, parseNanoseconds, leadingInt, absWeekday, absClock, fmtFrac, fmtInt, Since, absDate, daysIn, Now, Unix, isLeap, norm, Date, div, FixedZone;
->>>>>>> track
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	nosync = $packages["github.com/gopherjs/gopherjs/nosync"];
@@ -5258,8 +5219,6 @@ $packages["time"] = (function() {
 		localLoc.name = $substring(s, (i + 1 >> 0), j);
 		localLoc.zone = new sliceType([new zone.ptr(localLoc.name, $imul(($parseInt(d.getTimezoneOffset()) >> 0), -60), false)]);
 	};
-<<<<<<< HEAD
-=======
 	runtimeNano = function() {
 		var $ptr;
 		return $mul64($internalize(new ($global.Date)().getTime(), $Int64), new $Int64(0, 1000000));
@@ -5275,7 +5234,6 @@ $packages["time"] = (function() {
 		nsec = _tmp$1;
 		return [sec, nsec];
 	};
->>>>>>> track
 	indexByte = function(s, c) {
 		var $ptr, c, s;
 		return $parseInt(s.indexOf($global.String.fromCharCode(c))) >> 0;
@@ -7023,15 +6981,12 @@ $packages["time"] = (function() {
 		}
 	};
 	Time.prototype.Sub = function(u) { return this.$val.Sub(u); };
-<<<<<<< HEAD
-=======
 	Since = function(t) {
 		var $ptr, t;
 		t = $clone(t, Time);
 		return Now().Sub(t);
 	};
 	$pkg.Since = Since;
->>>>>>> track
 	Time.ptr.prototype.AddDate = function(years, months$1, days$1) {
 		var $ptr, _r$1, _r$2, _r$3, _tuple$1, _tuple$2, day, days$1, hour, min, month, months$1, sec, t, year, years, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; day = $f.day; days$1 = $f.days$1; hour = $f.hour; min = $f.min; month = $f.month; months$1 = $f.months$1; sec = $f.sec; t = $f.t; year = $f.year; years = $f.years; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -7128,8 +7083,6 @@ $packages["time"] = (function() {
 		}
 		return ((((m < 0 || m >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[m]) - (x = m - 1 >> 0, ((x < 0 || x >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[x])) >> 0) >> 0);
 	};
-<<<<<<< HEAD
-=======
 	Now = function() {
 		var $ptr, _tuple$1, nsec, sec;
 		_tuple$1 = now();
@@ -7138,7 +7091,6 @@ $packages["time"] = (function() {
 		return new Time.ptr(new $Int64(sec.$high + 14, sec.$low + 2006054656), nsec, $pkg.Local);
 	};
 	$pkg.Now = Now;
->>>>>>> track
 	Time.ptr.prototype.UTC = function() {
 		var $ptr, t;
 		t = $clone(this, Time);
@@ -13689,9 +13641,6 @@ $packages["bytes"] = (function() {
 	return $pkg;
 })();
 $packages["sort"] = (function() {
-<<<<<<< HEAD
-	var $pkg = {}, $init;
-=======
 	var $pkg = {}, $init, insertionSort, siftDown, heapSort, medianOfThree, doPivot, quickSort, Sort;
 	insertionSort = function(data, a, b) {
 		var $ptr, _r, _v, a, b, data, i, j, $s, $r;
@@ -13975,7 +13924,6 @@ $packages["sort"] = (function() {
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Sort }; } $f.$ptr = $ptr; $f._r = _r; $f.data = data; $f.i = i; $f.maxDepth = maxDepth; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Sort = Sort;
->>>>>>> track
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -14063,11 +14011,7 @@ $packages["io/ioutil"] = (function() {
 	return $pkg;
 })();
 $packages["github.com/tidwall/rbush"] = (function() {
-<<<<<<< HEAD
-	var $pkg = {}, $init, md5, fmt, ioutil, math, os, sort, strconv, strings, nodeT, RBush, ptrType, sliceType$1, ptrType$1, New, createNode;
-=======
 	var $pkg = {}, $init, md5, fmt, ioutil, math, os, sort, strconv, strings, Node, RBush, byMinX, byMinY, ptrType, sliceType$1, sliceType$2, ptrType$1, New, calcBBox, distBBox, extend, bboxArea, bboxMargin, enlargedArea, intersectionArea, createNode, multiSelect, splice, ncopy, quickselect, sortNodes;
->>>>>>> track
 	md5 = $packages["crypto/md5"];
 	fmt = $packages["fmt"];
 	ioutil = $packages["io/ioutil"];
@@ -14076,43 +14020,6 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	sort = $packages["sort"];
 	strconv = $packages["strconv"];
 	strings = $packages["strings"];
-<<<<<<< HEAD
-	nodeT = $pkg.nodeT = $newType(0, $kindStruct, "rbush.nodeT", true, "github.com/tidwall/rbush", false, function(minX_, minY_, maxX_, maxY_, children_, height_, leaf_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.minX = 0;
-			this.minY = 0;
-			this.maxX = 0;
-			this.maxY = 0;
-			this.children = sliceType$1.nil;
-			this.height = 0;
-			this.leaf = false;
-			return;
-		}
-		this.minX = minX_;
-		this.minY = minY_;
-		this.maxX = maxX_;
-		this.maxY = maxY_;
-		this.children = children_;
-		this.height = height_;
-		this.leaf = leaf_;
-	});
-	RBush = $pkg.RBush = $newType(0, $kindStruct, "rbush.RBush", true, "github.com/tidwall/rbush", true, function(_maxEntries_, _minEntries_, data_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this._maxEntries = 0;
-			this._minEntries = 0;
-			this.data = ptrType.nil;
-			return;
-		}
-		this._maxEntries = _maxEntries_;
-		this._minEntries = _minEntries_;
-		this.data = data_;
-	});
-	ptrType = $ptrType(nodeT);
-	sliceType$1 = $sliceType(ptrType);
-	ptrType$1 = $ptrType(RBush);
-=======
 	Node = $pkg.Node = $newType(0, $kindStruct, "rbush.Node", true, "github.com/tidwall/rbush", true, function(MinX_, MinY_, MaxX_, MaxY_, Children_, Height_, Leaf_, Item_) {
 		this.$val = this;
 		if (arguments.length === 0) {
@@ -14239,40 +14146,18 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		return arr.$length;
 	};
 	$ptrType(byMinY).prototype.Len = function() { return this.$get().Len(); };
->>>>>>> track
 	New = function(maxEntries) {
 		var $ptr, maxEntries, this$1;
 		this$1 = new RBush.ptr(0, 0, ptrType.nil);
 		if (maxEntries <= 0) {
 			maxEntries = 9;
 		}
-<<<<<<< HEAD
-		this$1._maxEntries = (math.Max(4, maxEntries) >> 0);
-		this$1._minEntries = (math.Max(2, math.Ceil(this$1._maxEntries * 0.4)) >> 0);
-=======
 		this$1.MaxEntries = (math.Max(4, maxEntries) >> 0);
 		this$1.MinEntries = (math.Max(2, math.Ceil(this$1.MaxEntries * 0.4)) >> 0);
->>>>>>> track
 		this$1.clear();
 		return this$1;
 	};
 	$pkg.New = New;
-<<<<<<< HEAD
-	RBush.ptr.prototype.clear = function() {
-		var $ptr, this$1;
-		this$1 = this;
-		this$1.data = createNode(sliceType$1.nil);
-		return this$1;
-	};
-	RBush.prototype.clear = function() { return this.$val.clear(); };
-	createNode = function(children) {
-		var $ptr, children;
-		return new nodeT.ptr(math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1), children, 1, true);
-	};
-	ptrType$1.methods = [{prop: "all", name: "all", pkg: "github.com/tidwall/rbush", typ: $funcType([], [sliceType$1], false)}, {prop: "search", name: "search", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [sliceType$1], false)}, {prop: "collides", name: "collides", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [$Bool], false)}, {prop: "load", name: "load", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [ptrType$1], false)}, {prop: "insert", name: "insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "clear", name: "clear", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType$1], false)}, {prop: "remove", name: "remove", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "toJSON", name: "toJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType], false)}, {prop: "fromJSON", name: "fromJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "_all", name: "_all", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1], [sliceType$1], false)}, {prop: "_build", name: "_build", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int, $Int, $Int], [ptrType], false)}, {prop: "_chooseSubtree", name: "_chooseSubtree", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType, $Int, sliceType$1], [ptrType, sliceType$1], false)}, {prop: "_insert", name: "_insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Bool], [], false)}, {prop: "_split", name: "_split", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int], [sliceType$1], false)}, {prop: "_splitRoot", name: "_splitRoot", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType], [], false)}, {prop: "_chooseSplitIndex", name: "_chooseSplitIndex", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [$Int], false)}, {prop: "_chooseSplitAxis", name: "_chooseSplitAxis", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [], false)}, {prop: "_allDistMargin", name: "_allDistMargin", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int, $Int], [$Float64], false)}, {prop: "_adjustParentBBoxes", name: "_adjustParentBBoxes", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1, $Int], [], false)}, {prop: "_condense", name: "_condense", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [], false)}, {prop: "jsonString", name: "jsonString", pkg: "github.com/tidwall/rbush", typ: $funcType([], [$String], false)}];
-	nodeT.init("github.com/tidwall/rbush", [{prop: "minX", name: "minX", exported: false, typ: $Float64, tag: ""}, {prop: "minY", name: "minY", exported: false, typ: $Float64, tag: ""}, {prop: "maxX", name: "maxX", exported: false, typ: $Float64, tag: ""}, {prop: "maxY", name: "maxY", exported: false, typ: $Float64, tag: ""}, {prop: "children", name: "children", exported: false, typ: sliceType$1, tag: ""}, {prop: "height", name: "height", exported: false, typ: $Int, tag: ""}, {prop: "leaf", name: "leaf", exported: false, typ: $Bool, tag: ""}]);
-	RBush.init("github.com/tidwall/rbush", [{prop: "_maxEntries", name: "_maxEntries", exported: false, typ: $Int, tag: ""}, {prop: "_minEntries", name: "_minEntries", exported: false, typ: $Int, tag: ""}, {prop: "data", name: "data", exported: false, typ: ptrType, tag: ""}]);
-=======
 	RBush.ptr.prototype.Load = function(data) {
 		var $ptr, _r, data, this$1, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; data = $f.data; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -14829,7 +14714,6 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	RBush.init("", [{prop: "MaxEntries", name: "MaxEntries", exported: true, typ: $Int, tag: ""}, {prop: "MinEntries", name: "MinEntries", exported: true, typ: $Int, tag: ""}, {prop: "Data", name: "Data", exported: true, typ: ptrType, tag: ""}]);
 	byMinX.init(ptrType);
 	byMinY.init(ptrType);
->>>>>>> track
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -14846,23 +14730,6 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-<<<<<<< HEAD
-$packages["main"] = (function() {
-	var $pkg = {}, $init, js, rbush, Tree, funcType, ptrType, ptrType$1, main, NewTree;
-	js = $packages["github.com/gopherjs/gopherjs/js"];
-	rbush = $packages["github.com/tidwall/rbush"];
-	Tree = $pkg.Tree = $newType(0, $kindStruct, "main.Tree", true, "main", true, function(tr_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.tr = ptrType.nil;
-			return;
-		}
-		this.tr = tr_;
-	});
-	funcType = $funcType([], [], false);
-	ptrType = $ptrType(rbush.RBush);
-	ptrType$1 = $ptrType(Tree);
-=======
 $packages["math/rand"] = (function() {
 	var $pkg = {}, $init, nosync, math, Source, Rand, lockedSource, rngSource, arrayType, ptrType, ptrType$1, sliceType, ptrType$2, ptrType$3, sliceType$1, ptrType$5, ke, we, fe, kn, wn, fn, globalRand, rng_cooked, absInt32, NewSource, New, read, Seed, Float64, seedrand;
 	nosync = $packages["github.com/gopherjs/gopherjs/nosync"];
@@ -15482,51 +15349,22 @@ $packages["main"] = (function() {
 	ptrType$3 = $ptrType(js.Object);
 	funcType$1 = $funcType([ptrType$3], [], false);
 	ptrType$4 = $ptrType(Tree);
->>>>>>> track
 	main = function() {
 		var $ptr, sheet;
 		sheet = $global.document.createElement($externalize("style", $String));
 		sheet.innerHTML = $externalize("html, body { \n\t\t\tpadding:0; margin:0; border:0; width:100%; height:100%; overflow:hidden;\n\t\t}\n\t\thtml{\n\t\t\tbackground: black;\n\t\t}", $String);
 		$global.document.head.appendChild(sheet);
 		$global.document.title = $externalize("uh huh", $String);
-<<<<<<< HEAD
-		$global.addEventListener($externalize("load", $String), $externalize((function() {
-			var $ptr, cover, tree;
-			tree = NewTree($global.document.body);
-=======
 		$global.addEventListener($externalize("load", $String), $externalize((function $b() {
 			var $ptr, _r, cover, tree, $s, $r;
 			/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; cover = $f.cover; tree = $f.tree; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 			tree = [tree];
->>>>>>> track
 			cover = $global.document.createElement($externalize("div", $String));
 			cover.style.height = $externalize("100%", $String);
 			cover.style.width = $externalize("100%", $String);
 			cover.style[$externalize("background-image", $String)] = $externalize("radial-gradient(ellipse farthest-corner at 45px 45px , #00FFFF 0%, rgba(0, 0, 255, 0) 50%, #0000FF 95%)", $String);
 			cover.style.opacity = $externalize("0.15", $String);
 			cover.style.position = $externalize("absolute", $String);
-<<<<<<< HEAD
-			$global.addEventListener($externalize("resize", $String), $externalize((function() {
-				var $ptr;
-				tree.layout();
-			}), funcType));
-			$global.document.body.appendChild(cover);
-		}), funcType));
-	};
-	NewTree = function(o) {
-		var $ptr, o, t;
-		t = new Tree.ptr(rbush.New(0));
-		return t;
-	};
-	$pkg.NewTree = NewTree;
-	Tree.ptr.prototype.layout = function() {
-		var $ptr, t;
-		t = this;
-	};
-	Tree.prototype.layout = function() { return this.$val.layout(); };
-	ptrType$1.methods = [{prop: "layout", name: "layout", pkg: "main", typ: $funcType([], [], false)}];
-	Tree.init("main", [{prop: "tr", name: "tr", exported: false, typ: ptrType, tag: ""}]);
-=======
 			$global.document.body.appendChild(cover);
 			_r = NewTree($global.document.body); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			tree[0] = _r;
@@ -15950,14 +15788,11 @@ $packages["main"] = (function() {
 	ptrType$4.methods = [{prop: "start", name: "start", pkg: "main", typ: $funcType([], [], false)}, {prop: "genBulkInsert", name: "genBulkInsert", pkg: "main", typ: $funcType([$Int, $Int], [], false)}, {prop: "layout", name: "layout", pkg: "main", typ: $funcType([], [], false)}, {prop: "overLink", name: "overLink", pkg: "main", typ: $funcType([$Int, $Int], [$Bool], false)}, {prop: "buildRects", name: "buildRects", pkg: "main", typ: $funcType([sliceType$2, ptrType$2, $Int], [sliceType$2], false)}, {prop: "tx", name: "tx", pkg: "main", typ: $funcType([$Float64], [$Float64], false)}, {prop: "ty", name: "ty", pkg: "main", typ: $funcType([$Float64], [$Float64], false)}, {prop: "draw", name: "draw", pkg: "main", typ: $funcType([], [], false)}, {prop: "strokeRect", name: "strokeRect", pkg: "main", typ: $funcType([$Float64, $Float64, $Float64, $Float64, $Float64], [], false)}, {prop: "loop", name: "loop", pkg: "main", typ: $funcType([$Float64], [], false)}, {prop: "drawTitles", name: "drawTitles", pkg: "main", typ: $funcType([], [], false)}, {prop: "drawTitle", name: "drawTitle", pkg: "main", typ: $funcType([$String, $String, $Float64, $Float64], [$Float64], false)}];
 	Tree.init("main", [{prop: "tr", name: "tr", exported: false, typ: ptrType$1, tag: ""}, {prop: "data", name: "data", exported: false, typ: sliceType$1, tag: ""}, {prop: "parent", name: "parent", exported: false, typ: ptrType$3, tag: ""}, {prop: "canvas", name: "canvas", exported: false, typ: ptrType$3, tag: ""}, {prop: "width", name: "width", exported: false, typ: $Float64, tag: ""}, {prop: "height", name: "height", exported: false, typ: $Float64, tag: ""}, {prop: "ratio", name: "ratio", exported: false, typ: $Float64, tag: ""}, {prop: "ctx", name: "ctx", exported: false, typ: ptrType$3, tag: ""}, {prop: "rects", name: "rects", exported: false, typ: sliceType$2, tag: ""}, {prop: "ts", name: "ts", exported: false, typ: $Float64, tag: ""}, {prop: "dirty", name: "dirty", exported: false, typ: $Bool, tag: ""}, {prop: "linkover", name: "linkover", exported: false, typ: $Bool, tag: ""}, {prop: "Clicked", name: "Clicked", exported: true, typ: funcType, tag: ""}, {prop: "showWireframes", name: "showWireframes", exported: false, typ: $Bool, tag: ""}]);
 	rectT.init("main", [{prop: "color", name: "color", exported: false, typ: $String, tag: ""}, {prop: "stroke", name: "stroke", exported: false, typ: $Float64, tag: ""}, {prop: "node", name: "node", exported: false, typ: ptrType$2, tag: ""}, {prop: "ts", name: "ts", exported: false, typ: $Float64, tag: ""}, {prop: "dur", name: "dur", exported: false, typ: $Float64, tag: ""}, {prop: "backwards", name: "backwards", exported: false, typ: $Bool, tag: ""}, {prop: "loop", name: "loop", exported: false, typ: $Int, tag: ""}]);
->>>>>>> track
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = js.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = rbush.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-<<<<<<< HEAD
-=======
 		$r = math.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = rand.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = time.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
@@ -15965,7 +15800,6 @@ $packages["main"] = (function() {
 		leafColor = "rgba(200,39,33,";
 		colors = new sliceType(["rgba(" + itoa(0) + "," + itoa(0) + "," + itoa(255) + ",", "rgba(" + itoa(255) + "," + itoa(0) + "," + itoa(255) + ","]);
 		pad = 50;
->>>>>>> track
 		if ($pkg === $mainPkg) {
 			main();
 			$mainFinished = true;

@@ -1,14 +1,12 @@
 package rbush
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
 	"reflect"
 	"sort"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -17,19 +15,6 @@ type byDims []*Node
 
 func (arr byDims) Len() int { return len(arr) }
 func (arr byDims) Less(a, b int) bool {
-<<<<<<< HEAD
-	for i := 0; i < DIMS; i++ {
-		n := arr[a].min[i] - arr[b].min[i]
-		if n != 0 {
-			return n < 0
-		}
-	}
-	for i := 0; i < DIMS; i++ {
-		n := arr[a].max[i] - arr[b].max[i]
-		if n != 0 {
-			return n < 0
-		}
-=======
 	n := arr[a].MinX - arr[b].MinX
 	if n != 0 {
 		return n < 0
@@ -45,7 +30,6 @@ func (arr byDims) Less(a, b int) bool {
 	n = arr[a].MaxY - arr[b].MaxY
 	if n != 0 {
 		return n < 0
->>>>>>> track
 	}
 	return false
 }
@@ -62,15 +46,6 @@ var data = arrToBBoxes(`
     [85,60,85,60],[95,70,95,70],[50,75,50,75],[60,85,60,85],[70,95,70,95],[75,75,75,75],[85,85,85,85],[95,95,95,95]]
 `)
 
-<<<<<<< HEAD
-var emptyData = []*nodeT{
-	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
-	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
-	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
-	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
-	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
-	{min: [DIMS]float64{math.Inf(-1), math.Inf(-1)}, max: [DIMS]float64{math.Inf(+1), math.Inf(+1)}},
-=======
 var emptyData = []*Node{
 	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
 	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
@@ -78,7 +53,6 @@ var emptyData = []*Node{
 	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
 	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
 	{MinX: math.Inf(-1), MinY: math.Inf(-1), MaxX: math.Inf(+1), MaxY: math.Inf(+1)},
->>>>>>> track
 }
 
 func arrToBBoxes(data string) []*Node {
@@ -87,12 +61,6 @@ func arrToBBoxes(data string) []*Node {
 	if err := json.Unmarshal([]byte(data), &arr); err != nil {
 		panic(err)
 	}
-<<<<<<< HEAD
-	for _, arr := range arr {
-		nodes = append(nodes, &nodeT{
-			min: [DIMS]float64{arr[0], arr[1]},
-			max: [DIMS]float64{arr[2], arr[3]},
-=======
 	for i, arr := range arr {
 		nodes = append(nodes, &Node{
 			MinX: arr[0],
@@ -100,20 +68,11 @@ func arrToBBoxes(data string) []*Node {
 			MaxX: arr[2],
 			MaxY: arr[3],
 			Item: i,
->>>>>>> track
 		})
 	}
 	return nodes
 }
 
-<<<<<<< HEAD
-func sortedEqual(t *testing.T, a, b []*nodeT) {
-	copyA := append([]*nodeT(nil), a...)
-	copyB := append([]*nodeT(nil), b...)
-	sort.Sort(byDims(copyA))
-	sort.Sort(byDims(copyB))
-	if !reflect.DeepEqual(copyA, copyB) {
-=======
 func sortedEqual(t *testing.T, a, b []*Node) {
 	//compare = compare || defaultCompare
 	copyA := append([]*Node(nil), a...)
@@ -154,9 +113,9 @@ func sortedEqual(t *testing.T, a, b []*Node) {
 				fmt.Printf("---\n")
 			}
 		}
->>>>>>> track
 		t.Fatal("not equals")
 	}
+	//t.same(a.slice().sort(compare), b.slice().sort(compare))
 }
 
 func TestConstructorAcceptsAFormatArgumentToCustomizeTheDataFormat(t *testing.T) {
@@ -278,6 +237,7 @@ func TestInsertHandlesTheInsertionOfMaxEntriesPlus2EmptyBBoxes(t *testing.T) {
 	var tree = New(4)
 	var i int
 	for _, datum := range emptyData {
+		tp("test %d: %s", i, nodeString(datum))
 		tree.insert(datum)
 		i++
 	}
@@ -316,11 +276,7 @@ func TestSearchFindsMatchingPointsInTheTreeGivenABBox(t *testing.T) {
 
 	var tree = New(4)
 	tree.load(data)
-<<<<<<< HEAD
-	var result = tree.search(&nodeT{min: [DIMS]float64{40, 20}, max: [DIMS]float64{80, 70}})
-=======
 	var result = tree.search(&Node{MinX: 40, MinY: 20, MaxX: 80, MaxY: 70})
->>>>>>> track
 
 	expect := arrToBBoxes(`[
         [70,20,70,20],[75,25,75,25],[45,45,45,45],[50,50,50,50],[60,60,60,60],[70,70,70,70],
@@ -335,11 +291,7 @@ func TestCollidesReturnsTrueWhenSearchFindsMatchingPoints(t *testing.T) {
 
 	var tree = New(4)
 	tree.load(data)
-<<<<<<< HEAD
-	var result = tree.collides(&nodeT{min: [DIMS]float64{40, 20}, max: [DIMS]float64{80, 70}})
-=======
 	var result = tree.collides(&Node{MinX: 40, MinY: 20, MaxX: 80, MaxY: 70})
->>>>>>> track
 
 	same(t, result, true)
 }
@@ -347,22 +299,14 @@ func TestSearchReturnsAnEmptyArrayIfNothingFound(t *testing.T) {
 	tpn("#search returns an empty array if nothing found")
 	var tree = New(4)
 	tree.load(data)
-<<<<<<< HEAD
-	result := tree.search(&nodeT{min: [DIMS]float64{200, 200}, max: [DIMS]float64{210, 210}})
-=======
 	result := tree.search(&Node{MinX: 200, MinY: 200, MaxX: 210, MaxY: 210})
->>>>>>> track
 
 	sortedEqual(t, result, nil)
 }
 
 func TestCollidesReturnsFalseIfNothingFound(t *testing.T) {
 	tpn("#collides returns false if nothing found")
-<<<<<<< HEAD
-	var result = New(4).load(data).collides(&nodeT{min: [DIMS]float64{200, 200}, max: [DIMS]float64{210, 210}})
-=======
 	var result = New(4).load(data).collides(&Node{MinX: 200, MinY: 200, MaxX: 210, MaxY: 210})
->>>>>>> track
 
 	same(t, result, false)
 }
@@ -374,11 +318,7 @@ func TestAllReturnsAllPointsInTheTree(t *testing.T) {
 	var result = tree.all()
 
 	sortedEqual(t, result, data)
-<<<<<<< HEAD
-	sortedEqual(t, tree.search(&nodeT{min: [DIMS]float64{0, 0}, max: [DIMS]float64{100, 100}}), data)
-=======
 	sortedEqual(t, tree.search(&Node{MinX: 0, MinY: 0, MaxX: 100, MaxY: 100}), data)
->>>>>>> track
 
 }
 
@@ -458,11 +398,7 @@ func TestRemoveDoesNothingIfNothingFound(t *testing.T) {
 	tpn("#remove does nothing if nothing found")
 	same(t,
 		New(0).load(data),
-<<<<<<< HEAD
-		New(0).load(data).remove(&nodeT{min: [DIMS]float64{13, 13}, max: [DIMS]float64{13, 13}}))
-=======
 		New(0).load(data).remove(&Node{MinX: 13, MinY: 13, MaxX: 13, MaxY: 13}))
->>>>>>> track
 }
 func TestRemoveDoesIfGivenUndefined(t *testing.T) {
 	tpn("#remove does nothing if given undefined")
@@ -485,7 +421,7 @@ func TestRemoveAcceptsAnEqualsFunction(t *testing.T) {
 	tpq("#remove accepts an equals function")
 	//var tree = New(4).load(data);
 
-	//var item = &nodeT{minX: 20,  70, maxX: 20, maxY: 70, foo: 'bar'};
+	//var item = &nodeT{minX: 20, minY: 70, maxX: 20, maxY: 70, foo: 'bar'};
 
 	//tree.insert(item);
 	//tree.remove(JSON.parse(JSON.stringify(item)), function (a, b) {
@@ -511,11 +447,7 @@ func TestVarious(t *testing.T) {
 func someData(n int) []*Node {
 	var data []*Node
 	for i := 0; i < n; i++ {
-<<<<<<< HEAD
-		data = append(data, &nodeT{min: [DIMS]float64{float64(i), float64(i)}, max: [DIMS]float64{float64(i), float64(i)}})
-=======
 		data = append(data, &Node{MinX: float64(i), MinY: float64(i), MaxX: float64(i), MaxY: float64(i)})
->>>>>>> track
 	}
 	return data
 }
@@ -538,16 +470,16 @@ func same(t *testing.T, a interface{}, b interface{}) {
 	}
 }
 
-type byQuick []*nodeT
+type byQuick []int
 
-func (arr byQuick) At(i int) *nodeT {
+func (arr byQuick) At(i int) interface{} {
 	return arr[i]
 }
-func (arr byQuick) Compare(a, b *nodeT) int {
-	if a.min[0] < b.min[0] {
+func (arr byQuick) Compare(a, b interface{}) int {
+	if a.(int) < b.(int) {
 		return -1
 	}
-	if a.min[0] > b.min[0] {
+	if a.(int) > b.(int) {
 		return 1
 	}
 	return 0
@@ -557,19 +489,12 @@ func (arr byQuick) Swap(a, b int) {
 }
 
 func TestQuickselect(t *testing.T) {
-	var arr []*nodeT
-	for _, v := range []float64{65, 28, 59, 33, 21, 56, 22, 95, 50, 12, 90, 53, 28, 77, 39} {
-		arr = append(arr, &nodeT{min: [DIMS]float64{v}})
-	}
+	var arr = []int{65, 28, 59, 33, 21, 56, 22, 95, 50, 12, 90, 53, 28, 77, 39}
+	quickselect(byQuick(arr), 8, 0, len(arr)-1)
 
-	quickselect(arr, 8, 0, len(arr)-1, 0)
-
-	var exp []*nodeT
-	for _, v := range []float64{39, 28, 28, 33, 21, 12, 22, 50, 53, 56, 59, 65, 90, 77, 95} {
-		exp = append(exp, &nodeT{min: [DIMS]float64{v}})
-	}
+	var exp = []int{39, 28, 28, 33, 21, 12, 22, 50, 53, 56, 59, 65, 90, 77, 95}
 	for i := 0; i < len(arr); i++ {
-		if arr[i].min[0] != exp[i].min[0] {
+		if arr[i] != exp[i] {
 			t.Fatalf("mismatch for index %d\n", i)
 		}
 	}
@@ -586,17 +511,11 @@ func BenchmarkVarious(t *testing.B) {
 	randBox := func(size float64) *Node {
 		var x = rand.Float64() * (100 - size)
 		var y = rand.Float64() * (100 - size)
-<<<<<<< HEAD
-		return &nodeT{
-			min: [DIMS]float64{x, y},
-			max: [DIMS]float64{x + size*rand.Float64(), y + size*rand.Float64()},
-=======
 		return &Node{
 			MinX: x,
 			MinY: y,
 			MaxX: x + size*rand.Float64(),
 			MaxY: y + size*rand.Float64(),
->>>>>>> track
 		}
 	}
 
@@ -677,90 +596,4 @@ func BenchmarkVarious(t *testing.B) {
 	}
 	consoleTimeEnd("1000 searches 0.01%")
 
-}
-
-var tpon = false
-var tpc int
-var tpall string
-var tpt int
-var tlines []string
-var tbad = false
-var tbadcount = 0
-var tbadidx = 0
-
-func tpsum(s string) string {
-	hex := fmt.Sprintf("%X", md5.Sum([]byte(s)))
-	return hex[len(hex)-4:]
-}
-func tpn(format string, args ...interface{}) {
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[92m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
-}
-func tpq(format string, args ...interface{}) {
-	tpn(format, args...)
-	return
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[35m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
-}
-
-func tpm(format string, args ...interface{}) {
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[34m\x1b[1m• %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
-}
-func (this *RBush) jsonString() string {
-	var b []byte
-	b = append(b, `{`+
-		`"maxEntries":`+strconv.FormatInt(int64(this._maxEntries), 10)+`,`+
-		`"minEntries":`+strconv.FormatInt(int64(this._minEntries), 10)+`,`+
-		`"data":`...)
-	b = appendNodeJSON(b, this.data, 1)
-	b = append(b, '}')
-	return string(b)
-}
-
-func appendNodeJSON(b []byte, node *nodeT, depth int) []byte {
-	if node == nil {
-		return append(b, "null"...)
-	}
-	b = append(b, '{')
-	if len(node.children) > 0 {
-		b = append(b, `"children":[`...)
-		for i, child := range node.children {
-			if i > 0 {
-				b = append(b, ',')
-			}
-			b = appendNodeJSON(b, child, depth+1)
-		}
-		b = append(b, ']', ',')
-	}
-	b = append(b, `"leaf":`...)
-	if node.leaf {
-		b = append(b, "true"...)
-	} else {
-		b = append(b, "false"...)
-	}
-	b = append(b, `,"height":`...)
-	b = append(b, strconv.FormatInt(int64(node.height), 10)...)
-	b = append(b, `,"minX":`...)
-	b = append(b, strconv.FormatFloat(node.min[0], 'f', -1, 64)...)
-	b = append(b, `,"minY":`...)
-	b = append(b, strconv.FormatFloat(node.min[1], 'f', -1, 64)...)
-	b = append(b, `,"maxX":`...)
-	b = append(b, strconv.FormatFloat(node.max[0], 'f', -1, 64)...)
-	b = append(b, `,"maxY":`...)
-	b = append(b, strconv.FormatFloat(node.max[1], 'f', -1, 64)...)
-	b = append(b, '}')
-	return b
-}
-func nodeJSONString(n *nodeT) string {
-	return string(appendNodeJSON([]byte(nil), n, 0))
 }

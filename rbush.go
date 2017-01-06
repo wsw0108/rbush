@@ -1,20 +1,18 @@
 package rbush
 
 import (
+	"crypto/md5"
+	"fmt"
+	"io/ioutil"
 	"math"
+	"os"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 const defaultMaxEntries = 9
-const DIMS = 2
 
-<<<<<<< HEAD
-type nodeT struct {
-	min, max [DIMS]float64
-	children []*nodeT
-	height   int
-	leaf     bool
-=======
 type Node struct {
 	MinX, MinY float64
 	MaxX, MaxY float64
@@ -22,7 +20,6 @@ type Node struct {
 	Height     int
 	Leaf       bool
 	Item       interface{}
->>>>>>> track
 }
 
 type RBush struct {
@@ -31,11 +28,6 @@ type RBush struct {
 	Data       *Node
 }
 
-<<<<<<< HEAD
-type byDim struct {
-	arr []*nodeT
-	dim int
-=======
 type byMinX []*Node
 
 func (arr byMinX) At(i int) interface{} {
@@ -53,19 +45,15 @@ func (arr byMinX) Compare(a, b interface{}) int {
 }
 func (arr byMinX) Less(i, j int) bool {
 	return arr[i].MinX < arr[j].MinX
->>>>>>> track
 }
 
-func (v byDim) Len() int {
-	return len(v.arr)
+func (arr byMinX) Swap(i, j int) {
+	arr[i], arr[j] = arr[j], arr[i]
 }
-func (v byDim) Less(i, j int) bool {
-	return v.arr[i].min[v.dim] < v.arr[j].min[v.dim]
+
+func (arr byMinX) Len() int {
+	return len(arr)
 }
-<<<<<<< HEAD
-func (v byDim) Swap(i, j int) {
-	v.arr[i], v.arr[j] = v.arr[j], v.arr[i]
-=======
 
 type byMinY []*Node
 
@@ -92,10 +80,8 @@ func (arr byMinY) Swap(i, j int) {
 
 func (arr byMinY) Len() int {
 	return len(arr)
->>>>>>> track
 }
 
-// New returns a new RBush object
 func New(maxEntries int) *RBush {
 	this := &RBush{}
 	// max entries in a node is 9 by default; min node fill is 40% for best performance
@@ -325,10 +311,10 @@ func (this *RBush) _build(items []*Node, left, right, height int) *Node {
 	var N2 = int(math.Ceil(float64(N) / float64(M)))
 	var N1 = N2 * int(math.Ceil(math.Sqrt(float64(M))))
 	var i, j, right2, right3 int
-	multiSelect(items, left, right, N1, 1)
+	multiSelect(byMinX(items), left, right, N1)
 	for i = left; i <= right; i += N1 {
 		right2 = int(math.Min(float64(i+N1-1), float64(right)))
-		multiSelect(items, i, right2, N2, 2)
+		multiSelect(byMinY(items), i, right2, N2)
 		for j = i; j <= right2; j += N2 {
 			right3 = int(math.Min(float64(j+N2-1), float64(right2)))
 			// pack each entry recursively
@@ -468,15 +454,6 @@ func (this *RBush) _chooseSplitIndex(node *Node, m, M int) int {
 }
 
 // sorts node children by the best axis for split
-<<<<<<< HEAD
-func (this *RBush) _chooseSplitAxis(node *nodeT, m, M int) {
-	var xMargin = this._allDistMargin(node, m, M, 0)
-	var yMargin = this._allDistMargin(node, m, M, 1)
-	// if total distributions margin value is minimal for x, sort by minX,
-	// otherwise it's already sorted by minY
-	if xMargin < yMargin {
-		sort.Sort(byDim{node.children, 0})
-=======
 func (this *RBush) _chooseSplitAxis(node *Node, m, M int) {
 	var xMargin = this._allDistMargin(node, m, M, 1)
 	var yMargin = this._allDistMargin(node, m, M, 2)
@@ -484,19 +461,12 @@ func (this *RBush) _chooseSplitAxis(node *Node, m, M int) {
 	// otherwise it's already sorted by minY
 	if xMargin < yMargin {
 		sortNodes(node.Children, 1)
->>>>>>> track
 	}
 }
 
 // total margin of all possible split distributions where each node is at least m full
-<<<<<<< HEAD
-func (this *RBush) _allDistMargin(node *nodeT, m, M int, dim int) float64 {
-	sort.Sort(byDim{node.children, dim})
-
-=======
 func (this *RBush) _allDistMargin(node *Node, m, M int, dim int) float64 {
 	sortNodes(node.Children, dim)
->>>>>>> track
 	var leftBBox = distBBox(node, 0, m, nil)
 	var rightBBox = distBBox(node, M-m, M, nil)
 	var margin = bboxMargin(leftBBox) + bboxMargin(rightBBox)
@@ -570,22 +540,13 @@ func calcBBox(node *Node) {
 func distBBox(node *Node, k, p int, destNode *Node) *Node {
 	if destNode == nil {
 		destNode = createNode(nil)
-	} else {
-		for i := 0; i < DIMS; i++ {
-			destNode.min[i] = math.Inf(+1)
-			destNode.max[i] = math.Inf(-1)
-		}
 	}
-<<<<<<< HEAD
-	var child *nodeT
-=======
 	destNode.MinX = math.Inf(+1)
 	destNode.MinY = math.Inf(+1)
 	destNode.MaxX = math.Inf(-1)
 	destNode.MaxY = math.Inf(-1)
 
 	var child *Node
->>>>>>> track
 	for i := k; i < p; i++ {
 		child = node.Children[i]
 		extend(destNode, child)
@@ -593,75 +554,6 @@ func distBBox(node *Node, k, p int, destNode *Node) *Node {
 	return destNode
 }
 
-<<<<<<< HEAD
-func extend(a *nodeT, b *nodeT) *nodeT {
-	for i := 0; i < DIMS; i++ {
-		a.min[i] = math.Min(a.min[i], b.min[i])
-		a.max[i] = math.Max(a.max[i], b.max[i])
-	}
-	return a
-}
-
-func bboxArea(a *nodeT) float64 {
-	v := a.max[0] - a.min[0]
-	for i := 1; i < DIMS; i++ {
-		v *= a.max[i] - a.min[i]
-	}
-	return v
-}
-
-func bboxMargin(a *nodeT) float64 {
-	v := a.max[0] - a.min[0]
-	for i := 1; i < DIMS; i++ {
-		v += a.max[i] - a.min[i]
-	}
-	return v
-}
-
-func enlargedArea(a, b *nodeT) float64 {
-	v := math.Max(b.max[0], a.max[0]) - math.Min(b.min[0], a.min[0])
-	for i := 1; i < DIMS; i++ {
-		v *= math.Max(b.max[i], a.max[i]) - math.Min(b.min[i], a.min[i])
-	}
-	return v
-}
-
-func intersectionArea(a, b *nodeT) float64 {
-	var min = math.Max(a.min[0], b.min[0])
-	var max = math.Min(a.max[0], b.max[0])
-	v := math.Max(0, max-min)
-	for i := 1; i < DIMS; i++ {
-		min = math.Max(a.min[i], b.min[i])
-		max = math.Min(a.max[i], b.max[i])
-		v *= math.Max(0, max-min)
-	}
-	return v
-}
-
-func contains(a, b *nodeT) bool {
-	for i := 0; i < DIMS; i++ {
-		if a.min[i] > b.min[i] || b.max[i] > a.max[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func intersects(a, b *nodeT) bool {
-	for i := 0; i < DIMS; i++ {
-		if b.min[i] > a.max[i] || b.max[i] < a.min[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func createNode(children []*nodeT) *nodeT {
-	n := &nodeT{
-		children: children,
-		height:   1,
-		leaf:     true,
-=======
 func extend(a *Node, b *Node) *Node {
 	a.MinX = math.Min(a.MinX, b.MinX)
 	a.MinY = math.Min(a.MinY, b.MinY)
@@ -714,22 +606,12 @@ func createNode(children []*Node) *Node {
 		MinY:     math.Inf(+1),
 		MaxX:     math.Inf(-1),
 		MaxY:     math.Inf(-1),
->>>>>>> track
 	}
-	for i := 0; i < DIMS; i++ {
-		n.min[i] = math.Inf(+1)
-		n.max[i] = math.Inf(-1)
-	}
-	return n
 }
 
 // sort an array so that items come in groups of n unsorted items, with groups sorted between each other;
 // combines selection algorithm with binary divide & conquer approach
-<<<<<<< HEAD
-func multiSelect(arr []*nodeT, left, right, n int, dim int) {
-=======
 func multiSelect(arr quickSelectArr, left, right, n int) {
->>>>>>> track
 	var stack = []int{left, right}
 	var mid int
 
@@ -744,11 +626,7 @@ func multiSelect(arr quickSelectArr, left, right, n int) {
 		}
 
 		mid = left + int(math.Ceil(float64(right-left)/float64(n)/2))*n
-<<<<<<< HEAD
-		quickselect(arr, mid, left, right, dim)
-=======
 		quickselect(arr, mid, left, right)
->>>>>>> track
 
 		stack = append(stack, left, mid, mid, right)
 	}
@@ -780,11 +658,6 @@ func count(node *Node) int {
 	}
 	return n
 }
-<<<<<<< HEAD
-
-func ncopy(nodes []*nodeT) []*nodeT {
-	return append([]*nodeT(nil), nodes...)
-=======
 func nodeString(node *Node) string {
 	if node == nil {
 		return "<nil>"
@@ -858,10 +731,88 @@ func nodeSum(n *Node) string {
 }
 func ncopy(nodes []*Node) []*Node {
 	return append([]*Node(nil), nodes...)
->>>>>>> track
 }
 
-func quickselect(arr []*nodeT, k, left, right, dim int) {
+var tpon = false
+var tpc int
+var tpall string
+var tpt int
+var tlines []string
+var tbad = false
+var tbadcount = 0
+var tbadidx = 0
+
+func tpsum(s string) string {
+	hex := fmt.Sprintf("%X", md5.Sum([]byte(s)))
+	return hex[len(hex)-4:]
+}
+func tp(format string, args ...interface{}) {
+	if !tpon {
+		return
+	}
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	if tpc == 0 {
+		data, _ := ioutil.ReadFile("out.log")
+		tlines = strings.Split(string(data), "\n")
+	}
+	s := fmt.Sprintf(format, args...)
+	tpall += s
+	s = fmt.Sprintf("%04d:%s %s", tpc, tpsum(tpall), s)
+	if !tbad {
+		if tlines[tpc] != s {
+			fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
+			fmt.Printf("# %s\n", tlines[tpc])
+			tbad = true
+			tbadcount++
+			tbadidx = tpc
+		} else {
+			fmt.Printf("\x1b[38;5;83m\x1b[1m✓ %s\x1b[0m\n", s)
+		}
+	} else {
+		fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
+		//fmt.Printf("# %s\n", tlines[tpc])
+		if tbadcount == 5 {
+			os.Exit(0)
+		}
+		tbadcount++
+	}
+	tpc++
+	tpt++
+}
+func tpn(format string, args ...interface{}) {
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[92m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+func tpq(format string, args ...interface{}) {
+	tpn(format, args...)
+	return
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[35m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+
+func tpm(format string, args ...interface{}) {
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[34m\x1b[1m• %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+
+type quickSelectArr interface {
+	Swap(i, j int)
+	Compare(a, b interface{}) int
+	At(i int) interface{}
+}
+
+func quickselect(arr quickSelectArr, k, left, right int) {
 	for right > left {
 		if right-left > 600 {
 			var n = right - left + 1
@@ -875,35 +826,35 @@ func quickselect(arr []*nodeT, k, left, right, dim int) {
 			var sd = 0.5 * math.Sqrt(z*s*(float64(n)-s)/float64(n)) * float64(tt)
 			var newLeft = int(math.Max(float64(left), math.Floor(float64(k)-float64(m)*s/float64(n)+sd)))
 			var newRight = int(math.Min(float64(right), math.Floor(float64(k)+float64(n-m)*s/float64(n)+sd)))
-			quickselect(arr, k, newLeft, newRight, dim)
+			quickselect(arr, k, newLeft, newRight)
 		}
 
-		var t = arr[k]
+		var t = arr.At(k)
 		var i = left
 		var j = right
 
-		qsSwap(arr, left, k)
-		if qsCompare(arr, arr[right], t) > 0 {
-			qsSwap(arr, left, right)
+		arr.Swap(left, k)
+		if arr.Compare(arr.At(right), t) > 0 {
+			arr.Swap(left, right)
 		}
 
 		for i < j {
-			qsSwap(arr, i, j)
+			arr.Swap(i, j)
 			i++
 			j--
-			for qsCompare(arr, arr[i], t) < 0 {
+			for arr.Compare(arr.At(i), t) < 0 {
 				i++
 			}
-			for qsCompare(arr, arr[j], t) > 0 {
+			for arr.Compare(arr.At(j), t) > 0 {
 				j--
 			}
 		}
 
-		if qsCompare(arr, arr[left], t) == 0 {
-			qsSwap(arr, left, j)
+		if arr.Compare(arr.At(left), t) == 0 {
+			arr.Swap(left, j)
 		} else {
 			j++
-			qsSwap(arr, j, right)
+			arr.Swap(j, right)
 		}
 
 		if j <= k {
@@ -915,21 +866,6 @@ func quickselect(arr []*nodeT, k, left, right, dim int) {
 	}
 }
 
-<<<<<<< HEAD
-func qsCompare(arr []*nodeT, a, b *nodeT) int {
-	for i := 0; i < DIMS; i++ {
-		if a.min[i] < b.min[i] {
-			return -1
-		}
-		if a.min[i] > b.min[i] {
-			return +1
-		}
-	}
-	return 0
-}
-func qsSwap(arr []*nodeT, i, j int) {
-	arr[i], arr[j] = arr[j], arr[i]
-=======
 func sortNodes(nodes []*Node, dim int) {
 	switch dim {
 	default:
@@ -939,5 +875,4 @@ func sortNodes(nodes []*Node, dim int) {
 	case 2:
 		sort.Sort(byMinY(nodes))
 	}
->>>>>>> track
 }
