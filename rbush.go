@@ -98,6 +98,10 @@ func (this *RBush) all() []*Node {
 	return this._all(this.Data, nil)
 }
 
+func (this *RBush) Search(bbox *Node) []*Node {
+	return this.search(bbox)
+}
+
 func (this *RBush) search(bbox *Node) []*Node {
 	var node = this.Data
 	var result []*Node
@@ -192,6 +196,9 @@ func (this *RBush) load(data []*Node) *RBush {
 	}
 	return this
 }
+func (this *RBush) Insert(item *Node) *RBush {
+	return this.insert(item)
+}
 
 func (this *RBush) insert(item *Node) *RBush {
 	if item != nil {
@@ -203,6 +210,10 @@ func (this *RBush) insert(item *Node) *RBush {
 func (this *RBush) clear() *RBush {
 	this.Data = createNode(nil)
 	return this
+}
+
+func (this *RBush) Remove(item *Node) *RBush {
+	return this.remove(item)
 }
 
 func (this *RBush) remove(item *Node) *RBush {
