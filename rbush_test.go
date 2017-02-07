@@ -1,12 +1,16 @@
 package rbush
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math"
 	"math/rand"
+	"os"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -596,4 +600,77 @@ func BenchmarkVarious(t *testing.B) {
 	}
 	consoleTimeEnd("1000 searches 0.01%")
 
+}
+
+var tpon = false
+var tpc int
+var tpall string
+var tpt int
+var tlines []string
+var tbad = false
+var tbadcount = 0
+var tbadidx = 0
+
+func tpsum(s string) string {
+	hex := fmt.Sprintf("%X", md5.Sum([]byte(s)))
+	return hex[len(hex)-4:]
+}
+func tp(format string, args ...interface{}) {
+	if !tpon {
+		return
+	}
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	if tpc == 0 {
+		data, _ := ioutil.ReadFile("out.log")
+		tlines = strings.Split(string(data), "\n")
+	}
+	s := fmt.Sprintf(format, args...)
+	tpall += s
+	s = fmt.Sprintf("%04d:%s %s", tpc, tpsum(tpall), s)
+	if !tbad {
+		if tlines[tpc] != s {
+			fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
+			fmt.Printf("# %s\n", tlines[tpc])
+			tbad = true
+			tbadcount++
+			tbadidx = tpc
+		} else {
+			fmt.Printf("\x1b[38;5;83m\x1b[1m✓ %s\x1b[0m\n", s)
+		}
+	} else {
+		fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
+		//fmt.Printf("# %s\n", tlines[tpc])
+		if tbadcount == 5 {
+			os.Exit(0)
+		}
+		tbadcount++
+	}
+	tpc++
+	tpt++
+}
+func tpn(format string, args ...interface{}) {
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[92m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+func tpq(format string, args ...interface{}) {
+	tpn(format, args...)
+	return
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[35m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
+}
+
+func tpm(format string, args ...interface{}) {
+	if tpt == 0 {
+		fmt.Printf("\n")
+	}
+	fmt.Printf("\x1b[34m\x1b[1m• %s\x1b[0m\n", fmt.Sprintf(format, args...))
+	tpt++
 }

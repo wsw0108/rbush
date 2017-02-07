@@ -3,12 +3,9 @@ package rbush
 import (
 	"crypto/md5"
 	"fmt"
-	"io/ioutil"
 	"math"
-	"os"
 	"sort"
 	"strconv"
-	"strings"
 )
 
 const defaultMaxEntries = 9
@@ -23,9 +20,10 @@ type Node struct {
 }
 
 type RBush struct {
-	MaxEntries int
-	MinEntries int
-	Data       *Node
+	MaxEntries   int
+	MinEntries   int
+	Data         *Node
+	pathReuseBuf []*Node
 }
 
 type byMinX []*Node
@@ -223,8 +221,14 @@ func (this *RBush) remove(item *Node) *RBush {
 
 	var node = this.Data
 	var bbox *Node = item
-	var path []*Node
 	var indexes []int
+	for i := range this.pathReuseBuf {
+		this.pathReuseBuf[i] = nil
+	}
+	path := this.pathReuseBuf[:0]
+	defer func() {
+		this.pathReuseBuf = path
+	}()
 
 	var i int
 	var parent *Node
@@ -249,7 +253,12 @@ func (this *RBush) remove(item *Node) *RBush {
 			index = findItem(item, node.Children)
 			if index != -1 {
 				// item found, remove the item and condense tree upwards
-				node.Children, _ = splice(node.Children, index, 1)
+
+				//node.Children, _ = splice(node.Children, index, 1)
+				copy(node.Children[index:], node.Children[index+1:])
+				node.Children[len(node.Children)-1] = nil
+				node.Children = node.Children[:len(node.Children)-1]
+
 				path = append(path, node)
 				this._condense(path)
 				return this
@@ -378,9 +387,13 @@ func (this *RBush) _chooseSubtree(bbox *Node, node *Node, level int, path []*Nod
 
 func (this *RBush) _insert(item *Node, level int, isNode bool) {
 	var bbox *Node = item
-	var insertPath []*Node
 	var node *Node
-	node, insertPath = this._chooseSubtree(bbox, this.Data, level, insertPath)
+	var insertPath []*Node
+	for i := range this.pathReuseBuf {
+		this.pathReuseBuf[i] = nil
+	}
+	node, this.pathReuseBuf = this._chooseSubtree(bbox, this.Data, level, this.pathReuseBuf[:0])
+	insertPath = this.pathReuseBuf
 	node.Children = append(node.Children, item)
 	extend(node, bbox)
 	for level >= 0 {
@@ -401,11 +414,10 @@ func (this *RBush) _split(insertPath []*Node, level int) []*Node {
 	var m = this.MinEntries
 
 	this._chooseSplitAxis(node, m, M)
-
 	splitIndex := this._chooseSplitIndex(node, m, M)
 
-	var spliced []*Node
-	node.Children, spliced = splice(node.Children, splitIndex, len(node.Children)-splitIndex)
+	spliced := ncopy(node.Children[splitIndex:])
+	node.Children = node.Children[:splitIndex]
 	var newNode = createNode(spliced)
 	newNode.Height = node.Height
 	newNode.Leaf = node.Leaf
@@ -414,8 +426,9 @@ func (this *RBush) _split(insertPath []*Node, level int) []*Node {
 	calcBBox(newNode)
 
 	if level != 0 {
+		n := insertPath[level-1]
 		// -- ncopy removal insertPath[level-1].children = append(ncopy(insertPath[level-1].children), newNode)
-		insertPath[level-1].Children = append(insertPath[level-1].Children, newNode)
+		n.Children = append(n.Children, newNode)
 	} else {
 		this._splitRoot(node, newNode)
 	}
@@ -522,7 +535,11 @@ func (this *RBush) _condense(path []*Node) {
 					}
 				}
 				// -- ncopy siblings, _ = splice(ncopy(siblings), index, 1)
-				siblings, _ = splice(siblings, index, 1)
+				//siblings, _ = splice(siblings, index, 1)
+				copy(siblings[index:], siblings[index+1:])
+				siblings[len(siblings)-1] = nil
+				siblings = siblings[:len(siblings)-1]
+
 				path[i-1].Children = siblings
 			} else {
 				this.clear()
@@ -668,7 +685,10 @@ func splice(nodes []*Node, start, deleteCount int, args ...*Node) (
 		deleteCount = len(nodes) - start
 	}
 	deleted = nodes[start : start+deleteCount]
-	result = append(ncopy(nodes[:start]), args...)
+	result = ncopy(nodes[:start])
+	if len(args) > 0 {
+		result = append(result, args...)
+	}
 	result = append(result, nodes[start+deleteCount:]...)
 	return
 }
@@ -758,77 +778,11 @@ func ncopy(nodes []*Node) []*Node {
 	return append([]*Node(nil), nodes...)
 }
 
-var tpon = false
-var tpc int
-var tpall string
-var tpt int
-var tlines []string
-var tbad = false
-var tbadcount = 0
-var tbadidx = 0
-
-func tpsum(s string) string {
-	hex := fmt.Sprintf("%X", md5.Sum([]byte(s)))
-	return hex[len(hex)-4:]
-}
-func tp(format string, args ...interface{}) {
-	if !tpon {
-		return
+func sortNodes(nodes []*Node, dim int) {
+	if dim == 1 {
+		sort.Sort(byMinX(nodes))
 	}
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	if tpc == 0 {
-		data, _ := ioutil.ReadFile("out.log")
-		tlines = strings.Split(string(data), "\n")
-	}
-	s := fmt.Sprintf(format, args...)
-	tpall += s
-	s = fmt.Sprintf("%04d:%s %s", tpc, tpsum(tpall), s)
-	if !tbad {
-		if tlines[tpc] != s {
-			fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
-			fmt.Printf("# %s\n", tlines[tpc])
-			tbad = true
-			tbadcount++
-			tbadidx = tpc
-		} else {
-			fmt.Printf("\x1b[38;5;83m\x1b[1m✓ %s\x1b[0m\n", s)
-		}
-	} else {
-		fmt.Printf("\x1b[91m\x1b[1m✗ %s\x1b[0m\n", s)
-		//fmt.Printf("# %s\n", tlines[tpc])
-		if tbadcount == 5 {
-			os.Exit(0)
-		}
-		tbadcount++
-	}
-	tpc++
-	tpt++
-}
-func tpn(format string, args ...interface{}) {
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[92m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
-}
-func tpq(format string, args ...interface{}) {
-	tpn(format, args...)
-	return
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[35m\x1b[1m✓ %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
-}
-
-func tpm(format string, args ...interface{}) {
-	if tpt == 0 {
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\x1b[34m\x1b[1m• %s\x1b[0m\n", fmt.Sprintf(format, args...))
-	tpt++
+	sort.Sort(byMinY(nodes))
 }
 
 type quickSelectArr interface {
@@ -888,16 +842,5 @@ func quickselect(arr quickSelectArr, k, left, right int) {
 		if k <= j {
 			right = j - 1
 		}
-	}
-}
-
-func sortNodes(nodes []*Node, dim int) {
-	switch dim {
-	default:
-		panic("invalid dimension")
-	case 1:
-		sort.Sort(byMinX(nodes))
-	case 2:
-		sort.Sort(byMinY(nodes))
 	}
 }
