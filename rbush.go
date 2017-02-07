@@ -254,7 +254,6 @@ func (this *RBush) remove(item *Node) *RBush {
 			if index != -1 {
 				// item found, remove the item and condense tree upwards
 
-				//node.Children, _ = splice(node.Children, index, 1)
 				copy(node.Children[index:], node.Children[index+1:])
 				node.Children[len(node.Children)-1] = nil
 				node.Children = node.Children[:len(node.Children)-1]
@@ -416,8 +415,8 @@ func (this *RBush) _split(insertPath []*Node, level int) []*Node {
 	this._chooseSplitAxis(node, m, M)
 	splitIndex := this._chooseSplitIndex(node, m, M)
 
-	spliced := ncopy(node.Children[splitIndex:])
-	node.Children = node.Children[:splitIndex]
+	spliced := node.Children[splitIndex:]
+	node.Children = node.Children[:splitIndex:splitIndex]
 	var newNode = createNode(spliced)
 	newNode.Height = node.Height
 	newNode.Leaf = node.Leaf
@@ -426,9 +425,7 @@ func (this *RBush) _split(insertPath []*Node, level int) []*Node {
 	calcBBox(newNode)
 
 	if level != 0 {
-		n := insertPath[level-1]
-		// -- ncopy removal insertPath[level-1].children = append(ncopy(insertPath[level-1].children), newNode)
-		n.Children = append(n.Children, newNode)
+		insertPath[level-1].Children = append(insertPath[level-1].Children, newNode)
 	} else {
 		this._splitRoot(node, newNode)
 	}
@@ -534,8 +531,6 @@ func (this *RBush) _condense(path []*Node) {
 						break
 					}
 				}
-				// -- ncopy siblings, _ = splice(ncopy(siblings), index, 1)
-				//siblings, _ = splice(siblings, index, 1)
 				copy(siblings[index:], siblings[index+1:])
 				siblings[len(siblings)-1] = nil
 				siblings = siblings[:len(siblings)-1]
@@ -674,25 +669,6 @@ func multiSelect(arr quickSelectArr, left, right, n int) {
 	}
 }
 
-func splice(nodes []*Node, start, deleteCount int, args ...*Node) (
-	result []*Node,
-	deleted []*Node,
-) {
-	if start > len(nodes) {
-		start = len(nodes)
-	}
-	if start+deleteCount > len(nodes) {
-		deleteCount = len(nodes) - start
-	}
-	deleted = nodes[start : start+deleteCount]
-	result = ncopy(nodes[:start])
-	if len(args) > 0 {
-		result = append(result, args...)
-	}
-	result = append(result, nodes[start+deleteCount:]...)
-	return
-}
-
 func count(node *Node) int {
 	if len(node.Children) == 0 {
 		return 1
@@ -774,6 +750,7 @@ func nodeJSONString(n *Node) string {
 func nodeSum(n *Node) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(nodeJSONString(n))))
 }
+
 func ncopy(nodes []*Node) []*Node {
 	return append([]*Node(nil), nodes...)
 }
