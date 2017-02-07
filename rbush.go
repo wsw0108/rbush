@@ -88,8 +88,8 @@ func New(maxEntries int) *RBush {
 	if maxEntries <= 0 {
 		maxEntries = defaultMaxEntries
 	}
-	this.MaxEntries = int(math.Max(4, float64(maxEntries)))
-	this.MinEntries = int(math.Max(2, math.Ceil(float64(this.MaxEntries)*0.4)))
+	this.MaxEntries = int(maxFlt(4, float64(maxEntries)))
+	this.MinEntries = int(maxFlt(2, math.Ceil(float64(this.MaxEntries)*0.4)))
 	this.clear()
 	return this
 }
@@ -324,10 +324,10 @@ func (this *RBush) _build(items []*Node, left, right, height int) *Node {
 	var i, j, right2, right3 int
 	multiSelect(byMinX(items), left, right, N1)
 	for i = left; i <= right; i += N1 {
-		right2 = int(math.Min(float64(i+N1-1), float64(right)))
+		right2 = int(minFlt(float64(i+N1-1), float64(right)))
 		multiSelect(byMinY(items), i, right2, N2)
 		for j = i; j <= right2; j += N2 {
-			right3 = int(math.Min(float64(j+N2-1), float64(right2)))
+			right3 = int(minFlt(float64(j+N2-1), float64(right2)))
 			// pack each entry recursively
 			child := this._build(items, j, right3, height-1)
 			node.Children = append(node.Children, child)
@@ -347,7 +347,7 @@ func (this *RBush) _chooseSubtree(bbox *Node, node *Node, level int, path []*Nod
 		if node.Leaf || len(path)-1 == level {
 			break
 		}
-		minEnlargement = math.Inf(+1)
+		minEnlargement = infPos
 		minArea = minEnlargement
 		for _, child := range node.Children {
 			area = bboxArea(child)
@@ -435,7 +435,7 @@ func (this *RBush) _chooseSplitIndex(node *Node, m, M int) int {
 	var overlap, area, minOverlap, minArea float64
 	var index int
 
-	minArea = math.Inf(+1)
+	minArea = infPos
 	minOverlap = minArea
 
 	for i = m; i <= M-m; i++ {
@@ -547,15 +547,18 @@ func calcBBox(node *Node) {
 	distBBox(node, 0, len(node.Children), node)
 }
 
+var infPos = math.Inf(+1)
+var infNeg = math.Inf(-1)
+
 // min bounding rectangle of node children from k to p-1
 func distBBox(node *Node, k, p int, destNode *Node) *Node {
 	if destNode == nil {
 		destNode = createNode(nil)
 	}
-	destNode.MinX = math.Inf(+1)
-	destNode.MinY = math.Inf(+1)
-	destNode.MaxX = math.Inf(-1)
-	destNode.MaxY = math.Inf(-1)
+	destNode.MinX = infPos
+	destNode.MinY = infPos
+	destNode.MaxX = infNeg
+	destNode.MaxY = infNeg
 
 	var child *Node
 	for i := k; i < p; i++ {
@@ -566,10 +569,10 @@ func distBBox(node *Node, k, p int, destNode *Node) *Node {
 }
 
 func extend(a *Node, b *Node) *Node {
-	a.MinX = math.Min(a.MinX, b.MinX)
-	a.MinY = math.Min(a.MinY, b.MinY)
-	a.MaxX = math.Max(a.MaxX, b.MaxX)
-	a.MaxY = math.Max(a.MaxY, b.MaxY)
+	a.MinX = minFlt(a.MinX, b.MinX)
+	a.MinY = minFlt(a.MinY, b.MinY)
+	a.MaxX = maxFlt(a.MaxX, b.MaxX)
+	a.MaxY = maxFlt(a.MaxY, b.MaxY)
 	return a
 }
 
@@ -582,16 +585,27 @@ func bboxMargin(a *Node) float64 {
 }
 
 func enlargedArea(a, b *Node) float64 {
-	return (math.Max(b.MaxX, a.MaxX) - math.Min(b.MinX, a.MinX)) *
-		(math.Max(b.MaxY, a.MaxY) - math.Min(b.MinY, a.MinY))
+	return (maxFlt(b.MaxX, a.MaxX) - minFlt(b.MinX, a.MinX)) *
+		(maxFlt(b.MaxY, a.MaxY) - minFlt(b.MinY, a.MinY))
 }
-
+func maxFlt(x, y float64) float64 {
+	if x > y {
+		return x
+	}
+	return y
+}
+func minFlt(x, y float64) float64 {
+	if x < y {
+		return x
+	}
+	return y
+}
 func intersectionArea(a, b *Node) float64 {
-	var minX = math.Max(a.MinX, b.MinX)
-	var minY = math.Max(a.MinY, b.MinY)
-	var maxX = math.Min(a.MaxX, b.MaxX)
-	var maxY = math.Min(a.MaxY, b.MaxY)
-	return math.Max(0, maxX-minX) * math.Max(0, maxY-minY)
+	var minX = maxFlt(a.MinX, b.MinX)
+	var minY = maxFlt(a.MinY, b.MinY)
+	var maxX = minFlt(a.MaxX, b.MaxX)
+	var maxY = minFlt(a.MaxY, b.MaxY)
+	return maxFlt(0, maxX-minX) * maxFlt(0, maxY-minY)
 }
 
 func contains(a, b *Node) bool {
@@ -613,10 +627,10 @@ func createNode(children []*Node) *Node {
 		Children: children,
 		Height:   1,
 		Leaf:     true,
-		MinX:     math.Inf(+1),
-		MinY:     math.Inf(+1),
-		MaxX:     math.Inf(-1),
-		MaxY:     math.Inf(-1),
+		MinX:     infPos,
+		MinY:     infPos,
+		MaxX:     infNeg,
+		MaxY:     infNeg,
 	}
 }
 
@@ -835,8 +849,8 @@ func quickselect(arr quickSelectArr, k, left, right int) {
 				tt = -1
 			}
 			var sd = 0.5 * math.Sqrt(z*s*(float64(n)-s)/float64(n)) * float64(tt)
-			var newLeft = int(math.Max(float64(left), math.Floor(float64(k)-float64(m)*s/float64(n)+sd)))
-			var newRight = int(math.Min(float64(right), math.Floor(float64(k)+float64(n-m)*s/float64(n)+sd)))
+			var newLeft = int(maxFlt(float64(left), math.Floor(float64(k)-float64(m)*s/float64(n)+sd)))
+			var newRight = int(minFlt(float64(right), math.Floor(float64(k)+float64(n-m)*s/float64(n)+sd)))
 			quickselect(arr, k, newLeft, newRight)
 		}
 
