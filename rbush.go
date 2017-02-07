@@ -100,6 +100,26 @@ func (this *RBush) Search(bbox *Node) []*Node {
 	return this.search(bbox)
 }
 
+func (this *RBush) SearchAll(bbox *Node, iter func(node *Node)) {
+	node := this.Data
+	if !intersects(bbox, node) {
+		return
+	}
+	this.searchAll(node, bbox, iter)
+}
+
+func (this *RBush) searchAll(node *Node, bbox *Node, iter func(node *Node)) {
+	for _, child := range node.Children {
+		if intersects(bbox, child) {
+			if node.Leaf {
+				iter(child)
+			} else {
+				this.searchAll(child, bbox, iter)
+			}
+		}
+	}
+}
+
 func (this *RBush) search(bbox *Node) []*Node {
 	var node = this.Data
 	var result []*Node
@@ -253,17 +273,14 @@ func (this *RBush) remove(item *Node) *RBush {
 			index = findItem(item, node.Children)
 			if index != -1 {
 				// item found, remove the item and condense tree upwards
-
 				copy(node.Children[index:], node.Children[index+1:])
 				node.Children[len(node.Children)-1] = nil
 				node.Children = node.Children[:len(node.Children)-1]
-
 				path = append(path, node)
 				this._condense(path)
 				return this
 			}
 		}
-
 		if !goingUp && !node.Leaf && contains(node, bbox) { // go down
 			path = append(path, node)
 			indexes = append(indexes, i)
