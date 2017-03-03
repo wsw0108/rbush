@@ -34,6 +34,7 @@ type byDim struct {
 func (arr byDim) At(i int) interface{} {
 	return arr.nodes[i]
 }
+
 func (arr byDim) Compare(a, b interface{}) int {
 	na, nb := a.(*Node), b.(*Node)
 	switch arr.dim {
