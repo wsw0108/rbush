@@ -29,6 +29,7 @@ var $throwRuntimeError; /* set by package "runtime" */
 var $throwNilPointerError = function() { $throwRuntimeError("invalid memory address or nil pointer dereference"); };
 var $call = function(fn, rcvr, args) { return fn.apply(rcvr, args); };
 var $makeFunc = function(fn) { return function() { return $externalize(fn(this, new ($sliceType($jsObjectPtr))($global.Array.prototype.slice.call(arguments, []))), $emptyInterface); }; };
+var $unused = function(v) {};
 
 var $mapArray = function(array, f) {
   var newArray = new array.constructor(array.length);
@@ -117,9 +118,6 @@ var $substring = function(str, low, high) {
 };
 
 var $sliceToArray = function(slice) {
-  if (slice.$length === 0) {
-    return [];
-  }
   if (slice.$array.constructor !== Array) {
     return slice.$array.subarray(slice.$offset, slice.$offset + slice.$length);
   }
@@ -1461,8 +1459,8 @@ var $recover = function() {
 };
 var $throw = function(err) { throw err; };
 
-var $dummyGoroutine = { asleep: false, exit: false, deferStack: [], panicStack: [], canBlock: false };
-var $curGoroutine = $dummyGoroutine, $totalGoroutines = 0, $awakeGoroutines = 0, $checkForDeadlock = true;
+var $noGoroutine = { asleep: false, exit: false, deferStack: [], panicStack: [] };
+var $curGoroutine = $noGoroutine, $totalGoroutines = 0, $awakeGoroutines = 0, $checkForDeadlock = true;
 var $mainFinished = false;
 var $go = function(fun, args, direct) {
   $totalGoroutines++;
@@ -1482,7 +1480,7 @@ var $go = function(fun, args, direct) {
         throw err;
       }
     } finally {
-      $curGoroutine = $dummyGoroutine;
+      $curGoroutine = $noGoroutine;
       if ($goroutine.exit) { /* also set by runtime.Goexit() */
         $totalGoroutines--;
         $goroutine.asleep = true;
@@ -1502,39 +1500,31 @@ var $go = function(fun, args, direct) {
   $goroutine.exit = false;
   $goroutine.deferStack = [];
   $goroutine.panicStack = [];
-  $goroutine.canBlock = true;
-  $schedule($goroutine, direct);
+  $schedule($goroutine);
 };
 
-var $scheduled = [], $schedulerActive = false;
+var $scheduled = [];
 var $runScheduled = function() {
   try {
     var r;
     while ((r = $scheduled.shift()) !== undefined) {
       r();
     }
-    $schedulerActive = false;
   } finally {
-    if ($schedulerActive) {
+    if ($scheduled.length > 0) {
       setTimeout($runScheduled, 0);
     }
   }
 };
-var $schedule = function(goroutine, direct) {
+
+var $schedule = function(goroutine) {
   if (goroutine.asleep) {
     goroutine.asleep = false;
     $awakeGoroutines++;
   }
-
-  if (direct) {
-    goroutine();
-    return;
-  }
-
   $scheduled.push(goroutine);
-  if (!$schedulerActive) {
-    $schedulerActive = true;
-    setTimeout($runScheduled, 0);
+  if ($curGoroutine === $noGoroutine) {
+    $runScheduled();
   }
 };
 
@@ -1547,7 +1537,7 @@ var $setTimeout = function(f, t) {
 };
 
 var $block = function() {
-  if (!$curGoroutine.canBlock) {
+  if ($curGoroutine === $noGoroutine) {
     $throwRuntimeError("cannot block in JavaScript callback, fix by wrapping code in goroutine");
   }
   $curGoroutine.asleep = true;
@@ -2229,6 +2219,7 @@ $packages["github.com/gopherjs/gopherjs/js"] = (function() {
 	init = function() {
 		var $ptr, e;
 		e = new Error.ptr(null);
+		$unused(e);
 	};
 	ptrType.methods = [{prop: "Get", name: "Get", pkg: "", typ: $funcType([$String], [ptrType], false)}, {prop: "Set", name: "Set", pkg: "", typ: $funcType([$String, $emptyInterface], [], false)}, {prop: "Delete", name: "Delete", pkg: "", typ: $funcType([$String], [], false)}, {prop: "Length", name: "Length", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Index", name: "Index", pkg: "", typ: $funcType([$Int], [ptrType], false)}, {prop: "SetIndex", name: "SetIndex", pkg: "", typ: $funcType([$Int, $emptyInterface], [], false)}, {prop: "Call", name: "Call", pkg: "", typ: $funcType([$String, sliceType], [ptrType], true)}, {prop: "Invoke", name: "Invoke", pkg: "", typ: $funcType([sliceType], [ptrType], true)}, {prop: "New", name: "New", pkg: "", typ: $funcType([sliceType], [ptrType], true)}, {prop: "Bool", name: "Bool", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Int", name: "Int", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Int64", name: "Int64", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Uint64", name: "Uint64", pkg: "", typ: $funcType([], [$Uint64], false)}, {prop: "Float", name: "Float", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Interface", name: "Interface", pkg: "", typ: $funcType([], [$emptyInterface], false)}, {prop: "Unsafe", name: "Unsafe", pkg: "", typ: $funcType([], [$Uintptr], false)}];
 	ptrType$1.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Stack", name: "Stack", pkg: "", typ: $funcType([], [$String], false)}];
@@ -2284,6 +2275,7 @@ $packages["runtime"] = (function() {
 		});
 		e = $ifaceNil;
 		e = new TypeAssertionError.ptr("", "", "", "");
+		$unused(e);
 	};
 	Goexit = function() {
 		var $ptr;
@@ -2449,7 +2441,7 @@ $packages["sync/atomic"] = (function() {
 	return $pkg;
 })();
 $packages["sync"] = (function() {
-	var $pkg = {}, $init, race, runtime, atomic, Pool, Mutex, Locker, Once, poolLocal, notifyList, RWMutex, rlocker, ptrType, sliceType, ptrType$1, chanType, sliceType$1, ptrType$3, ptrType$5, sliceType$3, ptrType$6, ptrType$7, funcType, ptrType$13, funcType$1, ptrType$14, arrayType$1, semWaiters, allPools, runtime_registerPoolCleanup, runtime_Semacquire, runtime_Semrelease, runtime_notifyListCheck, runtime_canSpin, poolCleanup, init, indexLocal, init$1, runtime_doSpin;
+	var $pkg = {}, $init, race, runtime, atomic, Pool, Mutex, Locker, Once, poolLocal, notifyList, RWMutex, rlocker, ptrType, sliceType, ptrType$1, chanType, sliceType$1, ptrType$3, ptrType$6, sliceType$4, ptrType$7, ptrType$8, funcType, ptrType$14, funcType$1, ptrType$15, arrayType$2, semWaiters, runtime_SemacquireMutex, allPools, runtime_registerPoolCleanup, runtime_Semacquire, runtime_Semrelease, runtime_notifyListCheck, runtime_canSpin, throw$1, poolCleanup, init, indexLocal, init$1, runtime_doSpin;
 	race = $packages["internal/race"];
 	runtime = $packages["runtime"];
 	atomic = $packages["sync/atomic"];
@@ -2458,7 +2450,7 @@ $packages["sync"] = (function() {
 		if (arguments.length === 0) {
 			this.local = 0;
 			this.localSize = 0;
-			this.store = sliceType$3.nil;
+			this.store = sliceType$4.nil;
 			this.New = $throwNilPointerError;
 			return;
 		}
@@ -2492,9 +2484,9 @@ $packages["sync"] = (function() {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.private$0 = $ifaceNil;
-			this.shared = sliceType$3.nil;
+			this.shared = sliceType$4.nil;
 			this.Mutex = new Mutex.ptr(0, 0);
-			this.pad = arrayType$1.zero();
+			this.pad = arrayType$2.zero();
 			return;
 		}
 		this.private$0 = private$0_;
@@ -2556,15 +2548,15 @@ $packages["sync"] = (function() {
 	chanType = $chanType($Bool, false, false);
 	sliceType$1 = $sliceType(chanType);
 	ptrType$3 = $ptrType($Int32);
-	ptrType$5 = $ptrType(poolLocal);
-	sliceType$3 = $sliceType($emptyInterface);
-	ptrType$6 = $ptrType(rlocker);
-	ptrType$7 = $ptrType(RWMutex);
+	ptrType$6 = $ptrType(poolLocal);
+	sliceType$4 = $sliceType($emptyInterface);
+	ptrType$7 = $ptrType(rlocker);
+	ptrType$8 = $ptrType(RWMutex);
 	funcType = $funcType([], [$emptyInterface], false);
-	ptrType$13 = $ptrType(Mutex);
+	ptrType$14 = $ptrType(Mutex);
 	funcType$1 = $funcType([], [], false);
-	ptrType$14 = $ptrType(Once);
-	arrayType$1 = $arrayType($Uint8, 128);
+	ptrType$15 = $ptrType(Once);
+	arrayType$2 = $arrayType($Uint8, 128);
 	Pool.ptr.prototype.Get = function() {
 		var $ptr, _r, p, x, x$1, x$2, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; p = $f.p; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -2577,15 +2569,12 @@ $packages["sync"] = (function() {
 			/* if (!(p.New === $throwNilPointerError)) { */ case 3:
 				_r = p.New(); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				$s = -1; return _r;
-				return _r;
 			/* } */ case 4:
 			$s = -1; return $ifaceNil;
-			return $ifaceNil;
 		/* } */ case 2:
-		x$2 = (x = p.store, x$1 = p.store.$length - 1 >> 0, ((x$1 < 0 || x$1 >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + x$1]));
+		x$2 = (x = p.store, x$1 = p.store.$length - 1 >> 0, ((x$1 < 0 || x$1 >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + x$1]));
 		p.store = $subslice(p.store, 0, (p.store.$length - 1 >> 0));
 		$s = -1; return x$2;
-		return x$2;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Pool.ptr.prototype.Get }; } $f.$ptr = $ptr; $f._r = _r; $f.p = p; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Pool.prototype.Get = function() { return this.$val.Get(); };
@@ -2614,7 +2603,6 @@ $packages["sync"] = (function() {
 		/* } */ case 2:
 		s.$set(s.$get() - (1) >>> 0);
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: runtime_Semacquire }; } $f.$ptr = $ptr; $f._entry = _entry; $f._key = _key; $f._r = _r; $f.ch = ch; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	runtime_Semrelease = function(s) {
@@ -2624,9 +2612,8 @@ $packages["sync"] = (function() {
 		w = (_entry = semWaiters[ptrType$1.keyFor(s)], _entry !== undefined ? _entry.v : sliceType$1.nil);
 		if (w.$length === 0) {
 			$s = -1; return;
-			return;
 		}
-		ch = (0 >= w.$length ? $throwRuntimeError("index out of range") : w.$array[w.$offset + 0]);
+		ch = (0 >= w.$length ? ($throwRuntimeError("index out of range"), undefined) : w.$array[w.$offset + 0]);
 		w = $subslice(w, 1);
 		_key = s; (semWaiters || $throwRuntimeError("assignment to entry in nil map"))[ptrType$1.keyFor(_key)] = { k: _key, v: w };
 		if (w.$length === 0) {
@@ -2634,7 +2621,6 @@ $packages["sync"] = (function() {
 		}
 		$r = $send(ch, true); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: runtime_Semrelease }; } $f.$ptr = $ptr; $f._entry = _entry; $f._key = _key; $f.ch = ch; $f.s = s; $f.w = w; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	runtime_notifyListCheck = function(size) {
@@ -2643,6 +2629,9 @@ $packages["sync"] = (function() {
 	runtime_canSpin = function(i) {
 		var $ptr, i;
 		return false;
+	};
+	throw$1 = function() {
+		$throwRuntimeError("native function not implemented: sync.throw");
 	};
 	Mutex.ptr.prototype.Lock = function() {
 		var $ptr, awoke, iter, m, new$1, old, $s, $r;
@@ -2653,7 +2642,6 @@ $packages["sync"] = (function() {
 				race.Acquire(m);
 			}
 			$s = -1; return;
-			return;
 		}
 		awoke = false;
 		iter = 0;
@@ -2675,7 +2663,7 @@ $packages["sync"] = (function() {
 			/* } */ case 4:
 			if (awoke) {
 				if ((new$1 & 2) === 0) {
-					$panic(new $String("sync: inconsistent mutex state"));
+					throw$1("sync: inconsistent mutex state");
 				}
 				new$1 = (new$1 & ~(2)) >> 0;
 			}
@@ -2685,7 +2673,7 @@ $packages["sync"] = (function() {
 				if ((old & 1) === 0) {
 					/* break; */ $s = 2; continue;
 				}
-				$r = runtime_Semacquire((m.$ptr_sema || (m.$ptr_sema = new ptrType$1(function() { return this.$target.sema; }, function($v) { this.$target.sema = $v; }, m)))); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$r = runtime_SemacquireMutex((m.$ptr_sema || (m.$ptr_sema = new ptrType$1(function() { return this.$target.sema; }, function($v) { this.$target.sema = $v; }, m)))); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				awoke = true;
 				iter = 0;
 			/* } */ case 6:
@@ -2694,7 +2682,6 @@ $packages["sync"] = (function() {
 			race.Acquire(m);
 		}
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Mutex.ptr.prototype.Lock }; } $f.$ptr = $ptr; $f.awoke = awoke; $f.iter = iter; $f.m = m; $f.new$1 = new$1; $f.old = old; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Mutex.prototype.Lock = function() { return this.$val.Lock(); };
@@ -2703,17 +2690,17 @@ $packages["sync"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; m = $f.m; new$1 = $f.new$1; old = $f.old; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		m = this;
 		if (false) {
+			$unused(m.state);
 			race.Release(m);
 		}
 		new$1 = atomic.AddInt32((m.$ptr_state || (m.$ptr_state = new ptrType$3(function() { return this.$target.state; }, function($v) { this.$target.state = $v; }, m))), -1);
 		if ((((new$1 + 1 >> 0)) & 1) === 0) {
-			$panic(new $String("sync: unlock of unlocked mutex"));
+			throw$1("sync: unlock of unlocked mutex");
 		}
 		old = new$1;
 		/* while (true) { */ case 1:
 			if (((old >> 2 >> 0) === 0) || !(((old & 3) === 0))) {
 				$s = -1; return;
-				return;
 			}
 			new$1 = ((old - 4 >> 0)) | 2;
 			/* */ if (atomic.CompareAndSwapInt32((m.$ptr_state || (m.$ptr_state = new ptrType$3(function() { return this.$target.state; }, function($v) { this.$target.state = $v; }, m))), old, new$1)) { $s = 3; continue; }
@@ -2721,12 +2708,10 @@ $packages["sync"] = (function() {
 			/* if (atomic.CompareAndSwapInt32((m.$ptr_state || (m.$ptr_state = new ptrType$3(function() { return this.$target.state; }, function($v) { this.$target.state = $v; }, m))), old, new$1)) { */ case 3:
 				$r = runtime_Semrelease((m.$ptr_sema || (m.$ptr_sema = new ptrType$1(function() { return this.$target.sema; }, function($v) { this.$target.sema = $v; }, m)))); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				$s = -1; return;
-				return;
 			/* } */ case 4:
 			old = m.state;
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Mutex.ptr.prototype.Unlock }; } $f.$ptr = $ptr; $f.m = m; $f.new$1 = new$1; $f.old = old; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Mutex.prototype.Unlock = function() { return this.$val.Unlock(); };
@@ -2736,7 +2721,6 @@ $packages["sync"] = (function() {
 		o = this;
 		if (atomic.LoadUint32((o.$ptr_done || (o.$ptr_done = new ptrType$1(function() { return this.$target.done; }, function($v) { this.$target.done = $v; }, o)))) === 1) {
 			$s = -1; return;
-			return;
 		}
 		$r = o.m.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$deferred.push([$methodVal(o.m, "Unlock"), []]);
@@ -2747,7 +2731,6 @@ $packages["sync"] = (function() {
 			$r = f(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* } */ case 3:
 		$s = -1; return;
-		return;
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: Once.ptr.prototype.Do }; } $f.$ptr = $ptr; $f.f = f; $f.o = o; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	Once.prototype.Do = function(f) { return this.$val.Do(f); };
@@ -2758,8 +2741,8 @@ $packages["sync"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			i = _i;
-			p = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			((i < 0 || i >= allPools.$length) ? $throwRuntimeError("index out of range") : allPools.$array[allPools.$offset + i] = ptrType.nil);
+			p = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
+			((i < 0 || i >= allPools.$length) ? ($throwRuntimeError("index out of range"), undefined) : allPools.$array[allPools.$offset + i] = ptrType.nil);
 			i$1 = 0;
 			while (true) {
 				if (!(i$1 < (p.localSize >> 0))) { break; }
@@ -2770,10 +2753,10 @@ $packages["sync"] = (function() {
 				while (true) {
 					if (!(_i$1 < _ref$1.$length)) { break; }
 					j = _i$1;
-					(x = l.shared, ((j < 0 || j >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + j] = $ifaceNil));
+					(x = l.shared, ((j < 0 || j >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + j] = $ifaceNil));
 					_i$1++;
 				}
-				l.shared = sliceType$3.nil;
+				l.shared = sliceType$4.nil;
 				i$1 = i$1 + (1) >> 0;
 			}
 			p.local = 0;
@@ -2788,7 +2771,7 @@ $packages["sync"] = (function() {
 	};
 	indexLocal = function(l, i) {
 		var $ptr, i, l, x;
-		return (x = l, (x.nilCheck, ((i < 0 || i >= x.length) ? $throwRuntimeError("index out of range") : x[i])));
+		return (x = l, (x.nilCheck, ((i < 0 || i >= x.length) ? ($throwRuntimeError("index out of range"), undefined) : x[i])));
 	};
 	init$1 = function() {
 		var $ptr, n;
@@ -2803,6 +2786,7 @@ $packages["sync"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		rw = this;
 		if (false) {
+			$unused(rw.w.state);
 			race.Disable();
 		}
 		/* */ if (atomic.AddInt32((rw.$ptr_readerCount || (rw.$ptr_readerCount = new ptrType$3(function() { return this.$target.readerCount; }, function($v) { this.$target.readerCount = $v; }, rw))), 1) < 0) { $s = 1; continue; }
@@ -2815,7 +2799,6 @@ $packages["sync"] = (function() {
 			race.Acquire((rw.$ptr_readerSem || (rw.$ptr_readerSem = new ptrType$1(function() { return this.$target.readerSem; }, function($v) { this.$target.readerSem = $v; }, rw))));
 		}
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.RLock }; } $f.$ptr = $ptr; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RWMutex.prototype.RLock = function() { return this.$val.RLock(); };
@@ -2824,6 +2807,7 @@ $packages["sync"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		rw = this;
 		if (false) {
+			$unused(rw.w.state);
 			race.ReleaseMerge((rw.$ptr_writerSem || (rw.$ptr_writerSem = new ptrType$1(function() { return this.$target.writerSem; }, function($v) { this.$target.writerSem = $v; }, rw))));
 			race.Disable();
 		}
@@ -2833,7 +2817,7 @@ $packages["sync"] = (function() {
 		/* if (r < 0) { */ case 1:
 			if (((r + 1 >> 0) === 0) || ((r + 1 >> 0) === -1073741824)) {
 				race.Enable();
-				$panic(new $String("sync: RUnlock of unlocked RWMutex"));
+				throw$1("sync: RUnlock of unlocked RWMutex");
 			}
 			/* */ if (atomic.AddInt32((rw.$ptr_readerWait || (rw.$ptr_readerWait = new ptrType$3(function() { return this.$target.readerWait; }, function($v) { this.$target.readerWait = $v; }, rw))), -1) === 0) { $s = 3; continue; }
 			/* */ $s = 4; continue;
@@ -2845,7 +2829,6 @@ $packages["sync"] = (function() {
 			race.Enable();
 		}
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.RUnlock }; } $f.$ptr = $ptr; $f.r = r; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RWMutex.prototype.RUnlock = function() { return this.$val.RUnlock(); };
@@ -2854,6 +2837,7 @@ $packages["sync"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		rw = this;
 		if (false) {
+			$unused(rw.w.state);
 			race.Disable();
 		}
 		$r = rw.w.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
@@ -2869,7 +2853,6 @@ $packages["sync"] = (function() {
 			race.Acquire((rw.$ptr_writerSem || (rw.$ptr_writerSem = new ptrType$1(function() { return this.$target.writerSem; }, function($v) { this.$target.writerSem = $v; }, rw))));
 		}
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.Lock }; } $f.$ptr = $ptr; $f.r = r; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RWMutex.prototype.Lock = function() { return this.$val.Lock(); };
@@ -2878,6 +2861,7 @@ $packages["sync"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; i = $f.i; r = $f.r; rw = $f.rw; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		rw = this;
 		if (false) {
+			$unused(rw.w.state);
 			race.Release((rw.$ptr_readerSem || (rw.$ptr_readerSem = new ptrType$1(function() { return this.$target.readerSem; }, function($v) { this.$target.readerSem = $v; }, rw))));
 			race.Release((rw.$ptr_writerSem || (rw.$ptr_writerSem = new ptrType$1(function() { return this.$target.writerSem; }, function($v) { this.$target.writerSem = $v; }, rw))));
 			race.Disable();
@@ -2885,7 +2869,7 @@ $packages["sync"] = (function() {
 		r = atomic.AddInt32((rw.$ptr_readerCount || (rw.$ptr_readerCount = new ptrType$3(function() { return this.$target.readerCount; }, function($v) { this.$target.readerCount = $v; }, rw))), 1073741824);
 		if (r >= 1073741824) {
 			race.Enable();
-			$panic(new $String("sync: Unlock of unlocked RWMutex"));
+			throw$1("sync: Unlock of unlocked RWMutex");
 		}
 		i = 0;
 		/* while (true) { */ case 1:
@@ -2898,23 +2882,21 @@ $packages["sync"] = (function() {
 			race.Enable();
 		}
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RWMutex.ptr.prototype.Unlock }; } $f.$ptr = $ptr; $f.i = i; $f.r = r; $f.rw = rw; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RWMutex.prototype.Unlock = function() { return this.$val.Unlock(); };
 	RWMutex.ptr.prototype.RLocker = function() {
 		var $ptr, rw;
 		rw = this;
-		return $pointerOfStructConversion(rw, ptrType$6);
+		return $pointerOfStructConversion(rw, ptrType$7);
 	};
 	RWMutex.prototype.RLocker = function() { return this.$val.RLocker(); };
 	rlocker.ptr.prototype.Lock = function() {
 		var $ptr, r, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		r = this;
-		$r = $pointerOfStructConversion(r, ptrType$7).RLock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = $pointerOfStructConversion(r, ptrType$8).RLock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rlocker.ptr.prototype.Lock }; } $f.$ptr = $ptr; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rlocker.prototype.Lock = function() { return this.$val.Lock(); };
@@ -2922,22 +2904,21 @@ $packages["sync"] = (function() {
 		var $ptr, r, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		r = this;
-		$r = $pointerOfStructConversion(r, ptrType$7).RUnlock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = $pointerOfStructConversion(r, ptrType$8).RUnlock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rlocker.ptr.prototype.Unlock }; } $f.$ptr = $ptr; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rlocker.prototype.Unlock = function() { return this.$val.Unlock(); };
-	ptrType.methods = [{prop: "Get", name: "Get", pkg: "", typ: $funcType([], [$emptyInterface], false)}, {prop: "Put", name: "Put", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "getSlow", name: "getSlow", pkg: "sync", typ: $funcType([], [$emptyInterface], false)}, {prop: "pin", name: "pin", pkg: "sync", typ: $funcType([], [ptrType$5], false)}, {prop: "pinSlow", name: "pinSlow", pkg: "sync", typ: $funcType([], [ptrType$5], false)}];
-	ptrType$13.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
-	ptrType$14.methods = [{prop: "Do", name: "Do", pkg: "", typ: $funcType([funcType$1], [], false)}];
-	ptrType$7.methods = [{prop: "RLock", name: "RLock", pkg: "", typ: $funcType([], [], false)}, {prop: "RUnlock", name: "RUnlock", pkg: "", typ: $funcType([], [], false)}, {prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}, {prop: "RLocker", name: "RLocker", pkg: "", typ: $funcType([], [Locker], false)}];
-	ptrType$6.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
-	Pool.init("sync", [{prop: "local", name: "local", exported: false, typ: $UnsafePointer, tag: ""}, {prop: "localSize", name: "localSize", exported: false, typ: $Uintptr, tag: ""}, {prop: "store", name: "store", exported: false, typ: sliceType$3, tag: ""}, {prop: "New", name: "New", exported: true, typ: funcType, tag: ""}]);
+	ptrType.methods = [{prop: "Get", name: "Get", pkg: "", typ: $funcType([], [$emptyInterface], false)}, {prop: "Put", name: "Put", pkg: "", typ: $funcType([$emptyInterface], [], false)}, {prop: "getSlow", name: "getSlow", pkg: "sync", typ: $funcType([], [$emptyInterface], false)}, {prop: "pin", name: "pin", pkg: "sync", typ: $funcType([], [ptrType$6], false)}, {prop: "pinSlow", name: "pinSlow", pkg: "sync", typ: $funcType([], [ptrType$6], false)}];
+	ptrType$14.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
+	ptrType$15.methods = [{prop: "Do", name: "Do", pkg: "", typ: $funcType([funcType$1], [], false)}];
+	ptrType$8.methods = [{prop: "RLock", name: "RLock", pkg: "", typ: $funcType([], [], false)}, {prop: "RUnlock", name: "RUnlock", pkg: "", typ: $funcType([], [], false)}, {prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}, {prop: "RLocker", name: "RLocker", pkg: "", typ: $funcType([], [Locker], false)}];
+	ptrType$7.methods = [{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}];
+	Pool.init("sync", [{prop: "local", name: "local", exported: false, typ: $UnsafePointer, tag: ""}, {prop: "localSize", name: "localSize", exported: false, typ: $Uintptr, tag: ""}, {prop: "store", name: "store", exported: false, typ: sliceType$4, tag: ""}, {prop: "New", name: "New", exported: true, typ: funcType, tag: ""}]);
 	Mutex.init("sync", [{prop: "state", name: "state", exported: false, typ: $Int32, tag: ""}, {prop: "sema", name: "sema", exported: false, typ: $Uint32, tag: ""}]);
 	Locker.init([{prop: "Lock", name: "Lock", pkg: "", typ: $funcType([], [], false)}, {prop: "Unlock", name: "Unlock", pkg: "", typ: $funcType([], [], false)}]);
 	Once.init("sync", [{prop: "m", name: "m", exported: false, typ: Mutex, tag: ""}, {prop: "done", name: "done", exported: false, typ: $Uint32, tag: ""}]);
-	poolLocal.init("sync", [{prop: "private$0", name: "private", exported: false, typ: $emptyInterface, tag: ""}, {prop: "shared", name: "shared", exported: false, typ: sliceType$3, tag: ""}, {prop: "Mutex", name: "", exported: true, typ: Mutex, tag: ""}, {prop: "pad", name: "pad", exported: false, typ: arrayType$1, tag: ""}]);
+	poolLocal.init("sync", [{prop: "private$0", name: "private", exported: false, typ: $emptyInterface, tag: ""}, {prop: "shared", name: "shared", exported: false, typ: sliceType$4, tag: ""}, {prop: "Mutex", name: "", exported: true, typ: Mutex, tag: ""}, {prop: "pad", name: "pad", exported: false, typ: arrayType$2, tag: ""}]);
 	notifyList.init("sync", [{prop: "wait", name: "wait", exported: false, typ: $Uint32, tag: ""}, {prop: "notify", name: "notify", exported: false, typ: $Uint32, tag: ""}, {prop: "lock", name: "lock", exported: false, typ: $Uintptr, tag: ""}, {prop: "head", name: "head", exported: false, typ: $UnsafePointer, tag: ""}, {prop: "tail", name: "tail", exported: false, typ: $UnsafePointer, tag: ""}]);
 	RWMutex.init("sync", [{prop: "w", name: "w", exported: false, typ: Mutex, tag: ""}, {prop: "writerSem", name: "writerSem", exported: false, typ: $Uint32, tag: ""}, {prop: "readerSem", name: "readerSem", exported: false, typ: $Uint32, tag: ""}, {prop: "readerCount", name: "readerCount", exported: false, typ: $Int32, tag: ""}, {prop: "readerWait", name: "readerWait", exported: false, typ: $Int32, tag: ""}]);
 	rlocker.init("sync", [{prop: "w", name: "w", exported: false, typ: Mutex, tag: ""}, {prop: "writerSem", name: "writerSem", exported: false, typ: $Uint32, tag: ""}, {prop: "readerSem", name: "readerSem", exported: false, typ: $Uint32, tag: ""}, {prop: "readerCount", name: "readerCount", exported: false, typ: $Int32, tag: ""}, {prop: "readerWait", name: "readerWait", exported: false, typ: $Int32, tag: ""}]);
@@ -2949,6 +2930,7 @@ $packages["sync"] = (function() {
 		$r = atomic.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		allPools = sliceType.nil;
 		semWaiters = {};
+		runtime_SemacquireMutex = runtime_Semacquire;
 		init();
 		init$1();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
@@ -2996,7 +2978,7 @@ $packages["hash"] = (function() {
 	return $pkg;
 })();
 $packages["math"] = (function() {
-	var $pkg = {}, $init, js, arrayType, arrayType$1, arrayType$2, structType, arrayType$3, math, zero, posInf, negInf, nan, buf, pow10tab, Ceil, Exp, Floor, Inf, IsInf, IsNaN, Log, Max, Min, NaN, Pow, Signbit, Sqrt, init, max, min, init$1;
+	var $pkg = {}, $init, js, arrayType, arrayType$1, arrayType$2, structType, arrayType$3, math, zero, posInf, negInf, nan, buf, pow10tab, Ceil, Exp, Floor, Inf, Log, Pow, Sqrt, init, init$1;
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	arrayType = $arrayType($Uint32, 2);
 	arrayType$1 = $arrayType($Float32, 2);
@@ -3027,24 +3009,6 @@ $packages["math"] = (function() {
 		}
 	};
 	$pkg.Inf = Inf;
-	IsInf = function(f, sign) {
-		var $ptr, f, sign;
-		if (f === posInf) {
-			return sign >= 0;
-		}
-		if (f === negInf) {
-			return sign <= 0;
-		}
-		return false;
-	};
-	$pkg.IsInf = IsInf;
-	IsNaN = function(f) {
-		var $ptr, f, is;
-		is = false;
-		is = !((f === f));
-		return is;
-	};
-	$pkg.IsNaN = IsNaN;
 	Log = function(x) {
 		var $ptr, x;
 		if (!((x === x))) {
@@ -3053,21 +3017,6 @@ $packages["math"] = (function() {
 		return $parseFloat(math.log(x));
 	};
 	$pkg.Log = Log;
-	Max = function(x, y) {
-		var $ptr, x, y;
-		return max(x, y);
-	};
-	$pkg.Max = Max;
-	Min = function(x, y) {
-		var $ptr, x, y;
-		return min(x, y);
-	};
-	$pkg.Min = Min;
-	NaN = function() {
-		var $ptr;
-		return nan;
-	};
-	$pkg.NaN = NaN;
 	Pow = function(x, y) {
 		var $ptr, x, y;
 		if ((x === 1) || ((x === -1) && ((y === posInf) || (y === negInf)))) {
@@ -3076,11 +3025,6 @@ $packages["math"] = (function() {
 		return $parseFloat(math.pow(x, y));
 	};
 	$pkg.Pow = Pow;
-	Signbit = function(x) {
-		var $ptr, x;
-		return x < 0 || (1 / x === negInf);
-	};
-	$pkg.Signbit = Signbit;
 	Sqrt = function(x) {
 		var $ptr, x;
 		return $parseFloat(math.sqrt(x));
@@ -3093,40 +3037,6 @@ $packages["math"] = (function() {
 		buf.float32array = new ($global.Float32Array)(ab);
 		buf.float64array = new ($global.Float64Array)(ab);
 	};
-	max = function(x, y) {
-		var $ptr, x, y;
-		if (IsInf(x, 1) || IsInf(y, 1)) {
-			return Inf(1);
-		} else if (IsNaN(x) || IsNaN(y)) {
-			return NaN();
-		} else if ((x === 0) && (x === y)) {
-			if (Signbit(x)) {
-				return y;
-			}
-			return x;
-		}
-		if (x > y) {
-			return x;
-		}
-		return y;
-	};
-	min = function(x, y) {
-		var $ptr, x, y;
-		if (IsInf(x, -1) || IsInf(y, -1)) {
-			return Inf(-1);
-		} else if (IsNaN(x) || IsNaN(y)) {
-			return NaN();
-		} else if ((x === 0) && (x === y)) {
-			if (Signbit(x)) {
-				return x;
-			}
-			return y;
-		}
-		if (x < y) {
-			return x;
-		}
-		return y;
-	};
 	init$1 = function() {
 		var $ptr, _q, i, m, x;
 		pow10tab[0] = 1;
@@ -3135,7 +3045,7 @@ $packages["math"] = (function() {
 		while (true) {
 			if (!(i < 70)) { break; }
 			m = (_q = i / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
-			((i < 0 || i >= pow10tab.length) ? $throwRuntimeError("index out of range") : pow10tab[i] = ((m < 0 || m >= pow10tab.length) ? $throwRuntimeError("index out of range") : pow10tab[m]) * (x = i - m >> 0, ((x < 0 || x >= pow10tab.length) ? $throwRuntimeError("index out of range") : pow10tab[x])));
+			((i < 0 || i >= pow10tab.length) ? ($throwRuntimeError("index out of range"), undefined) : pow10tab[i] = ((m < 0 || m >= pow10tab.length) ? ($throwRuntimeError("index out of range"), undefined) : pow10tab[m]) * (x = i - m >> 0, ((x < 0 || x >= pow10tab.length) ? ($throwRuntimeError("index out of range"), undefined) : pow10tab[x])));
 			i = i + (1) >> 0;
 		}
 	};
@@ -3182,7 +3092,7 @@ $packages["unicode/utf8"] = (function() {
 			return [r, size];
 		}
 		s0 = s.charCodeAt(0);
-		x = ((s0 < 0 || s0 >= first.length) ? $throwRuntimeError("index out of range") : first[s0]);
+		x = ((s0 < 0 || s0 >= first.length) ? ($throwRuntimeError("index out of range"), undefined) : first[s0]);
 		if (x >= 240) {
 			mask = ((x >> 0) << 31 >> 0) >> 31 >> 0;
 			_tmp$2 = (((s.charCodeAt(0) >> 0) & ~mask) >> 0) | (65533 & mask);
@@ -3192,7 +3102,7 @@ $packages["unicode/utf8"] = (function() {
 			return [r, size];
 		}
 		sz = (x & 7) >>> 0;
-		accept = $clone((x$1 = x >>> 4 << 24 >>> 24, ((x$1 < 0 || x$1 >= acceptRanges.length) ? $throwRuntimeError("index out of range") : acceptRanges[x$1])), acceptRange);
+		accept = $clone((x$1 = x >>> 4 << 24 >>> 24, ((x$1 < 0 || x$1 >= acceptRanges.length) ? ($throwRuntimeError("index out of range"), undefined) : acceptRanges[x$1])), acceptRange);
 		if (n < (sz >> 0)) {
 			_tmp$4 = 65533;
 			_tmp$5 = 1;
@@ -3249,28 +3159,32 @@ $packages["unicode/utf8"] = (function() {
 		var $ptr, i, p, r;
 		i = (r >>> 0);
 		if (i <= 127) {
-			(0 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 0] = (r << 24 >>> 24));
+			(0 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 0] = (r << 24 >>> 24));
 			return 1;
 		} else if (i <= 2047) {
-			(0 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 0] = ((192 | ((r >> 6 >> 0) << 24 >>> 24)) >>> 0));
-			(1 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 1] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			$unused((1 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 1]));
+			(0 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 0] = ((192 | ((r >> 6 >> 0) << 24 >>> 24)) >>> 0));
+			(1 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 1] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
 			return 2;
 		} else if ((i > 1114111) || (55296 <= i && i <= 57343)) {
 			r = 65533;
-			(0 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 0] = ((224 | ((r >> 12 >> 0) << 24 >>> 24)) >>> 0));
-			(1 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 1] = ((128 | ((((r >> 6 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
-			(2 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 2] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			$unused((2 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 2]));
+			(0 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 0] = ((224 | ((r >> 12 >> 0) << 24 >>> 24)) >>> 0));
+			(1 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 1] = ((128 | ((((r >> 6 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			(2 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 2] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
 			return 3;
 		} else if (i <= 65535) {
-			(0 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 0] = ((224 | ((r >> 12 >> 0) << 24 >>> 24)) >>> 0));
-			(1 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 1] = ((128 | ((((r >> 6 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
-			(2 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 2] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			$unused((2 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 2]));
+			(0 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 0] = ((224 | ((r >> 12 >> 0) << 24 >>> 24)) >>> 0));
+			(1 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 1] = ((128 | ((((r >> 6 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			(2 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 2] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
 			return 3;
 		} else {
-			(0 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 0] = ((240 | ((r >> 18 >> 0) << 24 >>> 24)) >>> 0));
-			(1 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 1] = ((128 | ((((r >> 12 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
-			(2 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 2] = ((128 | ((((r >> 6 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
-			(3 >= p.$length ? $throwRuntimeError("index out of range") : p.$array[p.$offset + 3] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			$unused((3 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 3]));
+			(0 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 0] = ((240 | ((r >> 18 >> 0) << 24 >>> 24)) >>> 0));
+			(1 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 1] = ((128 | ((((r >> 12 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			(2 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 2] = ((128 | ((((r >> 6 >> 0) << 24 >>> 24) & 63) >>> 0)) >>> 0));
+			(3 >= p.$length ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + 3] = ((128 | (((r << 24 >>> 24) & 63) >>> 0)) >>> 0));
 			return 4;
 		}
 	};
@@ -3329,7 +3243,7 @@ $packages["strconv"] = (function() {
 						if (!(j > 0)) { break; }
 						i = i - (1) >> 0;
 						qs = (_q = us / 10, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >>> 0 : $throwRuntimeError("integer divide by zero"));
-						((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = (((us - ($imul(qs, 10) >>> 0) >>> 0) + 48 >>> 0) << 24 >>> 24));
+						((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = (((us - ($imul(qs, 10) >>> 0) >>> 0) + 48 >>> 0) << 24 >>> 24));
 						us = qs;
 						j = j - (1) >> 0;
 					}
@@ -3341,40 +3255,40 @@ $packages["strconv"] = (function() {
 				if (!(us$1 >= 10)) { break; }
 				i = i - (1) >> 0;
 				q$1 = (_q$1 = us$1 / 10, (_q$1 === _q$1 && _q$1 !== 1/0 && _q$1 !== -1/0) ? _q$1 >>> 0 : $throwRuntimeError("integer divide by zero"));
-				((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = (((us$1 - ($imul(q$1, 10) >>> 0) >>> 0) + 48 >>> 0) << 24 >>> 24));
+				((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = (((us$1 - ($imul(q$1, 10) >>> 0) >>> 0) + 48 >>> 0) << 24 >>> 24));
 				us$1 = q$1;
 			}
 			i = i - (1) >> 0;
-			((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = ((us$1 + 48 >>> 0) << 24 >>> 24));
+			((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = ((us$1 + 48 >>> 0) << 24 >>> 24));
 		} else {
-			s$1 = ((base < 0 || base >= shifts.length) ? $throwRuntimeError("index out of range") : shifts[base]);
+			s$1 = ((base < 0 || base >= shifts.length) ? ($throwRuntimeError("index out of range"), undefined) : shifts[base]);
 			if (s$1 > 0) {
 				b = new $Uint64(0, base);
 				m = (b.$low >>> 0) - 1 >>> 0;
 				while (true) {
 					if (!((u.$high > b.$high || (u.$high === b.$high && u.$low >= b.$low)))) { break; }
 					i = i - (1) >> 0;
-					((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt((((u.$low >>> 0) & m) >>> 0)));
+					((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt((((u.$low >>> 0) & m) >>> 0)));
 					u = $shiftRightUint64(u, (s$1));
 				}
 				i = i - (1) >> 0;
-				((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt((u.$low >>> 0)));
+				((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt((u.$low >>> 0)));
 			} else {
 				b$1 = new $Uint64(0, base);
 				while (true) {
 					if (!((u.$high > b$1.$high || (u.$high === b$1.$high && u.$low >= b$1.$low)))) { break; }
 					i = i - (1) >> 0;
 					q$2 = $div64(u, b$1, false);
-					((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt(((x$1 = $mul64(q$2, b$1), new $Uint64(u.$high - x$1.$high, u.$low - x$1.$low)).$low >>> 0)));
+					((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt(((x$1 = $mul64(q$2, b$1), new $Uint64(u.$high - x$1.$high, u.$low - x$1.$low)).$low >>> 0)));
 					u = q$2;
 				}
 				i = i - (1) >> 0;
-				((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt((u.$low >>> 0)));
+				((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = "0123456789abcdefghijklmnopqrstuvwxyz".charCodeAt((u.$low >>> 0)));
 			}
 		}
 		if (neg) {
 			i = i - (1) >> 0;
-			((i < 0 || i >= a.length) ? $throwRuntimeError("index out of range") : a[i] = 45);
+			((i < 0 || i >= a.length) ? ($throwRuntimeError("index out of range"), undefined) : a[i] = 45);
 		}
 		if (append_) {
 			d = $appendSlice(dst, $subslice(new sliceType$6(a), i));
@@ -3545,7 +3459,7 @@ $packages["strconv"] = (function() {
 	};
 	$pkg.UnquoteChar = UnquoteChar;
 	Unquote = function(s) {
-		var $ptr, _1, _q, _tuple, _tuple$1, buf, c, err, multibyte, n, n$1, quote, r, runeTmp, s, size, ss;
+		var $ptr, _1, _q, _tuple, _tuple$1, buf, buf$1, c, err, i, multibyte, n, n$1, quote, r, runeTmp, s, size, ss;
 		n = s.length;
 		if (n < 2) {
 			return ["", $pkg.ErrSyntax];
@@ -3558,6 +3472,18 @@ $packages["strconv"] = (function() {
 		if (quote === 96) {
 			if (contains(s, 96)) {
 				return ["", $pkg.ErrSyntax];
+			}
+			if (contains(s, 13)) {
+				buf = $makeSlice(sliceType$6, 0, (s.length - 1 >> 0));
+				i = 0;
+				while (true) {
+					if (!(i < s.length)) { break; }
+					if (!((s.charCodeAt(i) === 13))) {
+						buf = $append(buf, s.charCodeAt(i));
+					}
+					i = i + (1) >> 0;
+				}
+				return [$bytesToString(buf), $ifaceNil];
 			}
 			return [s, $ifaceNil];
 		}
@@ -3581,7 +3507,7 @@ $packages["strconv"] = (function() {
 			}
 		}
 		runeTmp = arrayType$4.zero();
-		buf = $makeSlice(sliceType$6, 0, (_q = ($imul(3, s.length)) / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")));
+		buf$1 = $makeSlice(sliceType$6, 0, (_q = ($imul(3, s.length)) / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")));
 		while (true) {
 			if (!(s.length > 0)) { break; }
 			_tuple$1 = UnquoteChar(s, quote);
@@ -3594,16 +3520,16 @@ $packages["strconv"] = (function() {
 			}
 			s = ss;
 			if (c < 128 || !multibyte) {
-				buf = $append(buf, (c << 24 >>> 24));
+				buf$1 = $append(buf$1, (c << 24 >>> 24));
 			} else {
 				n$1 = utf8.EncodeRune(new sliceType$6(runeTmp), c);
-				buf = $appendSlice(buf, $subslice(new sliceType$6(runeTmp), 0, n$1));
+				buf$1 = $appendSlice(buf$1, $subslice(new sliceType$6(runeTmp), 0, n$1));
 			}
 			if ((quote === 39) && !((s.length === 0))) {
 				return ["", $pkg.ErrSyntax];
 			}
 		}
-		return [$bytesToString(buf), $ifaceNil];
+		return [$bytesToString(buf$1), $ifaceNil];
 	};
 	$pkg.Unquote = Unquote;
 	contains = function(s, c) {
@@ -3644,7 +3570,7 @@ $packages["crypto"] = (function() {
 		if (h >= 16) {
 			$panic(new $String("crypto: RegisterHash of unknown hash function"));
 		}
-		((h < 0 || h >= hashes.$length) ? $throwRuntimeError("index out of range") : hashes.$array[hashes.$offset + h] = f);
+		((h < 0 || h >= hashes.$length) ? ($throwRuntimeError("index out of range"), undefined) : hashes.$array[hashes.$offset + h] = f);
 	};
 	$pkg.RegisterHash = RegisterHash;
 	$init = function() {
@@ -3752,7 +3678,6 @@ $packages["crypto/md5"] = (function() {
 			d.nx = $copySlice(new sliceType(d.x), p);
 		}
 		$s = -1; return [nn, err];
-		return [nn, err];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: digest.ptr.prototype.Write }; } $f.$ptr = $ptr; $f.d = d; $f.err = err; $f.n = n; $f.n$1 = n$1; $f.nn = nn; $f.p = p; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	digest.prototype.Write = function(p) { return this.$val.Write(p); };
@@ -3764,7 +3689,6 @@ $packages["crypto/md5"] = (function() {
 		_r = d.checkSum(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		hash$1 = $clone(_r, arrayType$2);
 		$s = -1; return $appendSlice(in$1, new sliceType(hash$1));
-		return $appendSlice(in$1, new sliceType(hash$1));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: digest.ptr.prototype.Sum }; } $f.$ptr = $ptr; $f._r = _r; $f.d = d; $f.d0 = d0; $f.hash$1 = hash$1; $f.in$1 = in$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	digest.prototype.Sum = function(in$1) { return this.$val.Sum(in$1); };
@@ -3789,7 +3713,7 @@ $packages["crypto/md5"] = (function() {
 		i = 0;
 		while (true) {
 			if (!(i < 8)) { break; }
-			((i < 0 || i >= tmp.length) ? $throwRuntimeError("index out of range") : tmp[i] = ($shiftRightUint64(len, ((8 * i >>> 0))).$low << 24 >>> 24));
+			((i < 0 || i >= tmp.length) ? ($throwRuntimeError("index out of range"), undefined) : tmp[i] = ($shiftRightUint64(len, ((8 * i >>> 0))).$low << 24 >>> 24));
 			i = i + (1) >>> 0;
 		}
 		_r$2 = d.Write($subslice(new sliceType(tmp), 0, 8)); /* */ $s = 6; case 6: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
@@ -3803,15 +3727,14 @@ $packages["crypto/md5"] = (function() {
 		while (true) {
 			if (!(_i < 4)) { break; }
 			i$1 = _i;
-			s = ((_i < 0 || _i >= _ref.length) ? $throwRuntimeError("index out of range") : _ref[_i]);
-			(x$3 = $imul(i$1, 4), ((x$3 < 0 || x$3 >= digest$1.length) ? $throwRuntimeError("index out of range") : digest$1[x$3] = (s << 24 >>> 24)));
-			(x$4 = ($imul(i$1, 4)) + 1 >> 0, ((x$4 < 0 || x$4 >= digest$1.length) ? $throwRuntimeError("index out of range") : digest$1[x$4] = ((s >>> 8 >>> 0) << 24 >>> 24)));
-			(x$5 = ($imul(i$1, 4)) + 2 >> 0, ((x$5 < 0 || x$5 >= digest$1.length) ? $throwRuntimeError("index out of range") : digest$1[x$5] = ((s >>> 16 >>> 0) << 24 >>> 24)));
-			(x$6 = ($imul(i$1, 4)) + 3 >> 0, ((x$6 < 0 || x$6 >= digest$1.length) ? $throwRuntimeError("index out of range") : digest$1[x$6] = ((s >>> 24 >>> 0) << 24 >>> 24)));
+			s = ((_i < 0 || _i >= _ref.length) ? ($throwRuntimeError("index out of range"), undefined) : _ref[_i]);
+			(x$3 = $imul(i$1, 4), ((x$3 < 0 || x$3 >= digest$1.length) ? ($throwRuntimeError("index out of range"), undefined) : digest$1[x$3] = (s << 24 >>> 24)));
+			(x$4 = ($imul(i$1, 4)) + 1 >> 0, ((x$4 < 0 || x$4 >= digest$1.length) ? ($throwRuntimeError("index out of range"), undefined) : digest$1[x$4] = ((s >>> 8 >>> 0) << 24 >>> 24)));
+			(x$5 = ($imul(i$1, 4)) + 2 >> 0, ((x$5 < 0 || x$5 >= digest$1.length) ? ($throwRuntimeError("index out of range"), undefined) : digest$1[x$5] = ((s >>> 16 >>> 0) << 24 >>> 24)));
+			(x$6 = ($imul(i$1, 4)) + 3 >> 0, ((x$6 < 0 || x$6 >= digest$1.length) ? ($throwRuntimeError("index out of range"), undefined) : digest$1[x$6] = ((s >>> 24 >>> 0) << 24 >>> 24)));
 			_i++;
 		}
 		$s = -1; return digest$1;
-		return digest$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: digest.ptr.prototype.checkSum }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._ref = _ref; $f.d = d; $f.digest$1 = digest$1; $f.i = i; $f.i$1 = i$1; $f.len = len; $f.s = s; $f.tmp = tmp; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	digest.prototype.checkSum = function() { return this.$val.checkSum(); };
@@ -3849,7 +3772,7 @@ $packages["crypto/md5"] = (function() {
 				i = 0;
 				while (true) {
 					if (!(i < 16)) { break; }
-					(x$3 = i & 15, X.nilCheck, ((x$3 < 0 || x$3 >= X.length) ? $throwRuntimeError("index out of range") : X[x$3] = (((((((((j < 0 || j >= p.$length) ? $throwRuntimeError("index out of range") : p.$array[p.$offset + j]) >>> 0) | (((x = j + 1 >> 0, ((x < 0 || x >= p.$length) ? $throwRuntimeError("index out of range") : p.$array[p.$offset + x])) >>> 0) << 8 >>> 0)) >>> 0) | (((x$1 = j + 2 >> 0, ((x$1 < 0 || x$1 >= p.$length) ? $throwRuntimeError("index out of range") : p.$array[p.$offset + x$1])) >>> 0) << 16 >>> 0)) >>> 0) | (((x$2 = j + 3 >> 0, ((x$2 < 0 || x$2 >= p.$length) ? $throwRuntimeError("index out of range") : p.$array[p.$offset + x$2])) >>> 0) << 24 >>> 0)) >>> 0)));
+					(x$3 = i & 15, X.nilCheck, ((x$3 < 0 || x$3 >= X.length) ? ($throwRuntimeError("index out of range"), undefined) : X[x$3] = (((((((((j < 0 || j >= p.$length) ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + j]) >>> 0) | (((x = j + 1 >> 0, ((x < 0 || x >= p.$length) ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + x])) >>> 0) << 8 >>> 0)) >>> 0) | (((x$1 = j + 2 >> 0, ((x$1 < 0 || x$1 >= p.$length) ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + x$1])) >>> 0) << 16 >>> 0)) >>> 0) | (((x$2 = j + 3 >> 0, ((x$2 < 0 || x$2 >= p.$length) ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + x$2])) >>> 0) << 24 >>> 0)) >>> 0)));
 					j = j + (4) >> 0;
 					i = i + (1) >> 0;
 				}
@@ -4011,7 +3934,7 @@ $packages["crypto/md5"] = (function() {
 	return $pkg;
 })();
 $packages["syscall"] = (function() {
-	var $pkg = {}, $init, errors, js, race, runtime, sync, mmapper, Errno, _C_int, Timespec, Stat_t, Dirent, sliceType, sliceType$1, ptrType$2, arrayType$1, sliceType$5, ptrType$12, arrayType$10, arrayType$13, arrayType$14, arrayType$15, structType, ptrType$20, ptrType$27, mapType, funcType, funcType$1, ptrType$31, arrayType$17, warningPrinted, lineBuffer, syscallModule, alreadyTriedToLoad, minusOne, envOnce, envLock, env, envs, freebsdConfArch, minRoutingSockaddrLen, mapper, errEAGAIN, errEINVAL, errENOENT, ioSync, ioSync$24ptr, errors$1, init, printWarning, printToConsole, use, indexByte, runtime_envs, syscall, Syscall, Syscall6, BytePtrFromString, copyenv, Getenv, msanRead, msanWrite, rsaAlignOf, itoa, uitoa, ByteSliceFromString, ReadDirent, Sysctl, nametomib, ParseDirent, errnoErr, Read, Write, sysctl, Close, Fchdir, Fchmod, Fchown, Fstat, Fsync, Ftruncate, Getdirentries, Lstat, Pread, Pwrite, read, Seek, write, mmap, munmap;
+	var $pkg = {}, $init, errors, js, race, runtime, sync, mmapper, Errno, _C_int, Timespec, Stat_t, sliceType, sliceType$1, ptrType$2, arrayType$1, sliceType$5, ptrType$12, arrayType$10, arrayType$13, structType, ptrType$20, ptrType$27, mapType, funcType, funcType$1, ptrType$31, arrayType$15, warningPrinted, lineBuffer, syscallModule, alreadyTriedToLoad, minusOne, envOnce, envLock, env, envs, freebsdConfArch, minRoutingSockaddrLen, mapper, errEAGAIN, errEINVAL, errENOENT, ioSync, ioSync$24ptr, errors$1, init, printWarning, printToConsole, use, indexByte, runtime_envs, syscall, Syscall, Syscall6, BytePtrFromString, readInt, readIntBE, readIntLE, ParseDirent, copyenv, Getenv, msanRead, msanWrite, rsaAlignOf, itoa, uitoa, ByteSliceFromString, ReadDirent, Sysctl, nametomib, direntIno, direntReclen, direntNamlen, errnoErr, Read, Write, sysctl, Close, Fchdir, Fchmod, Fchown, Fstat, Fsync, Ftruncate, Getdirentries, Lstat, Pread, Pwrite, read, Seek, write, mmap, munmap;
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	race = $packages["internal/race"];
@@ -4064,7 +3987,7 @@ $packages["syscall"] = (function() {
 			this.Flags = 0;
 			this.Gen = 0;
 			this.Lspare = 0;
-			this.Qspare = arrayType$17.zero();
+			this.Qspare = arrayType$15.zero();
 			return;
 		}
 		this.Dev = Dev_;
@@ -4087,26 +4010,6 @@ $packages["syscall"] = (function() {
 		this.Lspare = Lspare_;
 		this.Qspare = Qspare_;
 	});
-	Dirent = $pkg.Dirent = $newType(0, $kindStruct, "syscall.Dirent", true, "syscall", true, function(Ino_, Seekoff_, Reclen_, Namlen_, Type_, Name_, Pad_cgo_0_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.Ino = new $Uint64(0, 0);
-			this.Seekoff = new $Uint64(0, 0);
-			this.Reclen = 0;
-			this.Namlen = 0;
-			this.Type = 0;
-			this.Name = arrayType$14.zero();
-			this.Pad_cgo_0 = arrayType$15.zero();
-			return;
-		}
-		this.Ino = Ino_;
-		this.Seekoff = Seekoff_;
-		this.Reclen = Reclen_;
-		this.Namlen = Namlen_;
-		this.Type = Type_;
-		this.Name = Name_;
-		this.Pad_cgo_0 = Pad_cgo_0_;
-	});
 	sliceType = $sliceType($Uint8);
 	sliceType$1 = $sliceType($String);
 	ptrType$2 = $ptrType($Uint8);
@@ -4115,8 +4018,6 @@ $packages["syscall"] = (function() {
 	ptrType$12 = $ptrType($Uintptr);
 	arrayType$10 = $arrayType($Uint8, 32);
 	arrayType$13 = $arrayType(_C_int, 14);
-	arrayType$14 = $arrayType($Int8, 1024);
-	arrayType$15 = $arrayType($Uint8, 3);
 	structType = $structType("syscall", [{prop: "addr", name: "addr", exported: false, typ: $Uintptr, tag: ""}, {prop: "len", name: "len", exported: false, typ: $Int, tag: ""}, {prop: "cap", name: "cap", exported: false, typ: $Int, tag: ""}]);
 	ptrType$20 = $ptrType($Int64);
 	ptrType$27 = $ptrType(mmapper);
@@ -4124,7 +4025,7 @@ $packages["syscall"] = (function() {
 	funcType = $funcType([$Uintptr, $Uintptr, $Int, $Int, $Int, $Int64], [$Uintptr, $error], false);
 	funcType$1 = $funcType([$Uintptr, $Uintptr], [$error], false);
 	ptrType$31 = $ptrType(Timespec);
-	arrayType$17 = $arrayType($Int64, 2);
+	arrayType$15 = $arrayType($Int64, 2);
 	init = function() {
 		var $ptr;
 		$flushConsole = (function() {
@@ -4169,7 +4070,7 @@ $packages["syscall"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			i = _i;
-			b = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			b = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			if (b === c) {
 				return i;
 			}
@@ -4190,7 +4091,7 @@ $packages["syscall"] = (function() {
 		while (true) {
 			if (!(i < $parseInt(envkeys.length))) { break; }
 			key = $internalize(envkeys[i], $String);
-			((i < 0 || i >= envs$1.$length) ? $throwRuntimeError("index out of range") : envs$1.$array[envs$1.$offset + i] = key + "=" + $internalize(jsEnv[$externalize(key, $String)], $String));
+			((i < 0 || i >= envs$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : envs$1.$array[envs$1.$offset + i] = key + "=" + $internalize(jsEnv[$externalize(key, $String)], $String));
 			i = i + (1) >> 0;
 		}
 		return envs$1;
@@ -4294,7 +4195,7 @@ $packages["syscall"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			i = _i;
-			b = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			b = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			if (b === 0) {
 				return [ptrType$2.nil, new Errno(22)];
 			}
@@ -4305,6 +4206,133 @@ $packages["syscall"] = (function() {
 		return [array, $ifaceNil];
 	};
 	$pkg.BytePtrFromString = BytePtrFromString;
+	readInt = function(b, off, size) {
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, b, off, ok, size, u;
+		u = new $Uint64(0, 0);
+		ok = false;
+		if (b.$length < ((off + size >>> 0) >> 0)) {
+			_tmp = new $Uint64(0, 0);
+			_tmp$1 = false;
+			u = _tmp;
+			ok = _tmp$1;
+			return [u, ok];
+		}
+		if (false) {
+			_tmp$2 = readIntBE($subslice(b, off), size);
+			_tmp$3 = true;
+			u = _tmp$2;
+			ok = _tmp$3;
+			return [u, ok];
+		}
+		_tmp$4 = readIntLE($subslice(b, off), size);
+		_tmp$5 = true;
+		u = _tmp$4;
+		ok = _tmp$5;
+		return [u, ok];
+	};
+	readIntBE = function(b, size) {
+		var $ptr, _1, b, size, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$16, x$17, x$18, x$19, x$2, x$20, x$21, x$3, x$4, x$5, x$6, x$7, x$8, x$9;
+		_1 = size;
+		if (_1 === (1)) {
+			return new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0]));
+		} else if (_1 === (2)) {
+			$unused((1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1]));
+			return (x = new $Uint64(0, (1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1])), x$1 = $shiftLeft64(new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0])), 8), new $Uint64(x.$high | x$1.$high, (x.$low | x$1.$low) >>> 0));
+		} else if (_1 === (4)) {
+			$unused((3 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 3]));
+			return (x$2 = (x$3 = (x$4 = new $Uint64(0, (3 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 3])), x$5 = $shiftLeft64(new $Uint64(0, (2 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 2])), 8), new $Uint64(x$4.$high | x$5.$high, (x$4.$low | x$5.$low) >>> 0)), x$6 = $shiftLeft64(new $Uint64(0, (1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1])), 16), new $Uint64(x$3.$high | x$6.$high, (x$3.$low | x$6.$low) >>> 0)), x$7 = $shiftLeft64(new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0])), 24), new $Uint64(x$2.$high | x$7.$high, (x$2.$low | x$7.$low) >>> 0));
+		} else if (_1 === (8)) {
+			$unused((7 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 7]));
+			return (x$8 = (x$9 = (x$10 = (x$11 = (x$12 = (x$13 = (x$14 = new $Uint64(0, (7 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 7])), x$15 = $shiftLeft64(new $Uint64(0, (6 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 6])), 8), new $Uint64(x$14.$high | x$15.$high, (x$14.$low | x$15.$low) >>> 0)), x$16 = $shiftLeft64(new $Uint64(0, (5 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 5])), 16), new $Uint64(x$13.$high | x$16.$high, (x$13.$low | x$16.$low) >>> 0)), x$17 = $shiftLeft64(new $Uint64(0, (4 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 4])), 24), new $Uint64(x$12.$high | x$17.$high, (x$12.$low | x$17.$low) >>> 0)), x$18 = $shiftLeft64(new $Uint64(0, (3 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 3])), 32), new $Uint64(x$11.$high | x$18.$high, (x$11.$low | x$18.$low) >>> 0)), x$19 = $shiftLeft64(new $Uint64(0, (2 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 2])), 40), new $Uint64(x$10.$high | x$19.$high, (x$10.$low | x$19.$low) >>> 0)), x$20 = $shiftLeft64(new $Uint64(0, (1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1])), 48), new $Uint64(x$9.$high | x$20.$high, (x$9.$low | x$20.$low) >>> 0)), x$21 = $shiftLeft64(new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0])), 56), new $Uint64(x$8.$high | x$21.$high, (x$8.$low | x$21.$low) >>> 0));
+		} else {
+			$panic(new $String("syscall: readInt with unsupported size"));
+		}
+	};
+	readIntLE = function(b, size) {
+		var $ptr, _1, b, size, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$16, x$17, x$18, x$19, x$2, x$20, x$21, x$3, x$4, x$5, x$6, x$7, x$8, x$9;
+		_1 = size;
+		if (_1 === (1)) {
+			return new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0]));
+		} else if (_1 === (2)) {
+			$unused((1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1]));
+			return (x = new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0])), x$1 = $shiftLeft64(new $Uint64(0, (1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1])), 8), new $Uint64(x.$high | x$1.$high, (x.$low | x$1.$low) >>> 0));
+		} else if (_1 === (4)) {
+			$unused((3 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 3]));
+			return (x$2 = (x$3 = (x$4 = new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0])), x$5 = $shiftLeft64(new $Uint64(0, (1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1])), 8), new $Uint64(x$4.$high | x$5.$high, (x$4.$low | x$5.$low) >>> 0)), x$6 = $shiftLeft64(new $Uint64(0, (2 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 2])), 16), new $Uint64(x$3.$high | x$6.$high, (x$3.$low | x$6.$low) >>> 0)), x$7 = $shiftLeft64(new $Uint64(0, (3 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 3])), 24), new $Uint64(x$2.$high | x$7.$high, (x$2.$low | x$7.$low) >>> 0));
+		} else if (_1 === (8)) {
+			$unused((7 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 7]));
+			return (x$8 = (x$9 = (x$10 = (x$11 = (x$12 = (x$13 = (x$14 = new $Uint64(0, (0 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 0])), x$15 = $shiftLeft64(new $Uint64(0, (1 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 1])), 8), new $Uint64(x$14.$high | x$15.$high, (x$14.$low | x$15.$low) >>> 0)), x$16 = $shiftLeft64(new $Uint64(0, (2 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 2])), 16), new $Uint64(x$13.$high | x$16.$high, (x$13.$low | x$16.$low) >>> 0)), x$17 = $shiftLeft64(new $Uint64(0, (3 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 3])), 24), new $Uint64(x$12.$high | x$17.$high, (x$12.$low | x$17.$low) >>> 0)), x$18 = $shiftLeft64(new $Uint64(0, (4 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 4])), 32), new $Uint64(x$11.$high | x$18.$high, (x$11.$low | x$18.$low) >>> 0)), x$19 = $shiftLeft64(new $Uint64(0, (5 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 5])), 40), new $Uint64(x$10.$high | x$19.$high, (x$10.$low | x$19.$low) >>> 0)), x$20 = $shiftLeft64(new $Uint64(0, (6 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 6])), 48), new $Uint64(x$9.$high | x$20.$high, (x$9.$low | x$20.$low) >>> 0)), x$21 = $shiftLeft64(new $Uint64(0, (7 >= b.$length ? ($throwRuntimeError("index out of range"), undefined) : b.$array[b.$offset + 7])), 56), new $Uint64(x$8.$high | x$21.$high, (x$8.$low | x$21.$low) >>> 0));
+		} else {
+			$panic(new $String("syscall: readInt with unsupported size"));
+		}
+	};
+	ParseDirent = function(buf, max, names) {
+		var $ptr, _i, _ref, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, _tuple$1, _tuple$2, buf, c, consumed, count, i, ino, max, name, names, namlen, newnames, ok, origlen, rec, reclen, x, x$1, x$2;
+		consumed = 0;
+		count = 0;
+		newnames = sliceType$1.nil;
+		origlen = buf.$length;
+		count = 0;
+		while (true) {
+			if (!(!((max === 0)) && buf.$length > 0)) { break; }
+			_tuple = direntReclen(buf);
+			reclen = _tuple[0];
+			ok = _tuple[1];
+			if (!ok || (x = new $Uint64(0, buf.$length), (reclen.$high > x.$high || (reclen.$high === x.$high && reclen.$low > x.$low)))) {
+				_tmp = origlen;
+				_tmp$1 = count;
+				_tmp$2 = names;
+				consumed = _tmp;
+				count = _tmp$1;
+				newnames = _tmp$2;
+				return [consumed, count, newnames];
+			}
+			rec = $subslice(buf, 0, $flatten64(reclen));
+			buf = $subslice(buf, $flatten64(reclen));
+			_tuple$1 = direntIno(rec);
+			ino = _tuple$1[0];
+			ok = _tuple$1[1];
+			if (!ok) {
+				break;
+			}
+			if ((ino.$high === 0 && ino.$low === 0)) {
+				continue;
+			}
+			_tuple$2 = direntNamlen(rec);
+			namlen = _tuple$2[0];
+			ok = _tuple$2[1];
+			if (!ok || (x$1 = new $Uint64(0 + namlen.$high, 21 + namlen.$low), x$2 = new $Uint64(0, rec.$length), (x$1.$high > x$2.$high || (x$1.$high === x$2.$high && x$1.$low > x$2.$low)))) {
+				break;
+			}
+			name = $subslice(rec, 21, $flatten64(new $Uint64(0 + namlen.$high, 21 + namlen.$low)));
+			_ref = name;
+			_i = 0;
+			while (true) {
+				if (!(_i < _ref.$length)) { break; }
+				i = _i;
+				c = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
+				if (c === 0) {
+					name = $subslice(name, 0, i);
+					break;
+				}
+				_i++;
+			}
+			if ($bytesToString(name) === "." || $bytesToString(name) === "..") {
+				continue;
+			}
+			max = max - (1) >> 0;
+			count = count + (1) >> 0;
+			names = $append(names, $bytesToString(name));
+		}
+		_tmp$3 = origlen - buf.$length >> 0;
+		_tmp$4 = count;
+		_tmp$5 = names;
+		consumed = _tmp$3;
+		count = _tmp$4;
+		newnames = _tmp$5;
+		return [consumed, count, newnames];
+	};
+	$pkg.ParseDirent = ParseDirent;
 	copyenv = function() {
 		var $ptr, _entry, _i, _key, _ref, _tuple, i, j, key, ok, s;
 		env = {};
@@ -4313,7 +4341,7 @@ $packages["syscall"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			i = _i;
-			s = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			s = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			j = 0;
 			while (true) {
 				if (!(j < s.length)) { break; }
@@ -4324,7 +4352,7 @@ $packages["syscall"] = (function() {
 					if (!ok) {
 						_key = key; (env || $throwRuntimeError("assignment to entry in nil map"))[$String.keyFor(_key)] = { k: _key, v: i };
 					} else {
-						((i < 0 || i >= envs.$length) ? $throwRuntimeError("index out of range") : envs.$array[envs.$offset + i] = "");
+						((i < 0 || i >= envs.$length) ? ($throwRuntimeError("index out of range"), undefined) : envs.$array[envs.$offset + i] = "");
 					}
 					break;
 				}
@@ -4345,7 +4373,6 @@ $packages["syscall"] = (function() {
 			value = _tmp;
 			found = _tmp$1;
 			$s = -1; return [value, found];
-			return [value, found];
 		}
 		$r = envLock.RLock(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$deferred.push([$methodVal(envLock, "RUnlock"), []]);
@@ -4358,9 +4385,8 @@ $packages["syscall"] = (function() {
 			value = _tmp$2;
 			found = _tmp$3;
 			$s = -1; return [value, found];
-			return [value, found];
 		}
-		s = ((i < 0 || i >= envs.$length) ? $throwRuntimeError("index out of range") : envs.$array[envs.$offset + i]);
+		s = ((i < 0 || i >= envs.$length) ? ($throwRuntimeError("index out of range"), undefined) : envs.$array[envs.$offset + i]);
 		i$1 = 0;
 		while (true) {
 			if (!(i$1 < s.length)) { break; }
@@ -4370,7 +4396,6 @@ $packages["syscall"] = (function() {
 				value = _tmp$4;
 				found = _tmp$5;
 				$s = -1; return [value, found];
-				return [value, found];
 			}
 			i$1 = i$1 + (1) >> 0;
 		}
@@ -4379,7 +4404,6 @@ $packages["syscall"] = (function() {
 		value = _tmp$6;
 		found = _tmp$7;
 		$s = -1; return [value, found];
-		return [value, found];
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [value, found]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: Getenv }; } $f.$ptr = $ptr; $f._entry = _entry; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tmp$6 = _tmp$6; $f._tmp$7 = _tmp$7; $f._tuple = _tuple; $f.found = found; $f.i = i; $f.i$1 = i$1; $f.key = key; $f.ok = ok; $f.s = s; $f.value = value; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	$pkg.Getenv = Getenv;
@@ -4419,11 +4443,11 @@ $packages["syscall"] = (function() {
 		i = 31;
 		while (true) {
 			if (!(val >= 10)) { break; }
-			((i < 0 || i >= buf.length) ? $throwRuntimeError("index out of range") : buf[i] = (((_r = val % 10, _r === _r ? _r : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
+			((i < 0 || i >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[i] = (((_r = val % 10, _r === _r ? _r : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
 			i = i - (1) >> 0;
 			val = (_q = val / (10), (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >>> 0 : $throwRuntimeError("integer divide by zero"));
 		}
-		((i < 0 || i >= buf.length) ? $throwRuntimeError("index out of range") : buf[i] = ((val + 48 >>> 0) << 24 >>> 24));
+		((i < 0 || i >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[i] = ((val + 48 >>> 0) << 24 >>> 24));
 		return $bytesToString($subslice(new sliceType(buf), i));
 	};
 	ByteSliceFromString = function(s) {
@@ -4509,7 +4533,7 @@ $packages["syscall"] = (function() {
 			err = _tmp$7;
 			return [value, err];
 		}
-		if (n > 0 && ((x = n - 1 >>> 0, ((x < 0 || x >= buf.$length) ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + x])) === 0)) {
+		if (n > 0 && ((x = n - 1 >>> 0, ((x < 0 || x >= buf.$length) ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + x])) === 0)) {
 			n = n - (1) >>> 0;
 		}
 		_tmp$8 = $bytesToString($subslice(buf, 0, n));
@@ -4550,41 +4574,18 @@ $packages["syscall"] = (function() {
 		err = _tmp$5;
 		return [mib, err];
 	};
-	ParseDirent = function(buf, max, names) {
-		var $ptr, _array, _struct, _tmp, _tmp$1, _tmp$2, _view, buf, bytes, consumed, count, dirent, max, name, names, newnames, origlen, x;
-		consumed = 0;
-		count = 0;
-		newnames = sliceType$1.nil;
-		origlen = buf.$length;
-		while (true) {
-			if (!(!((max === 0)) && buf.$length > 0)) { break; }
-			dirent = (_array = $sliceToArray(buf), _struct = new Dirent.ptr(new $Uint64(0, 0), new $Uint64(0, 0), 0, 0, 0, arrayType$14.zero(), arrayType$15.zero()), _view = new DataView(_array.buffer, _array.byteOffset), _struct.Ino = new $Uint64(_view.getUint32(4, true), _view.getUint32(0, true)), _struct.Seekoff = new $Uint64(_view.getUint32(12, true), _view.getUint32(8, true)), _struct.Reclen = _view.getUint16(16, true), _struct.Namlen = _view.getUint16(18, true), _struct.Type = _view.getUint8(20, true), _struct.Name = new ($nativeArray($kindInt8))(_array.buffer, $min(_array.byteOffset + 21, _array.buffer.byteLength)), _struct.Pad_cgo_0 = new ($nativeArray($kindUint8))(_array.buffer, $min(_array.byteOffset + 1045, _array.buffer.byteLength)), _struct);
-			if (dirent.Reclen === 0) {
-				buf = sliceType.nil;
-				break;
-			}
-			buf = $subslice(buf, dirent.Reclen);
-			if ((x = dirent.Ino, (x.$high === 0 && x.$low === 0))) {
-				continue;
-			}
-			bytes = $sliceToArray(new sliceType(dirent.Name));
-			name = $bytesToString($subslice(new sliceType(bytes), 0, dirent.Namlen));
-			if (name === "." || name === "..") {
-				continue;
-			}
-			max = max - (1) >> 0;
-			count = count + (1) >> 0;
-			names = $append(names, name);
-		}
-		_tmp = origlen - buf.$length >> 0;
-		_tmp$1 = count;
-		_tmp$2 = names;
-		consumed = _tmp;
-		count = _tmp$1;
-		newnames = _tmp$2;
-		return [consumed, count, newnames];
+	direntIno = function(buf) {
+		var $ptr, buf;
+		return readInt(buf, 0, 8);
 	};
-	$pkg.ParseDirent = ParseDirent;
+	direntReclen = function(buf) {
+		var $ptr, buf;
+		return readInt(buf, 16, 2);
+	};
+	direntNamlen = function(buf) {
+		var $ptr, buf;
+		return readInt(buf, 18, 2);
+	};
 	mmapper.ptr.prototype.Mmap = function(fd, offset, length, prot, flags) {
 		var $ptr, _key, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, addr, b, data, err, errno, fd, flags, length, m, offset, p, prot, sl, $s, $deferred, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _key = $f._key; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tmp$4 = $f._tmp$4; _tmp$5 = $f._tmp$5; _tuple = $f._tuple; addr = $f.addr; b = $f.b; data = $f.data; err = $f.err; errno = $f.errno; fd = $f.fd; flags = $f.flags; length = $f.length; m = $f.m; offset = $f.offset; p = $f.p; prot = $f.prot; sl = $f.sl; $s = $f.$s; $deferred = $f.$deferred; $r = $f.$r; } var $err = null; try { s: while (true) { switch ($s) { case 0: $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
@@ -4598,7 +4599,6 @@ $packages["syscall"] = (function() {
 			data = _tmp;
 			err = _tmp$1;
 			$s = -1; return [data, err];
-			return [data, err];
 		}
 		_r = m.mmap(0, (length >>> 0), prot, flags, fd, offset); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_tuple = _r;
@@ -4610,7 +4610,6 @@ $packages["syscall"] = (function() {
 			data = _tmp$2;
 			err = _tmp$3;
 			$s = -1; return [data, err];
-			return [data, err];
 		}
 		sl[0] = new structType.ptr(addr, length, length);
 		b = sl[0];
@@ -4623,7 +4622,6 @@ $packages["syscall"] = (function() {
 		data = _tmp$4;
 		err = _tmp$5;
 		$s = -1; return [data, err];
-		return [data, err];
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [data, err]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: mmapper.ptr.prototype.Mmap }; } $f.$ptr = $ptr; $f._key = _key; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple = _tuple; $f.addr = addr; $f.b = b; $f.data = data; $f.err = err; $f.errno = errno; $f.fd = fd; $f.flags = flags; $f.length = length; $f.m = m; $f.offset = offset; $f.p = p; $f.prot = prot; $f.sl = sl; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	mmapper.prototype.Mmap = function(fd, offset, length, prot, flags) { return this.$val.Mmap(fd, offset, length, prot, flags); };
@@ -4635,7 +4633,6 @@ $packages["syscall"] = (function() {
 		if ((data.$length === 0) || !((data.$length === data.$capacity))) {
 			err = new Errno(22);
 			$s = -1; return err;
-			return err;
 		}
 		p = $indexPtr(data.$array, data.$offset + (data.$capacity - 1 >> 0), ptrType$2);
 		$r = m.Mutex.Lock(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
@@ -4644,19 +4641,16 @@ $packages["syscall"] = (function() {
 		if (b === sliceType.nil || !($indexPtr(b.$array, b.$offset + 0, ptrType$2) === $indexPtr(data.$array, data.$offset + 0, ptrType$2))) {
 			err = new Errno(22);
 			$s = -1; return err;
-			return err;
 		}
 		_r = m.munmap($sliceToArray(b), (b.$length >>> 0)); /* */ $s = 2; case 2: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		errno = _r;
 		if (!($interfaceIsEqual(errno, $ifaceNil))) {
 			err = errno;
 			$s = -1; return err;
-			return err;
 		}
 		delete m.active[ptrType$2.keyFor(p)];
 		err = $ifaceNil;
 		$s = -1; return err;
-		return err;
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  err; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: mmapper.ptr.prototype.Munmap }; } $f.$ptr = $ptr; $f._entry = _entry; $f._r = _r; $f.b = b; $f.data = data; $f.err = err; $f.errno = errno; $f.m = m; $f.p = p; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	mmapper.prototype.Munmap = function(data) { return this.$val.Munmap(data); };
@@ -4664,7 +4658,7 @@ $packages["syscall"] = (function() {
 		var $ptr, e, s;
 		e = this.$val;
 		if (0 <= (e >> 0) && (e >> 0) < 106) {
-			s = ((e < 0 || e >= errors$1.length) ? $throwRuntimeError("index out of range") : errors$1[e]);
+			s = ((e < 0 || e >= errors$1.length) ? ($throwRuntimeError("index out of range"), undefined) : errors$1[e]);
 			if (!(s === "")) {
 				return s;
 			}
@@ -4995,8 +4989,7 @@ $packages["syscall"] = (function() {
 	ptrType$31.methods = [{prop: "Unix", name: "Unix", pkg: "", typ: $funcType([], [$Int64, $Int64], false)}, {prop: "Nano", name: "Nano", pkg: "", typ: $funcType([], [$Int64], false)}];
 	mmapper.init("syscall", [{prop: "Mutex", name: "", exported: true, typ: sync.Mutex, tag: ""}, {prop: "active", name: "active", exported: false, typ: mapType, tag: ""}, {prop: "mmap", name: "mmap", exported: false, typ: funcType, tag: ""}, {prop: "munmap", name: "munmap", exported: false, typ: funcType$1, tag: ""}]);
 	Timespec.init("", [{prop: "Sec", name: "Sec", exported: true, typ: $Int64, tag: ""}, {prop: "Nsec", name: "Nsec", exported: true, typ: $Int64, tag: ""}]);
-	Stat_t.init("", [{prop: "Dev", name: "Dev", exported: true, typ: $Int32, tag: ""}, {prop: "Mode", name: "Mode", exported: true, typ: $Uint16, tag: ""}, {prop: "Nlink", name: "Nlink", exported: true, typ: $Uint16, tag: ""}, {prop: "Ino", name: "Ino", exported: true, typ: $Uint64, tag: ""}, {prop: "Uid", name: "Uid", exported: true, typ: $Uint32, tag: ""}, {prop: "Gid", name: "Gid", exported: true, typ: $Uint32, tag: ""}, {prop: "Rdev", name: "Rdev", exported: true, typ: $Int32, tag: ""}, {prop: "Pad_cgo_0", name: "Pad_cgo_0", exported: true, typ: arrayType$1, tag: ""}, {prop: "Atimespec", name: "Atimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Mtimespec", name: "Mtimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Ctimespec", name: "Ctimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Birthtimespec", name: "Birthtimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Size", name: "Size", exported: true, typ: $Int64, tag: ""}, {prop: "Blocks", name: "Blocks", exported: true, typ: $Int64, tag: ""}, {prop: "Blksize", name: "Blksize", exported: true, typ: $Int32, tag: ""}, {prop: "Flags", name: "Flags", exported: true, typ: $Uint32, tag: ""}, {prop: "Gen", name: "Gen", exported: true, typ: $Uint32, tag: ""}, {prop: "Lspare", name: "Lspare", exported: true, typ: $Int32, tag: ""}, {prop: "Qspare", name: "Qspare", exported: true, typ: arrayType$17, tag: ""}]);
-	Dirent.init("", [{prop: "Ino", name: "Ino", exported: true, typ: $Uint64, tag: ""}, {prop: "Seekoff", name: "Seekoff", exported: true, typ: $Uint64, tag: ""}, {prop: "Reclen", name: "Reclen", exported: true, typ: $Uint16, tag: ""}, {prop: "Namlen", name: "Namlen", exported: true, typ: $Uint16, tag: ""}, {prop: "Type", name: "Type", exported: true, typ: $Uint8, tag: ""}, {prop: "Name", name: "Name", exported: true, typ: arrayType$14, tag: ""}, {prop: "Pad_cgo_0", name: "Pad_cgo_0", exported: true, typ: arrayType$15, tag: ""}]);
+	Stat_t.init("", [{prop: "Dev", name: "Dev", exported: true, typ: $Int32, tag: ""}, {prop: "Mode", name: "Mode", exported: true, typ: $Uint16, tag: ""}, {prop: "Nlink", name: "Nlink", exported: true, typ: $Uint16, tag: ""}, {prop: "Ino", name: "Ino", exported: true, typ: $Uint64, tag: ""}, {prop: "Uid", name: "Uid", exported: true, typ: $Uint32, tag: ""}, {prop: "Gid", name: "Gid", exported: true, typ: $Uint32, tag: ""}, {prop: "Rdev", name: "Rdev", exported: true, typ: $Int32, tag: ""}, {prop: "Pad_cgo_0", name: "Pad_cgo_0", exported: true, typ: arrayType$1, tag: ""}, {prop: "Atimespec", name: "Atimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Mtimespec", name: "Mtimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Ctimespec", name: "Ctimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Birthtimespec", name: "Birthtimespec", exported: true, typ: Timespec, tag: ""}, {prop: "Size", name: "Size", exported: true, typ: $Int64, tag: ""}, {prop: "Blocks", name: "Blocks", exported: true, typ: $Int64, tag: ""}, {prop: "Blksize", name: "Blksize", exported: true, typ: $Int32, tag: ""}, {prop: "Flags", name: "Flags", exported: true, typ: $Uint32, tag: ""}, {prop: "Gen", name: "Gen", exported: true, typ: $Uint32, tag: ""}, {prop: "Lspare", name: "Lspare", exported: true, typ: $Int32, tag: ""}, {prop: "Qspare", name: "Qspare", exported: true, typ: arrayType$15, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -5079,7 +5072,6 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		o[0] = this;
 		if (o[0].done) {
 			$s = -1; return;
-			return;
 		}
 		if (o[0].doing) {
 			$panic(new $String("nosync: Do called within f"));
@@ -5092,7 +5084,6 @@ $packages["github.com/gopherjs/gopherjs/nosync"] = (function() {
 		}; })(o), []]);
 		$r = f(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: Once.ptr.prototype.Do }; } $f.$ptr = $ptr; $f.f = f; $f.o = o; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	Once.prototype.Do = function(f) { return this.$val.Do(f); };
@@ -5204,7 +5195,7 @@ $packages["time"] = (function() {
 	ptrType$6 = $ptrType(Time);
 	init = function() {
 		var $ptr;
-		Unix(new $Int64(0, 0), new $Int64(0, 0));
+		$unused(Unix(new $Int64(0, 0), new $Int64(0, 0)));
 	};
 	initLocal = function() {
 		var $ptr, d, i, j, s;
@@ -5312,7 +5303,7 @@ $packages["time"] = (function() {
 			} else if (_1 === (48)) {
 				if (layout.length >= (i + 2 >> 0) && 49 <= layout.charCodeAt((i + 1 >> 0)) && layout.charCodeAt((i + 1 >> 0)) <= 54) {
 					_tmp$15 = $substring(layout, 0, i);
-					_tmp$16 = (x = layout.charCodeAt((i + 1 >> 0)) - 49 << 24 >>> 24, ((x < 0 || x >= std0x.length) ? $throwRuntimeError("index out of range") : std0x[x]));
+					_tmp$16 = (x = layout.charCodeAt((i + 1 >> 0)) - 49 << 24 >>> 24, ((x < 0 || x >= std0x.length) ? ($throwRuntimeError("index out of range"), undefined) : std0x[x]));
 					_tmp$17 = $substring(layout, (i + 2 >> 0));
 					prefix = _tmp$15;
 					std = _tmp$16;
@@ -5567,7 +5558,7 @@ $packages["time"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			i = _i;
-			v = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			v = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			if (val.length >= v.length && match($substring(val, 0, v.length), v)) {
 				return [i, $substring(val, v.length), $ifaceNil];
 			}
@@ -5588,11 +5579,11 @@ $packages["time"] = (function() {
 			if (!(u >= 10)) { break; }
 			i = i - (1) >> 0;
 			q = (_q = u / 10, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >>> 0 : $throwRuntimeError("integer divide by zero"));
-			((i < 0 || i >= buf.length) ? $throwRuntimeError("index out of range") : buf[i] = (((48 + u >>> 0) - (q * 10 >>> 0) >>> 0) << 24 >>> 24));
+			((i < 0 || i >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[i] = (((48 + u >>> 0) - (q * 10 >>> 0) >>> 0) << 24 >>> 24));
 			u = q;
 		}
 		i = i - (1) >> 0;
-		((i < 0 || i >= buf.length) ? $throwRuntimeError("index out of range") : buf[i] = ((48 + u >>> 0) << 24 >>> 24));
+		((i < 0 || i >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[i] = ((48 + u >>> 0) << 24 >>> 24));
 		w = 20 - i >> 0;
 		while (true) {
 			if (!(w < width)) { break; }
@@ -5639,7 +5630,7 @@ $packages["time"] = (function() {
 		while (true) {
 			if (!(start > 0)) { break; }
 			start = start - (1) >> 0;
-			((start < 0 || start >= buf.length) ? $throwRuntimeError("index out of range") : buf[start] = (((_r$1 = u % 10, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
+			((start < 0 || start >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[start] = (((_r$1 = u % 10, _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) + 48 >>> 0) << 24 >>> 24));
 			u = (_q = u / (10), (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >>> 0 : $throwRuntimeError("integer divide by zero"));
 		}
 		if (n > 9) {
@@ -5647,7 +5638,7 @@ $packages["time"] = (function() {
 		}
 		if (trim) {
 			while (true) {
-				if (!(n > 0 && ((x = n - 1 >> 0, ((x < 0 || x >= buf.length) ? $throwRuntimeError("index out of range") : buf[x])) === 48))) { break; }
+				if (!(n > 0 && ((x = n - 1 >> 0, ((x < 0 || x >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[x])) === 48))) { break; }
 				n = n - (1) >> 0;
 			}
 			if (n === 0) {
@@ -5660,17 +5651,16 @@ $packages["time"] = (function() {
 	Time.ptr.prototype.String = function() {
 		var $ptr, _r$1, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.Format("2006-01-02 15:04:05.999999999 -0700 MST"); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).Format("2006-01-02 15:04:05.999999999 -0700 MST"); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.String }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.String = function() { return this.$val.String(); };
 	Time.ptr.prototype.Format = function(layout) {
 		var $ptr, _r$1, b, buf, layout, max, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; b = $f.b; buf = $f.buf; layout = $f.layout; max = $f.max; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
+		t = this;
 		b = sliceType$3.nil;
 		max = layout.length + 10 >> 0;
 		if (max < 64) {
@@ -5679,18 +5669,17 @@ $packages["time"] = (function() {
 		} else {
 			b = $makeSlice(sliceType$3, 0, max);
 		}
-		_r$1 = t.AppendFormat(b, layout); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$1 = $clone(t, Time).AppendFormat(b, layout); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		b = _r$1;
 		$s = -1; return $bytesToString(b);
-		return $bytesToString(b);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Format }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.b = b; $f.buf = buf; $f.layout = layout; $f.max = max; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Format = function(layout) { return this.$val.Format(layout); };
 	Time.ptr.prototype.AppendFormat = function(b, layout) {
 		var $ptr, _1, _q, _q$1, _q$2, _q$3, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, _tuple$1, _tuple$2, _tuple$3, _tuple$4, abs, absoffset, b, day, hour, hr, hr$1, layout, m, min, month, name, offset, prefix, s, sec, std, suffix, t, y, year, zone$1, zone$2, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _1 = $f._1; _q = $f._q; _q$1 = $f._q$1; _q$2 = $f._q$2; _q$3 = $f._q$3; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _r$7 = $f._r$7; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; abs = $f.abs; absoffset = $f.absoffset; b = $f.b; day = $f.day; hour = $f.hour; hr = $f.hr; hr$1 = $f.hr$1; layout = $f.layout; m = $f.m; min = $f.min; month = $f.month; name = $f.name; offset = $f.offset; prefix = $f.prefix; s = $f.s; sec = $f.sec; std = $f.std; suffix = $f.suffix; t = $f.t; y = $f.y; year = $f.year; zone$1 = $f.zone$1; zone$2 = $f.zone$2; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.locabs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).locabs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		name = _tuple$1[0];
 		offset = _tuple$1[1];
@@ -5835,12 +5824,11 @@ $packages["time"] = (function() {
 					b = appendInt(b, (_q$3 = zone$2 / 60, (_q$3 === _q$3 && _q$3 !== 1/0 && _q$3 !== -1/0) ? _q$3 >> 0 : $throwRuntimeError("integer divide by zero")), 2);
 					b = appendInt(b, (_r$7 = zone$2 % 60, _r$7 === _r$7 ? _r$7 : $throwRuntimeError("integer divide by zero")), 2);
 				} else if ((_1 === (32)) || (_1 === (33))) {
-					b = formatNano(b, (t.Nanosecond() >>> 0), std >> 16 >> 0, (std & 65535) === 33);
+					b = formatNano(b, ($clone(t, Time).Nanosecond() >>> 0), std >> 16 >> 0, (std & 65535) === 33);
 				}
 			}
 		}
 		$s = -1; return b;
-		return b;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.AppendFormat }; } $f.$ptr = $ptr; $f._1 = _1; $f._q = _q; $f._q$1 = _q$1; $f._q$2 = _q$2; $f._q$3 = _q$3; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f.abs = abs; $f.absoffset = absoffset; $f.b = b; $f.day = day; $f.hour = hour; $f.hr = hr; $f.hr$1 = hr$1; $f.layout = layout; $f.m = m; $f.min = min; $f.month = month; $f.name = name; $f.offset = offset; $f.prefix = prefix; $f.s = s; $f.sec = sec; $f.std = std; $f.suffix = suffix; $f.t = t; $f.y = y; $f.year = year; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.AppendFormat = function(b, layout) { return this.$val.AppendFormat(b, layout); };
@@ -5911,7 +5899,6 @@ $packages["time"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; layout = $f.layout; value = $f.value; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_r$1 = parse(layout, value, $pkg.UTC, $pkg.Local); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Parse }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.layout = layout; $f.value = value; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Parse = Parse;
@@ -5947,12 +5934,10 @@ $packages["time"] = (function() {
 			err = _tuple$2[1];
 			if (!($interfaceIsEqual(err, $ifaceNil))) {
 				$s = -1; return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, prefix, value, "")];
-				return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, prefix, value, "")];
 			}
 			if (std === 0) {
 				if (!((value.length === 0))) {
 					$s = -1; return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, "", value, ": extra text: " + value)];
-					return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, "", value, ": extra text: " + value)];
 				}
 				break;
 			}
@@ -6057,6 +6042,7 @@ $packages["time"] = (function() {
 					err = _tuple$14[2];
 					if (sec < 0 || 60 <= sec) {
 						rangeErrString = "second";
+						break;
 					}
 					if (value.length >= 2 && (value.charCodeAt(0) === 46) && isDigit(value, 1)) {
 						_tuple$15 = nextStdChunk(layout);
@@ -6281,11 +6267,9 @@ $packages["time"] = (function() {
 			}
 			if (!(rangeErrString === "")) {
 				$s = -1; return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, stdstr, value, ": " + rangeErrString + " out of range")];
-				return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, stdstr, value, ": " + rangeErrString + " out of range")];
 			}
 			if (!($interfaceIsEqual(err, $ifaceNil))) {
 				$s = -1; return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, stdstr, value, "")];
-				return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, stdstr, value, "")];
 			}
 		}
 		if (pmSet && hour < 12) {
@@ -6293,16 +6277,14 @@ $packages["time"] = (function() {
 		} else if (amSet && (hour === 12)) {
 			hour = 0;
 		}
-		if (day > daysIn((month >> 0), year)) {
+		if (day < 1 || day > daysIn((month >> 0), year)) {
 			$s = -1; return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, "", value, ": day out of range")];
-			return [new Time.ptr(new $Int64(0, 0), 0, ptrType$1.nil), new ParseError.ptr(alayout, avalue, "", value, ": day out of range")];
 		}
 		/* */ if (!(z === ptrType$1.nil)) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (!(z === ptrType$1.nil)) { */ case 1:
 			_r$1 = Date(year, (month >> 0), day, hour, min, sec, nsec, z); /* */ $s = 3; case 3: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 			$s = -1; return [_r$1, $ifaceNil];
-			return [_r$1, $ifaceNil];
 		/* } */ case 2:
 		/* */ if (!((zoneOffset === -1))) { $s = 4; continue; }
 		/* */ $s = 5; continue;
@@ -6315,13 +6297,11 @@ $packages["time"] = (function() {
 			name = _tuple$23[0];
 			offset = _tuple$23[1];
 			if ((offset === zoneOffset) && (zoneName === "" || name === zoneName)) {
-				t.loc = local;
+				t.setLoc(local);
 				$s = -1; return [t, $ifaceNil];
-				return [t, $ifaceNil];
 			}
-			t.loc = FixedZone(zoneName, zoneOffset);
+			t.setLoc(FixedZone(zoneName, zoneOffset));
 			$s = -1; return [t, $ifaceNil];
-			return [t, $ifaceNil];
 		/* } */ case 5:
 		/* */ if (!(zoneName === "")) { $s = 8; continue; }
 		/* */ $s = 9; continue;
@@ -6334,22 +6314,19 @@ $packages["time"] = (function() {
 			ok$1 = _tuple$24[2];
 			if (ok$1) {
 				t$1.sec = (x$4 = t$1.sec, x$5 = new $Int64(0, offset$1), new $Int64(x$4.$high - x$5.$high, x$4.$low - x$5.$low));
-				t$1.loc = local;
+				t$1.setLoc(local);
 				$s = -1; return [t$1, $ifaceNil];
-				return [t$1, $ifaceNil];
 			}
 			if (zoneName.length > 3 && $substring(zoneName, 0, 3) === "GMT") {
 				_tuple$25 = atoi($substring(zoneName, 3));
 				offset$1 = _tuple$25[0];
 				offset$1 = $imul(offset$1, (3600));
 			}
-			t$1.loc = FixedZone(zoneName, offset$1);
+			t$1.setLoc(FixedZone(zoneName, offset$1));
 			$s = -1; return [t$1, $ifaceNil];
-			return [t$1, $ifaceNil];
 		/* } */ case 9:
 		_r$6 = Date(year, (month >> 0), day, hour, min, sec, nsec, defaultLocation); /* */ $s = 12; case 12: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
 		$s = -1; return [_r$6, $ifaceNil];
-		return [_r$6, $ifaceNil];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: parse }; } $f.$ptr = $ptr; $f._1 = _1; $f._2 = _2; $f._3 = _3; $f._4 = _4; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$10 = _tmp$10; $f._tmp$11 = _tmp$11; $f._tmp$12 = _tmp$12; $f._tmp$13 = _tmp$13; $f._tmp$14 = _tmp$14; $f._tmp$15 = _tmp$15; $f._tmp$16 = _tmp$16; $f._tmp$17 = _tmp$17; $f._tmp$18 = _tmp$18; $f._tmp$19 = _tmp$19; $f._tmp$2 = _tmp$2; $f._tmp$20 = _tmp$20; $f._tmp$21 = _tmp$21; $f._tmp$22 = _tmp$22; $f._tmp$23 = _tmp$23; $f._tmp$24 = _tmp$24; $f._tmp$25 = _tmp$25; $f._tmp$26 = _tmp$26; $f._tmp$27 = _tmp$27; $f._tmp$28 = _tmp$28; $f._tmp$29 = _tmp$29; $f._tmp$3 = _tmp$3; $f._tmp$30 = _tmp$30; $f._tmp$31 = _tmp$31; $f._tmp$32 = _tmp$32; $f._tmp$33 = _tmp$33; $f._tmp$34 = _tmp$34; $f._tmp$35 = _tmp$35; $f._tmp$36 = _tmp$36; $f._tmp$37 = _tmp$37; $f._tmp$38 = _tmp$38; $f._tmp$39 = _tmp$39; $f._tmp$4 = _tmp$4; $f._tmp$40 = _tmp$40; $f._tmp$41 = _tmp$41; $f._tmp$42 = _tmp$42; $f._tmp$43 = _tmp$43; $f._tmp$5 = _tmp$5; $f._tmp$6 = _tmp$6; $f._tmp$7 = _tmp$7; $f._tmp$8 = _tmp$8; $f._tmp$9 = _tmp$9; $f._tuple$1 = _tuple$1; $f._tuple$10 = _tuple$10; $f._tuple$11 = _tuple$11; $f._tuple$12 = _tuple$12; $f._tuple$13 = _tuple$13; $f._tuple$14 = _tuple$14; $f._tuple$15 = _tuple$15; $f._tuple$16 = _tuple$16; $f._tuple$17 = _tuple$17; $f._tuple$18 = _tuple$18; $f._tuple$19 = _tuple$19; $f._tuple$2 = _tuple$2; $f._tuple$20 = _tuple$20; $f._tuple$21 = _tuple$21; $f._tuple$22 = _tuple$22; $f._tuple$23 = _tuple$23; $f._tuple$24 = _tuple$24; $f._tuple$25 = _tuple$25; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f._tuple$5 = _tuple$5; $f._tuple$6 = _tuple$6; $f._tuple$7 = _tuple$7; $f._tuple$8 = _tuple$8; $f._tuple$9 = _tuple$9; $f.alayout = alayout; $f.amSet = amSet; $f.avalue = avalue; $f.day = day; $f.defaultLocation = defaultLocation; $f.err = err; $f.hour = hour; $f.hour$1 = hour$1; $f.hr = hr; $f.i = i; $f.layout = layout; $f.local = local; $f.min = min; $f.min$1 = min$1; $f.mm = mm; $f.month = month; $f.n = n; $f.n$1 = n$1; $f.name = name; $f.ndigit = ndigit; $f.nsec = nsec; $f.offset = offset; $f.offset$1 = offset$1; $f.ok = ok; $f.ok$1 = ok$1; $f.p = p; $f.pmSet = pmSet; $f.prefix = prefix; $f.rangeErrString = rangeErrString; $f.sec = sec; $f.seconds = seconds; $f.sign = sign; $f.ss = ss; $f.std = std; $f.stdstr = stdstr; $f.suffix = suffix; $f.t = t; $f.t$1 = t$1; $f.value = value; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.year = year; $f.z = z; $f.zoneName = zoneName; $f.zoneOffset = zoneOffset; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	parseTimeZone = function(value) {
@@ -6407,7 +6384,7 @@ $packages["time"] = (function() {
 				return [length, ok];
 			}
 		} else if (_1 === (4)) {
-			if (value.charCodeAt(3) === 84) {
+			if ((value.charCodeAt(3) === 84) || $substring(value, 0, 4) === "WITA") {
 				_tmp$10 = 4;
 				_tmp$11 = true;
 				length = _tmp$10;
@@ -6521,49 +6498,60 @@ $packages["time"] = (function() {
 		err = _tmp$8;
 		return [x, rem, err];
 	};
+	Time.ptr.prototype.setLoc = function(loc) {
+		var $ptr, loc, t;
+		t = this;
+		if (loc === utcLoc) {
+			loc = ptrType$1.nil;
+		}
+		t.loc = loc;
+	};
+	Time.prototype.setLoc = function(loc) { return this.$val.setLoc(loc); };
 	Time.ptr.prototype.After = function(u) {
 		var $ptr, t, u, x, x$1, x$2, x$3;
-		u = $clone(u, Time);
-		t = $clone(this, Time);
+		t = this;
 		return (x = t.sec, x$1 = u.sec, (x.$high > x$1.$high || (x.$high === x$1.$high && x.$low > x$1.$low))) || (x$2 = t.sec, x$3 = u.sec, (x$2.$high === x$3.$high && x$2.$low === x$3.$low)) && t.nsec > u.nsec;
 	};
 	Time.prototype.After = function(u) { return this.$val.After(u); };
 	Time.ptr.prototype.Before = function(u) {
 		var $ptr, t, u, x, x$1, x$2, x$3;
-		u = $clone(u, Time);
-		t = $clone(this, Time);
+		t = this;
 		return (x = t.sec, x$1 = u.sec, (x.$high < x$1.$high || (x.$high === x$1.$high && x.$low < x$1.$low))) || (x$2 = t.sec, x$3 = u.sec, (x$2.$high === x$3.$high && x$2.$low === x$3.$low)) && t.nsec < u.nsec;
 	};
 	Time.prototype.Before = function(u) { return this.$val.Before(u); };
 	Time.ptr.prototype.Equal = function(u) {
 		var $ptr, t, u, x, x$1;
-		u = $clone(u, Time);
-		t = $clone(this, Time);
+		t = this;
 		return (x = t.sec, x$1 = u.sec, (x.$high === x$1.$high && x.$low === x$1.$low)) && (t.nsec === u.nsec);
 	};
 	Time.prototype.Equal = function(u) { return this.$val.Equal(u); };
 	Month.prototype.String = function() {
-		var $ptr, m, x;
+		var $ptr, buf, m, n, x;
 		m = this.$val;
-		return (x = m - 1 >> 0, ((x < 0 || x >= months.length) ? $throwRuntimeError("index out of range") : months[x]));
+		if (1 <= m && m <= 12) {
+			return (x = m - 1 >> 0, ((x < 0 || x >= months.length) ? ($throwRuntimeError("index out of range"), undefined) : months[x]));
+		}
+		buf = $makeSlice(sliceType$3, 20);
+		n = fmtInt(buf, new $Uint64(0, m));
+		return "%!Month(" + $bytesToString($subslice(buf, n)) + ")";
 	};
 	$ptrType(Month).prototype.String = function() { return new Month(this.$get()).String(); };
 	Weekday.prototype.String = function() {
 		var $ptr, d;
 		d = this.$val;
-		return ((d < 0 || d >= days.length) ? $throwRuntimeError("index out of range") : days[d]);
+		return ((d < 0 || d >= days.length) ? ($throwRuntimeError("index out of range"), undefined) : days[d]);
 	};
 	$ptrType(Weekday).prototype.String = function() { return new Weekday(this.$get()).String(); };
 	Time.ptr.prototype.IsZero = function() {
 		var $ptr, t, x;
-		t = $clone(this, Time);
+		t = this;
 		return (x = t.sec, (x.$high === 0 && x.$low === 0)) && (t.nsec === 0);
 	};
 	Time.prototype.IsZero = function() { return this.$val.IsZero(); };
 	Time.ptr.prototype.abs = function() {
 		var $ptr, _r$1, _r$2, _tuple$1, l, offset, sec, t, x, x$1, x$2, x$3, x$4, x$5, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; l = $f.l; offset = $f.offset; sec = $f.sec; t = $f.t; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
+		t = this;
 		l = t.loc;
 		/* */ if (l === ptrType$1.nil || l === localLoc) { $s = 1; continue; }
 		/* */ $s = 2; continue;
@@ -6588,7 +6576,6 @@ $packages["time"] = (function() {
 			/* } */ case 8:
 		/* } */ case 5:
 		$s = -1; return (x$5 = new $Int64(sec.$high + 2147483646, sec.$low + 450480384), new $Uint64(x$5.$high, x$5.$low));
-		return (x$5 = new $Int64(sec.$high + 2147483646, sec.$low + 450480384), new $Uint64(x$5.$high, x$5.$low));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.abs }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.l = l; $f.offset = offset; $f.sec = sec; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.abs = function() { return this.$val.abs(); };
@@ -6598,7 +6585,7 @@ $packages["time"] = (function() {
 		name = "";
 		offset = 0;
 		abs = new $Uint64(0, 0);
-		t = $clone(this, Time);
+		t = this;
 		l = t.loc;
 		/* */ if (l === ptrType$1.nil || l === localLoc) { $s = 1; continue; }
 		/* */ $s = 2; continue;
@@ -6629,7 +6616,6 @@ $packages["time"] = (function() {
 		/* } */ case 6:
 		abs = (x$4 = new $Int64(sec.$high + 2147483646, sec.$low + 450480384), new $Uint64(x$4.$high, x$4.$low));
 		$s = -1; return [name, offset, abs];
-		return [name, offset, abs];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.locabs }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.abs = abs; $f.l = l; $f.name = name; $f.offset = offset; $f.sec = sec; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.locabs = function() { return this.$val.locabs(); };
@@ -6639,61 +6625,56 @@ $packages["time"] = (function() {
 		year = 0;
 		month = 0;
 		day = 0;
-		t = $clone(this, Time);
-		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		year = _tuple$1[0];
 		month = _tuple$1[1];
 		day = _tuple$1[2];
 		$s = -1; return [year, month, day];
-		return [year, month, day];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Date }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.day = day; $f.month = month; $f.t = t; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Date = function() { return this.$val.Date(); };
 	Time.ptr.prototype.Year = function() {
 		var $ptr, _r$1, _tuple$1, t, year, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; t = $f.t; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		year = _tuple$1[0];
 		$s = -1; return year;
-		return year;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Year }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.t = t; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Year = function() { return this.$val.Year(); };
 	Time.ptr.prototype.Month = function() {
 		var $ptr, _r$1, _tuple$1, month, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; month = $f.month; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		month = _tuple$1[1];
 		$s = -1; return month;
-		return month;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Month }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.month = month; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Month = function() { return this.$val.Month(); };
 	Time.ptr.prototype.Day = function() {
 		var $ptr, _r$1, _tuple$1, day, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; day = $f.day; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		day = _tuple$1[2];
 		$s = -1; return day;
-		return day;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Day }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.day = day; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Day = function() { return this.$val.Day(); };
 	Time.ptr.prototype.Weekday = function() {
 		var $ptr, _r$1, _r$2, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_r$2 = absWeekday(_r$1); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		$s = -1; return _r$2;
-		return _r$2;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Weekday }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Weekday = function() { return this.$val.Weekday(); };
@@ -6707,14 +6688,14 @@ $packages["time"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _tuple$1 = $f._tuple$1; day = $f.day; dec31wday = $f.dec31wday; jan1wday = $f.jan1wday; month = $f.month; t = $f.t; wday = $f.wday; week = $f.week; yday = $f.yday; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		year = 0;
 		week = 0;
-		t = $clone(this, Time);
-		_r$1 = t.date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).date(true); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		year = _tuple$1[0];
 		month = _tuple$1[1];
 		day = _tuple$1[2];
 		yday = _tuple$1[3];
-		_r$3 = t.Weekday(); /* */ $s = 2; case 2: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+		_r$3 = $clone(t, Time).Weekday(); /* */ $s = 2; case 2: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
 		wday = (_r$2 = ((_r$3 + 6 >> 0) >> 0) % 7, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero"));
 		week = (_q = (((yday - wday >> 0) + 7 >> 0)) / 7, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
 		jan1wday = (_r$4 = (((wday - yday >> 0) + 371 >> 0)) % 7, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
@@ -6736,7 +6717,6 @@ $packages["time"] = (function() {
 			}
 		}
 		$s = -1; return [year, week];
-		return [year, week];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.ISOWeek }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._tuple$1 = _tuple$1; $f.day = day; $f.dec31wday = dec31wday; $f.jan1wday = jan1wday; $f.month = month; $f.t = t; $f.wday = wday; $f.week = week; $f.yday = yday; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.ISOWeek = function() { return this.$val.ISOWeek(); };
@@ -6746,15 +6726,14 @@ $packages["time"] = (function() {
 		hour = 0;
 		min = 0;
 		sec = 0;
-		t = $clone(this, Time);
-		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_r$2 = absClock(_r$1); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		_tuple$1 = _r$2;
 		hour = _tuple$1[0];
 		min = _tuple$1[1];
 		sec = _tuple$1[2];
 		$s = -1; return [hour, min, sec];
-		return [hour, min, sec];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Clock }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.hour = hour; $f.min = min; $f.sec = sec; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Clock = function() { return this.$val.Clock(); };
@@ -6773,48 +6752,44 @@ $packages["time"] = (function() {
 	Time.ptr.prototype.Hour = function() {
 		var $ptr, _q, _r$1, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return (_q = ($div64(_r$1, new $Uint64(0, 86400), true).$low >> 0) / 3600, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
-		return (_q = ($div64(_r$1, new $Uint64(0, 86400), true).$low >> 0) / 3600, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Hour }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Hour = function() { return this.$val.Hour(); };
 	Time.ptr.prototype.Minute = function() {
 		var $ptr, _q, _r$1, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return (_q = ($div64(_r$1, new $Uint64(0, 3600), true).$low >> 0) / 60, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
-		return (_q = ($div64(_r$1, new $Uint64(0, 3600), true).$low >> 0) / 60, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Minute }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Minute = function() { return this.$val.Minute(); };
 	Time.ptr.prototype.Second = function() {
 		var $ptr, _r$1, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return ($div64(_r$1, new $Uint64(0, 60), true).$low >> 0);
-		return ($div64(_r$1, new $Uint64(0, 60), true).$low >> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Second }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Second = function() { return this.$val.Second(); };
 	Time.ptr.prototype.Nanosecond = function() {
 		var $ptr, t;
-		t = $clone(this, Time);
+		t = this;
 		return (t.nsec >> 0);
 	};
 	Time.prototype.Nanosecond = function() { return this.$val.Nanosecond(); };
 	Time.ptr.prototype.YearDay = function() {
 		var $ptr, _r$1, _tuple$1, t, yday, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; t = $f.t; yday = $f.yday; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).date(false); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		yday = _tuple$1[3];
 		$s = -1; return yday + 1 >> 0;
-		return yday + 1 >> 0;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.YearDay }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.t = t; $f.yday = yday; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.YearDay = function() { return this.$val.YearDay(); };
@@ -6831,20 +6806,20 @@ $packages["time"] = (function() {
 		if ((u.$high < 0 || (u.$high === 0 && u.$low < 1000000000))) {
 			prec = 0;
 			w = w - (1) >> 0;
-			((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 115);
+			((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 115);
 			w = w - (1) >> 0;
 			if ((u.$high === 0 && u.$low === 0)) {
 				return "0s";
 			} else if ((u.$high < 0 || (u.$high === 0 && u.$low < 1000))) {
 				prec = 0;
-				((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 110);
+				((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 110);
 			} else if ((u.$high < 0 || (u.$high === 0 && u.$low < 1000000))) {
 				prec = 3;
 				w = w - (1) >> 0;
 				$copyString($subslice(new sliceType$3(buf), w), "\xC2\xB5");
 			} else {
 				prec = 6;
-				((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 109);
+				((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 109);
 			}
 			_tuple$1 = fmtFrac($subslice(new sliceType$3(buf), 0, w), u, prec);
 			w = _tuple$1[0];
@@ -6852,7 +6827,7 @@ $packages["time"] = (function() {
 			w = fmtInt($subslice(new sliceType$3(buf), 0, w), u);
 		} else {
 			w = w - (1) >> 0;
-			((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 115);
+			((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 115);
 			_tuple$2 = fmtFrac($subslice(new sliceType$3(buf), 0, w), u, 9);
 			w = _tuple$2[0];
 			u = _tuple$2[1];
@@ -6860,19 +6835,19 @@ $packages["time"] = (function() {
 			u = $div64(u, (new $Uint64(0, 60)), false);
 			if ((u.$high > 0 || (u.$high === 0 && u.$low > 0))) {
 				w = w - (1) >> 0;
-				((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 109);
+				((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 109);
 				w = fmtInt($subslice(new sliceType$3(buf), 0, w), $div64(u, new $Uint64(0, 60), true));
 				u = $div64(u, (new $Uint64(0, 60)), false);
 				if ((u.$high > 0 || (u.$high === 0 && u.$low > 0))) {
 					w = w - (1) >> 0;
-					((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 104);
+					((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 104);
 					w = fmtInt($subslice(new sliceType$3(buf), 0, w), u);
 				}
 			}
 		}
 		if (neg) {
 			w = w - (1) >> 0;
-			((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 45);
+			((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 45);
 		}
 		return $bytesToString($subslice(new sliceType$3(buf), w));
 	};
@@ -6890,14 +6865,14 @@ $packages["time"] = (function() {
 			print = print || !((digit.$high === 0 && digit.$low === 0));
 			if (print) {
 				w = w - (1) >> 0;
-				((w < 0 || w >= buf.$length) ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + w] = ((digit.$low << 24 >>> 24) + 48 << 24 >>> 24));
+				((w < 0 || w >= buf.$length) ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + w] = ((digit.$low << 24 >>> 24) + 48 << 24 >>> 24));
 			}
 			v = $div64(v, (new $Uint64(0, 10)), false);
 			i = i + (1) >> 0;
 		}
 		if (print) {
 			w = w - (1) >> 0;
-			((w < 0 || w >= buf.$length) ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + w] = 46);
+			((w < 0 || w >= buf.$length) ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + w] = 46);
 		}
 		_tmp = w;
 		_tmp$1 = v;
@@ -6910,12 +6885,12 @@ $packages["time"] = (function() {
 		w = buf.$length;
 		if ((v.$high === 0 && v.$low === 0)) {
 			w = w - (1) >> 0;
-			((w < 0 || w >= buf.$length) ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + w] = 48);
+			((w < 0 || w >= buf.$length) ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + w] = 48);
 		} else {
 			while (true) {
 				if (!((v.$high > 0 || (v.$high === 0 && v.$low > 0)))) { break; }
 				w = w - (1) >> 0;
-				((w < 0 || w >= buf.$length) ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + w] = (($div64(v, new $Uint64(0, 10), true).$low << 24 >>> 24) + 48 << 24 >>> 24));
+				((w < 0 || w >= buf.$length) ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + w] = (($div64(v, new $Uint64(0, 10), true).$low << 24 >>> 24) + 48 << 24 >>> 24));
 				v = $div64(v, (new $Uint64(0, 10)), false);
 			}
 		}
@@ -6932,7 +6907,7 @@ $packages["time"] = (function() {
 		d = this;
 		sec = $div64(d, new Duration(0, 1000000000), false);
 		nsec = $div64(d, new Duration(0, 1000000000), true);
-		return $flatten64(sec) + $flatten64(nsec) * 1e-09;
+		return $flatten64(sec) + $flatten64(nsec) / 1e+09;
 	};
 	$ptrType(Duration).prototype.Seconds = function() { return this.$get().Seconds(); };
 	Duration.prototype.Minutes = function() {
@@ -6940,7 +6915,7 @@ $packages["time"] = (function() {
 		d = this;
 		min = $div64(d, new Duration(13, 4165425152), false);
 		nsec = $div64(d, new Duration(13, 4165425152), true);
-		return $flatten64(min) + $flatten64(nsec) * 1.6666666666666667e-11;
+		return $flatten64(min) + $flatten64(nsec) / 6e+10;
 	};
 	$ptrType(Duration).prototype.Minutes = function() { return this.$get().Minutes(); };
 	Duration.prototype.Hours = function() {
@@ -6948,12 +6923,12 @@ $packages["time"] = (function() {
 		d = this;
 		hour = $div64(d, new Duration(838, 817405952), false);
 		nsec = $div64(d, new Duration(838, 817405952), true);
-		return $flatten64(hour) + $flatten64(nsec) * 2.777777777777778e-13;
+		return $flatten64(hour) + $flatten64(nsec) / 3.6e+12;
 	};
 	$ptrType(Duration).prototype.Hours = function() { return this.$get().Hours(); };
 	Time.ptr.prototype.Add = function(d) {
 		var $ptr, d, nsec, t, x, x$1, x$2, x$3, x$4, x$5, x$6, x$7;
-		t = $clone(this, Time);
+		t = this;
 		t.sec = (x = t.sec, x$1 = (x$2 = $div64(d, new Duration(0, 1000000000), false), new $Int64(x$2.$high, x$2.$low)), new $Int64(x.$high + x$1.$high, x.$low + x$1.$low));
 		nsec = t.nsec + ((x$3 = $div64(d, new Duration(0, 1000000000), true), x$3.$low + ((x$3.$high >> 31) * 4294967296)) >> 0) >> 0;
 		if (nsec >= 1000000000) {
@@ -6969,12 +6944,11 @@ $packages["time"] = (function() {
 	Time.prototype.Add = function(d) { return this.$val.Add(d); };
 	Time.ptr.prototype.Sub = function(u) {
 		var $ptr, d, t, u, x, x$1, x$2, x$3, x$4;
-		u = $clone(u, Time);
-		t = $clone(this, Time);
+		t = this;
 		d = (x = $mul64((x$1 = (x$2 = t.sec, x$3 = u.sec, new $Int64(x$2.$high - x$3.$high, x$2.$low - x$3.$low)), new Duration(x$1.$high, x$1.$low)), new Duration(0, 1000000000)), x$4 = new Duration(0, (t.nsec - u.nsec >> 0)), new Duration(x.$high + x$4.$high, x.$low + x$4.$low));
-		if (u.Add(d).Equal(t)) {
+		if ($clone($clone(u, Time).Add(d), Time).Equal($clone(t, Time))) {
 			return d;
-		} else if (t.Before(u)) {
+		} else if ($clone(t, Time).Before($clone(u, Time))) {
 			return new Duration(-2147483648, 0);
 		} else {
 			return new Duration(2147483647, 4294967295);
@@ -6983,27 +6957,25 @@ $packages["time"] = (function() {
 	Time.prototype.Sub = function(u) { return this.$val.Sub(u); };
 	Since = function(t) {
 		var $ptr, t;
-		t = $clone(t, Time);
-		return Now().Sub(t);
+		return $clone(Now(), Time).Sub($clone(t, Time));
 	};
 	$pkg.Since = Since;
 	Time.ptr.prototype.AddDate = function(years, months$1, days$1) {
 		var $ptr, _r$1, _r$2, _r$3, _tuple$1, _tuple$2, day, days$1, hour, min, month, months$1, sec, t, year, years, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; day = $f.day; days$1 = $f.days$1; hour = $f.hour; min = $f.min; month = $f.month; months$1 = $f.months$1; sec = $f.sec; t = $f.t; year = $f.year; years = $f.years; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.Date(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).Date(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		year = _tuple$1[0];
 		month = _tuple$1[1];
 		day = _tuple$1[2];
-		_r$2 = t.Clock(); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_r$2 = $clone(t, Time).Clock(); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		_tuple$2 = _r$2;
 		hour = _tuple$2[0];
 		min = _tuple$2[1];
 		sec = _tuple$2[2];
-		_r$3 = Date(year + years >> 0, month + (months$1 >> 0) >> 0, day + days$1 >> 0, hour, min, sec, (t.nsec >> 0), t.loc); /* */ $s = 3; case 3: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+		_r$3 = Date(year + years >> 0, month + (months$1 >> 0) >> 0, day + days$1 >> 0, hour, min, sec, (t.nsec >> 0), $clone(t, Time).Location()); /* */ $s = 3; case 3: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
 		$s = -1; return _r$3;
-		return _r$3;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.AddDate }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f.day = day; $f.days$1 = days$1; $f.hour = hour; $f.min = min; $f.month = month; $f.months$1 = months$1; $f.sec = sec; $f.t = t; $f.year = year; $f.years = years; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.AddDate = function(years, months$1, days$1) { return this.$val.AddDate(years, months$1, days$1); };
@@ -7014,8 +6986,8 @@ $packages["time"] = (function() {
 		month = 0;
 		day = 0;
 		yday = 0;
-		t = $clone(this, Time);
-		_r$1 = t.abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).abs(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_r$2 = absDate(_r$1, full); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		_tuple$1 = _r$2;
 		year = _tuple$1[0];
@@ -7023,7 +6995,6 @@ $packages["time"] = (function() {
 		day = _tuple$1[2];
 		yday = _tuple$1[3];
 		$s = -1; return [year, month, day, yday];
-		return [year, month, day, yday];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.date }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.day = day; $f.full = full; $f.month = month; $f.t = t; $f.yday = yday; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.date = function(full) { return this.$val.date(full); };
@@ -7064,13 +7035,13 @@ $packages["time"] = (function() {
 			}
 		}
 		month = ((_q = day / 31, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")) >> 0);
-		end = ((x$11 = month + 1 >> 0, ((x$11 < 0 || x$11 >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[x$11])) >> 0);
+		end = ((x$11 = month + 1 >> 0, ((x$11 < 0 || x$11 >= daysBefore.length) ? ($throwRuntimeError("index out of range"), undefined) : daysBefore[x$11])) >> 0);
 		begin = 0;
 		if (day >= end) {
 			month = month + (1) >> 0;
 			begin = end;
 		} else {
-			begin = (((month < 0 || month >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[month]) >> 0);
+			begin = (((month < 0 || month >= daysBefore.length) ? ($throwRuntimeError("index out of range"), undefined) : daysBefore[month]) >> 0);
 		}
 		month = month + (1) >> 0;
 		day = (day - begin >> 0) + 1 >> 0;
@@ -7081,7 +7052,7 @@ $packages["time"] = (function() {
 		if ((m === 2) && isLeap(year)) {
 			return 29;
 		}
-		return ((((m < 0 || m >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[m]) - (x = m - 1 >> 0, ((x < 0 || x >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[x])) >> 0) >> 0);
+		return ((((m < 0 || m >= daysBefore.length) ? ($throwRuntimeError("index out of range"), undefined) : daysBefore[m]) - (x = m - 1 >> 0, ((x < 0 || x >= daysBefore.length) ? ($throwRuntimeError("index out of range"), undefined) : daysBefore[x])) >> 0) >> 0);
 	};
 	Now = function() {
 		var $ptr, _tuple$1, nsec, sec;
@@ -7093,31 +7064,31 @@ $packages["time"] = (function() {
 	$pkg.Now = Now;
 	Time.ptr.prototype.UTC = function() {
 		var $ptr, t;
-		t = $clone(this, Time);
-		t.loc = $pkg.UTC;
+		t = this;
+		t.setLoc(utcLoc);
 		return t;
 	};
 	Time.prototype.UTC = function() { return this.$val.UTC(); };
 	Time.ptr.prototype.Local = function() {
 		var $ptr, t;
-		t = $clone(this, Time);
-		t.loc = $pkg.Local;
+		t = this;
+		t.setLoc($pkg.Local);
 		return t;
 	};
 	Time.prototype.Local = function() { return this.$val.Local(); };
 	Time.ptr.prototype.In = function(loc) {
 		var $ptr, loc, t;
-		t = $clone(this, Time);
+		t = this;
 		if (loc === ptrType$1.nil) {
 			$panic(new $String("time: missing Location in call to Time.In"));
 		}
-		t.loc = loc;
+		t.setLoc(loc);
 		return t;
 	};
 	Time.prototype.In = function(loc) { return this.$val.In(loc); };
 	Time.ptr.prototype.Location = function() {
 		var $ptr, l, t;
-		t = $clone(this, Time);
+		t = this;
 		l = t.loc;
 		if (l === ptrType$1.nil) {
 			l = $pkg.UTC;
@@ -7130,56 +7101,52 @@ $packages["time"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; name = $f.name; offset = $f.offset; t = $f.t; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		name = "";
 		offset = 0;
-		t = $clone(this, Time);
+		t = this;
 		_r$1 = t.loc.lookup((x = t.sec, new $Int64(x.$high + -15, x.$low + 2288912640))); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		name = _tuple$1[0];
 		offset = _tuple$1[1];
 		$s = -1; return [name, offset];
-		return [name, offset];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.Zone }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.name = name; $f.offset = offset; $f.t = t; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.Zone = function() { return this.$val.Zone(); };
 	Time.ptr.prototype.Unix = function() {
 		var $ptr, t, x;
-		t = $clone(this, Time);
+		t = this;
 		return (x = t.sec, new $Int64(x.$high + -15, x.$low + 2288912640));
 	};
 	Time.prototype.Unix = function() { return this.$val.Unix(); };
 	Time.ptr.prototype.UnixNano = function() {
 		var $ptr, t, x, x$1, x$2;
-		t = $clone(this, Time);
+		t = this;
 		return (x = $mul64(((x$1 = t.sec, new $Int64(x$1.$high + -15, x$1.$low + 2288912640))), new $Int64(0, 1000000000)), x$2 = new $Int64(0, t.nsec), new $Int64(x.$high + x$2.$high, x.$low + x$2.$low));
 	};
 	Time.prototype.UnixNano = function() { return this.$val.UnixNano(); };
 	Time.ptr.prototype.MarshalBinary = function() {
 		var $ptr, _q, _r$1, _r$2, _tuple$1, enc, offset, offsetMin, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r$1 = $f._r$1; _r$2 = $f._r$2; _tuple$1 = $f._tuple$1; enc = $f.enc; offset = $f.offset; offsetMin = $f.offsetMin; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
+		t = this;
 		offsetMin = 0;
-		/* */ if (t.Location() === utcLoc) { $s = 1; continue; }
+		/* */ if ($clone(t, Time).Location() === $pkg.UTC) { $s = 1; continue; }
 		/* */ $s = 2; continue;
-		/* if (t.Location() === utcLoc) { */ case 1:
+		/* if ($clone(t, Time).Location() === $pkg.UTC) { */ case 1:
 			offsetMin = -1;
 			$s = 3; continue;
 		/* } else { */ case 2:
-			_r$1 = t.Zone(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			_r$1 = $clone(t, Time).Zone(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 			_tuple$1 = _r$1;
 			offset = _tuple$1[1];
 			if (!(((_r$2 = offset % 60, _r$2 === _r$2 ? _r$2 : $throwRuntimeError("integer divide by zero")) === 0))) {
 				$s = -1; return [sliceType$3.nil, errors.New("Time.MarshalBinary: zone offset has fractional minute")];
-				return [sliceType$3.nil, errors.New("Time.MarshalBinary: zone offset has fractional minute")];
 			}
 			offset = (_q = offset / (60), (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
 			if (offset < -32768 || (offset === -1) || offset > 32767) {
 				$s = -1; return [sliceType$3.nil, errors.New("Time.MarshalBinary: unexpected zone offset")];
-				return [sliceType$3.nil, errors.New("Time.MarshalBinary: unexpected zone offset")];
 			}
 			offsetMin = (offset << 16 >> 16);
 		/* } */ case 3:
 		enc = new sliceType$3([1, ($shiftRightInt64(t.sec, 56).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 48).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 40).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 32).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 24).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 16).$low << 24 >>> 24), ($shiftRightInt64(t.sec, 8).$low << 24 >>> 24), (t.sec.$low << 24 >>> 24), ((t.nsec >> 24 >> 0) << 24 >>> 24), ((t.nsec >> 16 >> 0) << 24 >>> 24), ((t.nsec >> 8 >> 0) << 24 >>> 24), (t.nsec << 24 >>> 24), ((offsetMin >> 8 << 16 >> 16) << 24 >>> 24), (offsetMin << 24 >>> 24)]);
 		$s = -1; return [enc, $ifaceNil];
-		return [enc, $ifaceNil];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalBinary }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._tuple$1 = _tuple$1; $f.enc = enc; $f.offset = offset; $f.offsetMin = offsetMin; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.MarshalBinary = function() { return this.$val.MarshalBinary(); };
@@ -7190,49 +7157,44 @@ $packages["time"] = (function() {
 		buf = data$1;
 		if (buf.$length === 0) {
 			$s = -1; return errors.New("Time.UnmarshalBinary: no data");
-			return errors.New("Time.UnmarshalBinary: no data");
 		}
-		if (!(((0 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 0]) === 1))) {
+		if (!(((0 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 0]) === 1))) {
 			$s = -1; return errors.New("Time.UnmarshalBinary: unsupported version");
-			return errors.New("Time.UnmarshalBinary: unsupported version");
 		}
 		if (!((buf.$length === 15))) {
 			$s = -1; return errors.New("Time.UnmarshalBinary: invalid length");
-			return errors.New("Time.UnmarshalBinary: invalid length");
 		}
 		buf = $subslice(buf, 1);
-		t.sec = (x = (x$1 = (x$2 = (x$3 = (x$4 = (x$5 = (x$6 = new $Int64(0, (7 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 7])), x$7 = $shiftLeft64(new $Int64(0, (6 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 6])), 8), new $Int64(x$6.$high | x$7.$high, (x$6.$low | x$7.$low) >>> 0)), x$8 = $shiftLeft64(new $Int64(0, (5 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 5])), 16), new $Int64(x$5.$high | x$8.$high, (x$5.$low | x$8.$low) >>> 0)), x$9 = $shiftLeft64(new $Int64(0, (4 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 4])), 24), new $Int64(x$4.$high | x$9.$high, (x$4.$low | x$9.$low) >>> 0)), x$10 = $shiftLeft64(new $Int64(0, (3 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 3])), 32), new $Int64(x$3.$high | x$10.$high, (x$3.$low | x$10.$low) >>> 0)), x$11 = $shiftLeft64(new $Int64(0, (2 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 2])), 40), new $Int64(x$2.$high | x$11.$high, (x$2.$low | x$11.$low) >>> 0)), x$12 = $shiftLeft64(new $Int64(0, (1 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 1])), 48), new $Int64(x$1.$high | x$12.$high, (x$1.$low | x$12.$low) >>> 0)), x$13 = $shiftLeft64(new $Int64(0, (0 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 0])), 56), new $Int64(x.$high | x$13.$high, (x.$low | x$13.$low) >>> 0));
+		t.sec = (x = (x$1 = (x$2 = (x$3 = (x$4 = (x$5 = (x$6 = new $Int64(0, (7 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 7])), x$7 = $shiftLeft64(new $Int64(0, (6 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 6])), 8), new $Int64(x$6.$high | x$7.$high, (x$6.$low | x$7.$low) >>> 0)), x$8 = $shiftLeft64(new $Int64(0, (5 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 5])), 16), new $Int64(x$5.$high | x$8.$high, (x$5.$low | x$8.$low) >>> 0)), x$9 = $shiftLeft64(new $Int64(0, (4 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 4])), 24), new $Int64(x$4.$high | x$9.$high, (x$4.$low | x$9.$low) >>> 0)), x$10 = $shiftLeft64(new $Int64(0, (3 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 3])), 32), new $Int64(x$3.$high | x$10.$high, (x$3.$low | x$10.$low) >>> 0)), x$11 = $shiftLeft64(new $Int64(0, (2 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 2])), 40), new $Int64(x$2.$high | x$11.$high, (x$2.$low | x$11.$low) >>> 0)), x$12 = $shiftLeft64(new $Int64(0, (1 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 1])), 48), new $Int64(x$1.$high | x$12.$high, (x$1.$low | x$12.$low) >>> 0)), x$13 = $shiftLeft64(new $Int64(0, (0 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 0])), 56), new $Int64(x.$high | x$13.$high, (x.$low | x$13.$low) >>> 0));
 		buf = $subslice(buf, 8);
-		t.nsec = ((((3 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 3]) >> 0) | (((2 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 2]) >> 0) << 8 >> 0)) | (((1 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 1]) >> 0) << 16 >> 0)) | (((0 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 0]) >> 0) << 24 >> 0);
+		t.nsec = ((((3 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 3]) >> 0) | (((2 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 2]) >> 0) << 8 >> 0)) | (((1 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 1]) >> 0) << 16 >> 0)) | (((0 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 0]) >> 0) << 24 >> 0);
 		buf = $subslice(buf, 4);
-		offset = $imul(((((1 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 1]) << 16 >> 16) | (((0 >= buf.$length ? $throwRuntimeError("index out of range") : buf.$array[buf.$offset + 0]) << 16 >> 16) << 8 << 16 >> 16)) >> 0), 60);
+		offset = $imul(((((1 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 1]) << 16 >> 16) | (((0 >= buf.$length ? ($throwRuntimeError("index out of range"), undefined) : buf.$array[buf.$offset + 0]) << 16 >> 16) << 8 << 16 >> 16)) >> 0), 60);
 		/* */ if (offset === -60) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (offset === -60) { */ case 1:
-			t.loc = utcLoc;
+			t.setLoc(utcLoc);
 			$s = 3; continue;
 		/* } else { */ case 2:
 			_r$1 = $pkg.Local.lookup((x$14 = t.sec, new $Int64(x$14.$high + -15, x$14.$low + 2288912640))); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 			_tuple$1 = _r$1;
 			localoff = _tuple$1[1];
 			if (offset === localoff) {
-				t.loc = $pkg.Local;
+				t.setLoc($pkg.Local);
 			} else {
-				t.loc = FixedZone("", offset);
+				t.setLoc(FixedZone("", offset));
 			}
 		/* } */ case 3:
 		$s = -1; return $ifaceNil;
-		return $ifaceNil;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalBinary }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.buf = buf; $f.data$1 = data$1; $f.localoff = localoff; $f.offset = offset; $f.t = t; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$13 = x$13; $f.x$14 = x$14; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.UnmarshalBinary = function(data$1) { return this.$val.UnmarshalBinary(data$1); };
 	Time.ptr.prototype.GobEncode = function() {
 		var $ptr, _r$1, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.MarshalBinary(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).MarshalBinary(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.GobEncode }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.GobEncode = function() { return this.$val.GobEncode(); };
@@ -7242,27 +7204,24 @@ $packages["time"] = (function() {
 		t = this;
 		_r$1 = t.UnmarshalBinary(data$1); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.GobDecode }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.data$1 = data$1; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.GobDecode = function(data$1) { return this.$val.GobDecode(data$1); };
 	Time.ptr.prototype.MarshalJSON = function() {
 		var $ptr, _r$1, _r$2, b, t, y, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; b = $f.b; t = $f.t; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		y = _r$1;
 		if (y < 0 || y >= 10000) {
 			$s = -1; return [sliceType$3.nil, errors.New("Time.MarshalJSON: year outside of range [0,9999]")];
-			return [sliceType$3.nil, errors.New("Time.MarshalJSON: year outside of range [0,9999]")];
 		}
 		b = $makeSlice(sliceType$3, 0, 37);
 		b = $append(b, 34);
-		_r$2 = t.AppendFormat(b, "2006-01-02T15:04:05.999999999Z07:00"); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_r$2 = $clone(t, Time).AppendFormat(b, "2006-01-02T15:04:05.999999999Z07:00"); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		b = _r$2;
 		b = $append(b, 34);
 		$s = -1; return [b, $ifaceNil];
-		return [b, $ifaceNil];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalJSON }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.b = b; $f.t = t; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.MarshalJSON = function() { return this.$val.MarshalJSON(); };
@@ -7270,30 +7229,30 @@ $packages["time"] = (function() {
 		var $ptr, _r$1, _tuple$1, data$1, err, t, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _tuple$1 = $f._tuple$1; data$1 = $f.data$1; err = $f.err; t = $f.t; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = this;
+		if ($bytesToString(data$1) === "null") {
+			$s = -1; return $ifaceNil;
+		}
 		err = $ifaceNil;
 		_r$1 = Parse("\"2006-01-02T15:04:05Z07:00\"", $bytesToString(data$1)); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$1 = _r$1;
 		Time.copy(t, _tuple$1[0]);
 		err = _tuple$1[1];
 		$s = -1; return err;
-		return err;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalJSON }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.data$1 = data$1; $f.err = err; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.UnmarshalJSON = function(data$1) { return this.$val.UnmarshalJSON(data$1); };
 	Time.ptr.prototype.MarshalText = function() {
 		var $ptr, _r$1, _r$2, b, t, y, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; b = $f.b; t = $f.t; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		t = $clone(this, Time);
-		_r$1 = t.Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		t = this;
+		_r$1 = $clone(t, Time).Year(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		y = _r$1;
 		if (y < 0 || y >= 10000) {
 			$s = -1; return [sliceType$3.nil, errors.New("Time.MarshalText: year outside of range [0,9999]")];
-			return [sliceType$3.nil, errors.New("Time.MarshalText: year outside of range [0,9999]")];
 		}
 		b = $makeSlice(sliceType$3, 0, 35);
-		_r$2 = t.AppendFormat(b, "2006-01-02T15:04:05.999999999Z07:00"); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_r$2 = $clone(t, Time).AppendFormat(b, "2006-01-02T15:04:05.999999999Z07:00"); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		$s = -1; return [_r$2, $ifaceNil];
-		return [_r$2, $ifaceNil];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.MarshalText }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.b = b; $f.t = t; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.MarshalText = function() { return this.$val.MarshalText(); };
@@ -7307,7 +7266,6 @@ $packages["time"] = (function() {
 		Time.copy(t, _tuple$1[0]);
 		err = _tuple$1[1];
 		$s = -1; return err;
-		return err;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Time.ptr.prototype.UnmarshalText }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._tuple$1 = _tuple$1; $f.data$1 = data$1; $f.err = err; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Time.prototype.UnmarshalText = function(data$1) { return this.$val.UnmarshalText(data$1); };
@@ -7350,8 +7308,8 @@ $packages["time"] = (function() {
 		return [nhi, nlo];
 	};
 	Date = function(year, month, day, hour, min, sec, nsec, loc) {
-		var $ptr, _r$1, _r$2, _r$3, _tuple$1, _tuple$2, _tuple$3, _tuple$4, _tuple$5, _tuple$6, _tuple$7, _tuple$8, abs, d, day, end, hour, loc, m, min, month, n, nsec, offset, sec, start, unix, utc, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9, y, year, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; _tuple$5 = $f._tuple$5; _tuple$6 = $f._tuple$6; _tuple$7 = $f._tuple$7; _tuple$8 = $f._tuple$8; abs = $f.abs; d = $f.d; day = $f.day; end = $f.end; hour = $f.hour; loc = $f.loc; m = $f.m; min = $f.min; month = $f.month; n = $f.n; nsec = $f.nsec; offset = $f.offset; sec = $f.sec; start = $f.start; unix = $f.unix; utc = $f.utc; x = $f.x; x$1 = $f.x$1; x$10 = $f.x$10; x$11 = $f.x$11; x$12 = $f.x$12; x$13 = $f.x$13; x$14 = $f.x$14; x$15 = $f.x$15; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; x$9 = $f.x$9; y = $f.y; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r$1, _r$2, _r$3, _tuple$1, _tuple$2, _tuple$3, _tuple$4, _tuple$5, _tuple$6, _tuple$7, _tuple$8, abs, d, day, end, hour, loc, m, min, month, n, nsec, offset, sec, start, t, unix, utc, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9, y, year, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _tuple$1 = $f._tuple$1; _tuple$2 = $f._tuple$2; _tuple$3 = $f._tuple$3; _tuple$4 = $f._tuple$4; _tuple$5 = $f._tuple$5; _tuple$6 = $f._tuple$6; _tuple$7 = $f._tuple$7; _tuple$8 = $f._tuple$8; abs = $f.abs; d = $f.d; day = $f.day; end = $f.end; hour = $f.hour; loc = $f.loc; m = $f.m; min = $f.min; month = $f.month; n = $f.n; nsec = $f.nsec; offset = $f.offset; sec = $f.sec; start = $f.start; t = $f.t; unix = $f.unix; utc = $f.utc; x = $f.x; x$1 = $f.x$1; x$10 = $f.x$10; x$11 = $f.x$11; x$12 = $f.x$12; x$13 = $f.x$13; x$14 = $f.x$14; x$15 = $f.x$15; x$2 = $f.x$2; x$3 = $f.x$3; x$4 = $f.x$4; x$5 = $f.x$5; x$6 = $f.x$6; x$7 = $f.x$7; x$8 = $f.x$8; x$9 = $f.x$9; y = $f.y; year = $f.year; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		if (loc === ptrType$1.nil) {
 			$panic(new $String("time: missing Location in call to Date"));
 		}
@@ -7384,7 +7342,7 @@ $packages["time"] = (function() {
 		d = (x$6 = $mul64(new $Uint64(0, 1461), n), new $Uint64(d.$high + x$6.$high, d.$low + x$6.$low));
 		n = y;
 		d = (x$7 = $mul64(new $Uint64(0, 365), n), new $Uint64(d.$high + x$7.$high, d.$low + x$7.$low));
-		d = (x$8 = new $Uint64(0, (x$9 = month - 1 >> 0, ((x$9 < 0 || x$9 >= daysBefore.length) ? $throwRuntimeError("index out of range") : daysBefore[x$9]))), new $Uint64(d.$high + x$8.$high, d.$low + x$8.$low));
+		d = (x$8 = new $Uint64(0, (x$9 = month - 1 >> 0, ((x$9 < 0 || x$9 >= daysBefore.length) ? ($throwRuntimeError("index out of range"), undefined) : daysBefore[x$9]))), new $Uint64(d.$high + x$8.$high, d.$low + x$8.$low));
 		if (isLeap(year) && month >= 3) {
 			d = (x$10 = new $Uint64(0, 1), new $Uint64(d.$high + x$10.$high, d.$low + x$10.$low));
 		}
@@ -7417,41 +7375,41 @@ $packages["time"] = (function() {
 			case 4:
 			unix = (x$15 = new $Int64(0, offset), new $Int64(unix.$high - x$15.$high, unix.$low - x$15.$low));
 		/* } */ case 3:
-		$s = -1; return new Time.ptr(new $Int64(unix.$high + 14, unix.$low + 2006054656), (nsec >> 0), loc);
-		return new Time.ptr(new $Int64(unix.$high + 14, unix.$low + 2006054656), (nsec >> 0), loc);
-		/* */ } return; } if ($f === undefined) { $f = { $blk: Date }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f._tuple$5 = _tuple$5; $f._tuple$6 = _tuple$6; $f._tuple$7 = _tuple$7; $f._tuple$8 = _tuple$8; $f.abs = abs; $f.d = d; $f.day = day; $f.end = end; $f.hour = hour; $f.loc = loc; $f.m = m; $f.min = min; $f.month = month; $f.n = n; $f.nsec = nsec; $f.offset = offset; $f.sec = sec; $f.start = start; $f.unix = unix; $f.utc = utc; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$13 = x$13; $f.x$14 = x$14; $f.x$15 = x$15; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.y = y; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
+		t = new Time.ptr(new $Int64(unix.$high + 14, unix.$low + 2006054656), (nsec >> 0), ptrType$1.nil);
+		t.setLoc(loc);
+		$s = -1; return t;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Date }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f._tuple$3 = _tuple$3; $f._tuple$4 = _tuple$4; $f._tuple$5 = _tuple$5; $f._tuple$6 = _tuple$6; $f._tuple$7 = _tuple$7; $f._tuple$8 = _tuple$8; $f.abs = abs; $f.d = d; $f.day = day; $f.end = end; $f.hour = hour; $f.loc = loc; $f.m = m; $f.min = min; $f.month = month; $f.n = n; $f.nsec = nsec; $f.offset = offset; $f.sec = sec; $f.start = start; $f.t = t; $f.unix = unix; $f.utc = utc; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$13 = x$13; $f.x$14 = x$14; $f.x$15 = x$15; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.y = y; $f.year = year; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Date = Date;
 	Time.ptr.prototype.Truncate = function(d) {
 		var $ptr, _tuple$1, d, r, t;
-		t = $clone(this, Time);
+		t = this;
 		if ((d.$high < 0 || (d.$high === 0 && d.$low <= 0))) {
 			return t;
 		}
-		_tuple$1 = div(t, d);
+		_tuple$1 = div($clone(t, Time), d);
 		r = _tuple$1[1];
-		return t.Add(new Duration(-r.$high, -r.$low));
+		return $clone(t, Time).Add(new Duration(-r.$high, -r.$low));
 	};
 	Time.prototype.Truncate = function(d) { return this.$val.Truncate(d); };
 	Time.ptr.prototype.Round = function(d) {
 		var $ptr, _tuple$1, d, r, t, x;
-		t = $clone(this, Time);
+		t = this;
 		if ((d.$high < 0 || (d.$high === 0 && d.$low <= 0))) {
 			return t;
 		}
-		_tuple$1 = div(t, d);
+		_tuple$1 = div($clone(t, Time), d);
 		r = _tuple$1[1];
 		if ((x = new Duration(r.$high + r.$high, r.$low + r.$low), (x.$high < d.$high || (x.$high === d.$high && x.$low < d.$low)))) {
-			return t.Add(new Duration(-r.$high, -r.$low));
+			return $clone(t, Time).Add(new Duration(-r.$high, -r.$low));
 		}
-		return t.Add(new Duration(d.$high - r.$high, d.$low - r.$low));
+		return $clone(t, Time).Add(new Duration(d.$high - r.$high, d.$low - r.$low));
 	};
 	Time.prototype.Round = function(d) { return this.$val.Round(d); };
 	div = function(t, d) {
 		var $ptr, _q, _r$1, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, d, d0, d1, d1$1, neg, nsec, qmod2, r, sec, t, tmp, u0, u0x, u1, x, x$1, x$10, x$11, x$12, x$13, x$14, x$15, x$16, x$17, x$18, x$19, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9;
 		qmod2 = 0;
 		r = new Duration(0, 0);
-		t = $clone(t, Time);
 		neg = false;
 		nsec = t.nsec;
 		if ((x = t.sec, (x.$high < 0 || (x.$high === 0 && x.$low < 0)))) {
@@ -7530,7 +7488,6 @@ $packages["time"] = (function() {
 		l = this;
 		if (l === ptrType$1.nil) {
 			$s = -1; return utcLoc;
-			return utcLoc;
 		}
 		/* */ if (l === localLoc) { $s = 1; continue; }
 		/* */ $s = 2; continue;
@@ -7538,7 +7495,6 @@ $packages["time"] = (function() {
 			$r = localOnce.Do(initLocal); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* } */ case 2:
 		$s = -1; return l;
-		return l;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.get }; } $f.$ptr = $ptr; $f.l = l; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Location.prototype.get = function() { return this.$val.get(); };
@@ -7548,14 +7504,13 @@ $packages["time"] = (function() {
 		l = this;
 		_r$1 = l.get(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1.name;
-		return _r$1.name;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.String }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f.l = l; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Location.prototype.String = function() { return this.$val.String(); };
 	FixedZone = function(name, offset) {
 		var $ptr, l, name, offset, x;
 		l = new Location.ptr(name, new sliceType([new zone.ptr(name, offset, false)]), new sliceType$1([new zoneTrans.ptr(new $Int64(-2147483648, 0), 0, false, false)]), new $Int64(-2147483648, 0), new $Int64(2147483647, 4294967295), ptrType.nil);
-		l.cacheZone = (x = l.zone, (0 >= x.$length ? $throwRuntimeError("index out of range") : x.$array[x.$offset + 0]));
+		l.cacheZone = (x = l.zone, (0 >= x.$length ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + 0]));
 		return l;
 	};
 	$pkg.FixedZone = FixedZone;
@@ -7577,7 +7532,6 @@ $packages["time"] = (function() {
 			start = new $Int64(-2147483648, 0);
 			end = new $Int64(2147483647, 4294967295);
 			$s = -1; return [name, offset, isDST, start, end];
-			return [name, offset, isDST, start, end];
 		}
 		zone$1 = l.cacheZone;
 		if (!(zone$1 === ptrType.nil) && (x = l.cacheStart, (x.$high < sec.$high || (x.$high === sec.$high && x.$low <= sec.$low))) && (x$1 = l.cacheEnd, (sec.$high < x$1.$high || (sec.$high === x$1.$high && sec.$low < x$1.$low)))) {
@@ -7587,21 +7541,19 @@ $packages["time"] = (function() {
 			start = l.cacheStart;
 			end = l.cacheEnd;
 			$s = -1; return [name, offset, isDST, start, end];
-			return [name, offset, isDST, start, end];
 		}
-		if ((l.tx.$length === 0) || (x$2 = (x$3 = l.tx, (0 >= x$3.$length ? $throwRuntimeError("index out of range") : x$3.$array[x$3.$offset + 0])).when, (sec.$high < x$2.$high || (sec.$high === x$2.$high && sec.$low < x$2.$low)))) {
-			zone$2 = (x$4 = l.zone, x$5 = l.lookupFirstZone(), ((x$5 < 0 || x$5 >= x$4.$length) ? $throwRuntimeError("index out of range") : x$4.$array[x$4.$offset + x$5]));
+		if ((l.tx.$length === 0) || (x$2 = (x$3 = l.tx, (0 >= x$3.$length ? ($throwRuntimeError("index out of range"), undefined) : x$3.$array[x$3.$offset + 0])).when, (sec.$high < x$2.$high || (sec.$high === x$2.$high && sec.$low < x$2.$low)))) {
+			zone$2 = (x$4 = l.zone, x$5 = l.lookupFirstZone(), ((x$5 < 0 || x$5 >= x$4.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$4.$array[x$4.$offset + x$5]));
 			name = zone$2.name;
 			offset = zone$2.offset;
 			isDST = zone$2.isDST;
 			start = new $Int64(-2147483648, 0);
 			if (l.tx.$length > 0) {
-				end = (x$6 = l.tx, (0 >= x$6.$length ? $throwRuntimeError("index out of range") : x$6.$array[x$6.$offset + 0])).when;
+				end = (x$6 = l.tx, (0 >= x$6.$length ? ($throwRuntimeError("index out of range"), undefined) : x$6.$array[x$6.$offset + 0])).when;
 			} else {
 				end = new $Int64(2147483647, 4294967295);
 			}
 			$s = -1; return [name, offset, isDST, start, end];
-			return [name, offset, isDST, start, end];
 		}
 		tx = l.tx;
 		end = new $Int64(2147483647, 4294967295);
@@ -7610,7 +7562,7 @@ $packages["time"] = (function() {
 		while (true) {
 			if (!((hi - lo >> 0) > 1)) { break; }
 			m = lo + (_q = ((hi - lo >> 0)) / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")) >> 0;
-			lim = ((m < 0 || m >= tx.$length) ? $throwRuntimeError("index out of range") : tx.$array[tx.$offset + m]).when;
+			lim = ((m < 0 || m >= tx.$length) ? ($throwRuntimeError("index out of range"), undefined) : tx.$array[tx.$offset + m]).when;
 			if ((sec.$high < lim.$high || (sec.$high === lim.$high && sec.$low < lim.$low))) {
 				end = lim;
 				hi = m;
@@ -7618,13 +7570,12 @@ $packages["time"] = (function() {
 				lo = m;
 			}
 		}
-		zone$3 = (x$7 = l.zone, x$8 = ((lo < 0 || lo >= tx.$length) ? $throwRuntimeError("index out of range") : tx.$array[tx.$offset + lo]).index, ((x$8 < 0 || x$8 >= x$7.$length) ? $throwRuntimeError("index out of range") : x$7.$array[x$7.$offset + x$8]));
+		zone$3 = (x$7 = l.zone, x$8 = ((lo < 0 || lo >= tx.$length) ? ($throwRuntimeError("index out of range"), undefined) : tx.$array[tx.$offset + lo]).index, ((x$8 < 0 || x$8 >= x$7.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$7.$array[x$7.$offset + x$8]));
 		name = zone$3.name;
 		offset = zone$3.offset;
 		isDST = zone$3.isDST;
-		start = ((lo < 0 || lo >= tx.$length) ? $throwRuntimeError("index out of range") : tx.$array[tx.$offset + lo]).when;
+		start = ((lo < 0 || lo >= tx.$length) ? ($throwRuntimeError("index out of range"), undefined) : tx.$array[tx.$offset + lo]).when;
 		$s = -1; return [name, offset, isDST, start, end];
-		return [name, offset, isDST, start, end];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.lookup }; } $f.$ptr = $ptr; $f._q = _q; $f._r$1 = _r$1; $f.end = end; $f.hi = hi; $f.isDST = isDST; $f.l = l; $f.lim = lim; $f.lo = lo; $f.m = m; $f.name = name; $f.offset = offset; $f.sec = sec; $f.start = start; $f.tx = tx; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.zone$3 = zone$3; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Location.prototype.lookup = function(sec) { return this.$val.lookup(sec); };
@@ -7634,11 +7585,11 @@ $packages["time"] = (function() {
 		if (!l.firstZoneUsed()) {
 			return 0;
 		}
-		if (l.tx.$length > 0 && (x = l.zone, x$1 = (x$2 = l.tx, (0 >= x$2.$length ? $throwRuntimeError("index out of range") : x$2.$array[x$2.$offset + 0])).index, ((x$1 < 0 || x$1 >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + x$1])).isDST) {
-			zi = ((x$3 = l.tx, (0 >= x$3.$length ? $throwRuntimeError("index out of range") : x$3.$array[x$3.$offset + 0])).index >> 0) - 1 >> 0;
+		if (l.tx.$length > 0 && (x = l.zone, x$1 = (x$2 = l.tx, (0 >= x$2.$length ? ($throwRuntimeError("index out of range"), undefined) : x$2.$array[x$2.$offset + 0])).index, ((x$1 < 0 || x$1 >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + x$1])).isDST) {
+			zi = ((x$3 = l.tx, (0 >= x$3.$length ? ($throwRuntimeError("index out of range"), undefined) : x$3.$array[x$3.$offset + 0])).index >> 0) - 1 >> 0;
 			while (true) {
 				if (!(zi >= 0)) { break; }
-				if (!(x$4 = l.zone, ((zi < 0 || zi >= x$4.$length) ? $throwRuntimeError("index out of range") : x$4.$array[x$4.$offset + zi])).isDST) {
+				if (!(x$4 = l.zone, ((zi < 0 || zi >= x$4.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$4.$array[x$4.$offset + zi])).isDST) {
 					return zi;
 				}
 				zi = zi - (1) >> 0;
@@ -7649,7 +7600,7 @@ $packages["time"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			zi$1 = _i;
-			if (!(x$5 = l.zone, ((zi$1 < 0 || zi$1 >= x$5.$length) ? $throwRuntimeError("index out of range") : x$5.$array[x$5.$offset + zi$1])).isDST) {
+			if (!(x$5 = l.zone, ((zi$1 < 0 || zi$1 >= x$5.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$5.$array[x$5.$offset + zi$1])).isDST) {
 				return zi$1;
 			}
 			_i++;
@@ -7664,7 +7615,7 @@ $packages["time"] = (function() {
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			tx = $clone(((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]), zoneTrans);
+			tx = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), zoneTrans);
 			if (tx.index === 0) {
 				return true;
 			}
@@ -7687,7 +7638,7 @@ $packages["time"] = (function() {
 		/* while (true) { */ case 2:
 			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 3; continue; }
 			i = _i;
-			zone$1 = (x = l.zone, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+			zone$1 = (x = l.zone, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 			/* */ if (zone$1.name === name) { $s = 4; continue; }
 			/* */ $s = 5; continue;
 			/* if (zone$1.name === name) { */ case 4:
@@ -7704,7 +7655,6 @@ $packages["time"] = (function() {
 					isDST = _tmp$1;
 					ok = _tmp$2;
 					$s = -1; return [offset, isDST, ok];
-					return [offset, isDST, ok];
 				}
 			/* } */ case 5:
 			_i++;
@@ -7714,7 +7664,7 @@ $packages["time"] = (function() {
 		while (true) {
 			if (!(_i$1 < _ref$1.$length)) { break; }
 			i$1 = _i$1;
-			zone$2 = (x$2 = l.zone, ((i$1 < 0 || i$1 >= x$2.$length) ? $throwRuntimeError("index out of range") : x$2.$array[x$2.$offset + i$1]));
+			zone$2 = (x$2 = l.zone, ((i$1 < 0 || i$1 >= x$2.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$2.$array[x$2.$offset + i$1]));
 			if (zone$2.name === name) {
 				_tmp$3 = zone$2.offset;
 				_tmp$4 = zone$2.isDST;
@@ -7723,18 +7673,16 @@ $packages["time"] = (function() {
 				isDST = _tmp$4;
 				ok = _tmp$5;
 				$s = -1; return [offset, isDST, ok];
-				return [offset, isDST, ok];
 			}
 			_i$1++;
 		}
 		$s = -1; return [offset, isDST, ok];
-		return [offset, isDST, ok];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Location.ptr.prototype.lookupName }; } $f.$ptr = $ptr; $f._i = _i; $f._i$1 = _i$1; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._ref = _ref; $f._ref$1 = _ref$1; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple$1 = _tuple$1; $f.i = i; $f.i$1 = i$1; $f.isDST = isDST; $f.isDST$1 = isDST$1; $f.l = l; $f.nam = nam; $f.name = name; $f.offset = offset; $f.offset$1 = offset$1; $f.ok = ok; $f.unix = unix; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.zone$1 = zone$1; $f.zone$2 = zone$2; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Location.prototype.lookupName = function(name, unix) { return this.$val.lookupName(name, unix); };
 	ptrType$3.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
 	Time.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Format", name: "Format", pkg: "", typ: $funcType([$String], [$String], false)}, {prop: "AppendFormat", name: "AppendFormat", pkg: "", typ: $funcType([sliceType$3, $String], [sliceType$3], false)}, {prop: "After", name: "After", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "Before", name: "Before", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "Equal", name: "Equal", pkg: "", typ: $funcType([Time], [$Bool], false)}, {prop: "IsZero", name: "IsZero", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "abs", name: "abs", pkg: "time", typ: $funcType([], [$Uint64], false)}, {prop: "locabs", name: "locabs", pkg: "time", typ: $funcType([], [$String, $Int, $Uint64], false)}, {prop: "Date", name: "Date", pkg: "", typ: $funcType([], [$Int, Month, $Int], false)}, {prop: "Year", name: "Year", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Month", name: "Month", pkg: "", typ: $funcType([], [Month], false)}, {prop: "Day", name: "Day", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Weekday", name: "Weekday", pkg: "", typ: $funcType([], [Weekday], false)}, {prop: "ISOWeek", name: "ISOWeek", pkg: "", typ: $funcType([], [$Int, $Int], false)}, {prop: "Clock", name: "Clock", pkg: "", typ: $funcType([], [$Int, $Int, $Int], false)}, {prop: "Hour", name: "Hour", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Minute", name: "Minute", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Second", name: "Second", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Nanosecond", name: "Nanosecond", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "YearDay", name: "YearDay", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Add", name: "Add", pkg: "", typ: $funcType([Duration], [Time], false)}, {prop: "Sub", name: "Sub", pkg: "", typ: $funcType([Time], [Duration], false)}, {prop: "AddDate", name: "AddDate", pkg: "", typ: $funcType([$Int, $Int, $Int], [Time], false)}, {prop: "date", name: "date", pkg: "time", typ: $funcType([$Bool], [$Int, Month, $Int, $Int], false)}, {prop: "UTC", name: "UTC", pkg: "", typ: $funcType([], [Time], false)}, {prop: "Local", name: "Local", pkg: "", typ: $funcType([], [Time], false)}, {prop: "In", name: "In", pkg: "", typ: $funcType([ptrType$1], [Time], false)}, {prop: "Location", name: "Location", pkg: "", typ: $funcType([], [ptrType$1], false)}, {prop: "Zone", name: "Zone", pkg: "", typ: $funcType([], [$String, $Int], false)}, {prop: "Unix", name: "Unix", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "UnixNano", name: "UnixNano", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "MarshalBinary", name: "MarshalBinary", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "GobEncode", name: "GobEncode", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "MarshalJSON", name: "MarshalJSON", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "MarshalText", name: "MarshalText", pkg: "", typ: $funcType([], [sliceType$3, $error], false)}, {prop: "Truncate", name: "Truncate", pkg: "", typ: $funcType([Duration], [Time], false)}, {prop: "Round", name: "Round", pkg: "", typ: $funcType([Duration], [Time], false)}];
-	ptrType$6.methods = [{prop: "UnmarshalBinary", name: "UnmarshalBinary", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "GobDecode", name: "GobDecode", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalJSON", name: "UnmarshalJSON", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalText", name: "UnmarshalText", pkg: "", typ: $funcType([sliceType$3], [$error], false)}];
+	ptrType$6.methods = [{prop: "setLoc", name: "setLoc", pkg: "time", typ: $funcType([ptrType$1], [], false)}, {prop: "UnmarshalBinary", name: "UnmarshalBinary", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "GobDecode", name: "GobDecode", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalJSON", name: "UnmarshalJSON", pkg: "", typ: $funcType([sliceType$3], [$error], false)}, {prop: "UnmarshalText", name: "UnmarshalText", pkg: "", typ: $funcType([sliceType$3], [$error], false)}];
 	Month.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}];
 	Weekday.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}];
 	Duration.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Nanoseconds", name: "Nanoseconds", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Seconds", name: "Seconds", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Minutes", name: "Minutes", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Hours", name: "Hours", pkg: "", typ: $funcType([], [$Float64], false)}];
@@ -7779,7 +7727,7 @@ $packages["time"] = (function() {
 	return $pkg;
 })();
 $packages["os"] = (function() {
-	var $pkg = {}, $init, errors, js, io, runtime, sync, atomic, syscall, time, PathError, SyscallError, LinkError, File, file, dirInfo, FileInfo, FileMode, fileStat, sliceType, ptrType, sliceType$1, ptrType$1, sliceType$2, ptrType$2, ptrType$3, ptrType$4, arrayType, ptrType$12, funcType$1, ptrType$13, arrayType$2, arrayType$5, ptrType$15, errFinished, lstat, useSyscallwd, supportsCloseOnExec, runtime_args, init, NewSyscallError, IsNotExist, isNotExist, fixCount, sigpipe, syscallMode, NewFile, epipecheck, Lstat, basename, init$1, useSyscallwdDarwin, init$2, fillFileStatFromSys, timespecToTime, init$3;
+	var $pkg = {}, $init, errors, js, io, runtime, sync, atomic, syscall, time, PathError, SyscallError, LinkError, file, dirInfo, File, FileInfo, FileMode, fileStat, sliceType, ptrType, sliceType$1, ptrType$1, sliceType$2, ptrType$2, ptrType$3, ptrType$4, arrayType, ptrType$12, funcType$1, ptrType$14, arrayType$3, arrayType$5, ptrType$15, errFinished, lstat, useSyscallwd, supportsCloseOnExec, runtime_args, init, NewSyscallError, IsNotExist, underlyingError, isNotExist, fixCount, sigpipe, syscallMode, NewFile, epipecheck, init$1, useSyscallwdDarwin, basename, init$2, fillFileStatFromSys, timespecToTime, Lstat, init$3;
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	io = $packages["io"];
@@ -7824,20 +7772,12 @@ $packages["os"] = (function() {
 		this.New = New_;
 		this.Err = Err_;
 	});
-	File = $pkg.File = $newType(0, $kindStruct, "os.File", true, "os", true, function(file_) {
-		this.$val = this;
-		if (arguments.length === 0) {
-			this.file = ptrType$12.nil;
-			return;
-		}
-		this.file = file_;
-	});
 	file = $pkg.file = $newType(0, $kindStruct, "os.file", true, "os", false, function(fd_, name_, dirinfo_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.fd = 0;
 			this.name = "";
-			this.dirinfo = ptrType.nil;
+			this.dirinfo = ptrType$1.nil;
 			return;
 		}
 		this.fd = fd_;
@@ -7847,7 +7787,7 @@ $packages["os"] = (function() {
 	dirInfo = $pkg.dirInfo = $newType(0, $kindStruct, "os.dirInfo", true, "os", false, function(buf_, nbuf_, bufp_) {
 		this.$val = this;
 		if (arguments.length === 0) {
-			this.buf = sliceType$1.nil;
+			this.buf = sliceType$2.nil;
 			this.nbuf = 0;
 			this.bufp = 0;
 			return;
@@ -7855,6 +7795,14 @@ $packages["os"] = (function() {
 		this.buf = buf_;
 		this.nbuf = nbuf_;
 		this.bufp = bufp_;
+	});
+	File = $pkg.File = $newType(0, $kindStruct, "os.File", true, "os", true, function(file_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.file = ptrType$12.nil;
+			return;
+		}
+		this.file = file_;
 	});
 	FileInfo = $pkg.FileInfo = $newType(8, $kindInterface, "os.FileInfo", true, "os", true, null);
 	FileMode = $pkg.FileMode = $newType(4, $kindUint32, "os.FileMode", true, "os", true, null);
@@ -7864,8 +7812,8 @@ $packages["os"] = (function() {
 			this.name = "";
 			this.size = new $Int64(0, 0);
 			this.mode = 0;
-			this.modTime = new time.Time.ptr(new $Int64(0, 0), 0, ptrType$13.nil);
-			this.sys = new syscall.Stat_t.ptr(0, 0, 0, new $Uint64(0, 0), 0, 0, 0, arrayType.zero(), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new $Int64(0, 0), new $Int64(0, 0), 0, 0, 0, 0, arrayType$2.zero());
+			this.modTime = new time.Time.ptr(new $Int64(0, 0), 0, ptrType$14.nil);
+			this.sys = new syscall.Stat_t.ptr(0, 0, 0, new $Uint64(0, 0), 0, 0, 0, arrayType.zero(), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new $Int64(0, 0), new $Int64(0, 0), 0, 0, 0, 0, arrayType$3.zero());
 			return;
 		}
 		this.name = name_;
@@ -7875,18 +7823,18 @@ $packages["os"] = (function() {
 		this.sys = sys_;
 	});
 	sliceType = $sliceType($String);
-	ptrType = $ptrType(dirInfo);
-	sliceType$1 = $sliceType($Uint8);
-	ptrType$1 = $ptrType(File);
-	sliceType$2 = $sliceType(FileInfo);
+	ptrType = $ptrType(File);
+	sliceType$1 = $sliceType(FileInfo);
+	ptrType$1 = $ptrType(dirInfo);
+	sliceType$2 = $sliceType($Uint8);
 	ptrType$2 = $ptrType(PathError);
 	ptrType$3 = $ptrType(LinkError);
 	ptrType$4 = $ptrType(SyscallError);
 	arrayType = $arrayType($Uint8, 4);
 	ptrType$12 = $ptrType(file);
 	funcType$1 = $funcType([ptrType$12], [$error], false);
-	ptrType$13 = $ptrType(time.Location);
-	arrayType$2 = $arrayType($Int64, 2);
+	ptrType$14 = $ptrType(time.Location);
+	arrayType$3 = $arrayType($Int64, 2);
 	arrayType$5 = $arrayType($Uint8, 32);
 	ptrType$15 = $ptrType(fileStat);
 	runtime_args = function() {
@@ -7902,7 +7850,7 @@ $packages["os"] = (function() {
 			i = 0;
 			while (true) {
 				if (!(i < ($parseInt(argv.length) - 1 >> 0))) { break; }
-				((i < 0 || i >= $pkg.Args.$length) ? $throwRuntimeError("index out of range") : $pkg.Args.$array[$pkg.Args.$offset + i] = $internalize(argv[(i + 1 >> 0)], $String));
+				((i < 0 || i >= $pkg.Args.$length) ? ($throwRuntimeError("index out of range"), undefined) : $pkg.Args.$array[$pkg.Args.$offset + i] = $internalize(argv[(i + 1 >> 0)], $String));
 				i = i + (1) >> 0;
 			}
 		}
@@ -7910,14 +7858,92 @@ $packages["os"] = (function() {
 			$pkg.Args = new sliceType(["?"]);
 		}
 	};
+	File.ptr.prototype.Readdir = function(n) {
+		var $ptr, _r, f, n, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; f = $f.f; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		f = this;
+		if (f === ptrType.nil) {
+			$s = -1; return [sliceType$1.nil, $pkg.ErrInvalid];
+		}
+		_r = f.readdir(n); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return _r;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Readdir }; } $f.$ptr = $ptr; $f._r = _r; $f.f = f; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	File.prototype.Readdir = function(n) { return this.$val.Readdir(n); };
+	File.ptr.prototype.Readdirnames = function(n) {
+		var $ptr, _tmp, _tmp$1, _tuple, err, f, n, names;
+		names = sliceType.nil;
+		err = $ifaceNil;
+		f = this;
+		if (f === ptrType.nil) {
+			_tmp = sliceType.nil;
+			_tmp$1 = $pkg.ErrInvalid;
+			names = _tmp;
+			err = _tmp$1;
+			return [names, err];
+		}
+		_tuple = f.readdirnames(n);
+		names = _tuple[0];
+		err = _tuple[1];
+		return [names, err];
+	};
+	File.prototype.Readdirnames = function(n) { return this.$val.Readdirnames(n); };
+	File.ptr.prototype.readdir = function(n) {
+		var $ptr, _i, _r, _ref, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, _tuple$1, dirname, err, f, fi, filename, fip, lerr, n, names, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _r = $f._r; _ref = $f._ref; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; dirname = $f.dirname; err = $f.err; f = $f.f; fi = $f.fi; filename = $f.filename; fip = $f.fip; lerr = $f.lerr; n = $f.n; names = $f.names; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		fi = sliceType$1.nil;
+		err = $ifaceNil;
+		f = this;
+		dirname = f.file.name;
+		if (dirname === "") {
+			dirname = ".";
+		}
+		_tuple = f.Readdirnames(n);
+		names = _tuple[0];
+		err = _tuple[1];
+		fi = $makeSlice(sliceType$1, 0, names.$length);
+		_ref = names;
+		_i = 0;
+		/* while (true) { */ case 1:
+			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 2; continue; }
+			filename = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
+			_r = lstat(dirname + "/" + filename); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_tuple$1 = _r;
+			fip = _tuple$1[0];
+			lerr = _tuple$1[1];
+			if (IsNotExist(lerr)) {
+				_i++;
+				/* continue; */ $s = 1; continue;
+			}
+			if (!($interfaceIsEqual(lerr, $ifaceNil))) {
+				_tmp = fi;
+				_tmp$1 = lerr;
+				fi = _tmp;
+				err = _tmp$1;
+				$s = -1; return [fi, err];
+			}
+			fi = $append(fi, fip);
+			_i++;
+		/* } */ $s = 1; continue; case 2:
+		if ((fi.$length === 0) && $interfaceIsEqual(err, $ifaceNil) && n > 0) {
+			err = io.EOF;
+		}
+		_tmp$2 = fi;
+		_tmp$3 = err;
+		fi = _tmp$2;
+		err = _tmp$3;
+		$s = -1; return [fi, err];
+		/* */ } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.readdir }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f.dirname = dirname; $f.err = err; $f.f = f; $f.fi = fi; $f.filename = filename; $f.fip = fip; $f.lerr = lerr; $f.n = n; $f.names = names; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	File.prototype.readdir = function(n) { return this.$val.readdir(n); };
 	File.ptr.prototype.readdirnames = function(n) {
 		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tmp$6, _tmp$7, _tuple, _tuple$1, _tuple$2, d, err, errno, f, n, names, nb, nc, size;
 		names = sliceType.nil;
 		err = $ifaceNil;
 		f = this;
-		if (f.file.dirinfo === ptrType.nil) {
-			f.file.dirinfo = new dirInfo.ptr(sliceType$1.nil, 0, 0);
-			f.file.dirinfo.buf = $makeSlice(sliceType$1, 4096);
+		if (f.file.dirinfo === ptrType$1.nil) {
+			f.file.dirinfo = new dirInfo.ptr(sliceType$2.nil, 0, 0);
+			f.file.dirinfo.buf = $makeSlice(sliceType$2, 4096);
 		}
 		d = f.file.dirinfo;
 		size = n;
@@ -7971,45 +7997,12 @@ $packages["os"] = (function() {
 		return [names, err];
 	};
 	File.prototype.readdirnames = function(n) { return this.$val.readdirnames(n); };
-	File.ptr.prototype.Readdir = function(n) {
-		var $ptr, _r, f, n, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; f = $f.f; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		f = this;
-		if (f === ptrType$1.nil) {
-			$s = -1; return [sliceType$2.nil, $pkg.ErrInvalid];
-			return [sliceType$2.nil, $pkg.ErrInvalid];
-		}
-		_r = f.readdir(n); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		$s = -1; return _r;
-		return _r;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.Readdir }; } $f.$ptr = $ptr; $f._r = _r; $f.f = f; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	File.prototype.Readdir = function(n) { return this.$val.Readdir(n); };
-	File.ptr.prototype.Readdirnames = function(n) {
-		var $ptr, _tmp, _tmp$1, _tuple, err, f, n, names;
-		names = sliceType.nil;
-		err = $ifaceNil;
-		f = this;
-		if (f === ptrType$1.nil) {
-			_tmp = sliceType.nil;
-			_tmp$1 = $pkg.ErrInvalid;
-			names = _tmp;
-			err = _tmp$1;
-			return [names, err];
-		}
-		_tuple = f.readdirnames(n);
-		names = _tuple[0];
-		err = _tuple[1];
-		return [names, err];
-	};
-	File.prototype.Readdirnames = function(n) { return this.$val.Readdirnames(n); };
 	PathError.ptr.prototype.Error = function() {
 		var $ptr, _r, e, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; e = $f.e; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		e = this;
 		_r = e.Err.Error(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return e.Op + " " + e.Path + ": " + _r;
-		return e.Op + " " + e.Path + ": " + _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: PathError.ptr.prototype.Error }; } $f.$ptr = $ptr; $f._r = _r; $f.e = e; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	PathError.prototype.Error = function() { return this.$val.Error(); };
@@ -8019,7 +8012,6 @@ $packages["os"] = (function() {
 		e = this;
 		_r = e.Err.Error(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return e.Syscall + ": " + _r;
-		return e.Syscall + ": " + _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: SyscallError.ptr.prototype.Error }; } $f.$ptr = $ptr; $f._r = _r; $f.e = e; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	SyscallError.prototype.Error = function() { return this.$val.Error(); };
@@ -8036,22 +8028,24 @@ $packages["os"] = (function() {
 		return isNotExist(err);
 	};
 	$pkg.IsNotExist = IsNotExist;
-	isNotExist = function(err) {
-		var $ptr, _ref, err, pe, pe$1, pe$2, pe$3;
+	underlyingError = function(err) {
+		var $ptr, _ref, err, err$1, err$2, err$3;
 		_ref = err;
-		if (_ref === $ifaceNil) {
-			pe = _ref;
-			return false;
-		} else if ($assertType(_ref, ptrType$2, true)[1]) {
-			pe$1 = _ref.$val;
-			err = pe$1.Err;
+		if ($assertType(_ref, ptrType$2, true)[1]) {
+			err$1 = _ref.$val;
+			return err$1.Err;
 		} else if ($assertType(_ref, ptrType$3, true)[1]) {
-			pe$2 = _ref.$val;
-			err = pe$2.Err;
+			err$2 = _ref.$val;
+			return err$2.Err;
 		} else if ($assertType(_ref, ptrType$4, true)[1]) {
-			pe$3 = _ref.$val;
-			err = pe$3.Err;
+			err$3 = _ref.$val;
+			return err$3.Err;
 		}
+		return err;
+	};
+	isNotExist = function(err) {
+		var $ptr, err;
+		err = underlyingError(err);
 		return $interfaceIsEqual(err, new syscall.Errno(2)) || $interfaceIsEqual(err, $pkg.ErrNotExist);
 	};
 	File.ptr.prototype.Name = function() {
@@ -8066,18 +8060,18 @@ $packages["os"] = (function() {
 		e = this;
 		_r = e.Err.Error(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return e.Op + " " + e.Old + " " + e.New + ": " + _r;
-		return e.Op + " " + e.Old + " " + e.New + ": " + _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: LinkError.ptr.prototype.Error }; } $f.$ptr = $ptr; $f._r = _r; $f.e = e; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	LinkError.prototype.Error = function() { return this.$val.Error(); };
 	File.ptr.prototype.Read = function(b) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, b, e, err, f, n;
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, b, e, err, err$1, f, n;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		err$1 = f.checkValid("read");
+		if (!($interfaceIsEqual(err$1, $ifaceNil))) {
 			_tmp = 0;
-			_tmp$1 = $pkg.ErrInvalid;
+			_tmp$1 = err$1;
 			n = _tmp;
 			err = _tmp$1;
 			return [n, err];
@@ -8103,13 +8097,14 @@ $packages["os"] = (function() {
 	};
 	File.prototype.Read = function(b) { return this.$val.Read(b); };
 	File.ptr.prototype.ReadAt = function(b, off) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, f, m, n, off, x;
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, err$1, f, m, n, off, x;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		err$1 = f.checkValid("read");
+		if (!($interfaceIsEqual(err$1, $ifaceNil))) {
 			_tmp = 0;
-			_tmp$1 = $pkg.ErrInvalid;
+			_tmp$1 = err$1;
 			n = _tmp;
 			err = _tmp$1;
 			return [n, err];
@@ -8138,13 +8133,14 @@ $packages["os"] = (function() {
 	};
 	File.prototype.ReadAt = function(b, off) { return this.$val.ReadAt(b, off); };
 	File.ptr.prototype.Write = function(b) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, f, n;
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, b, e, err, err$1, f, n;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		err$1 = f.checkValid("write");
+		if (!($interfaceIsEqual(err$1, $ifaceNil))) {
 			_tmp = 0;
-			_tmp$1 = $pkg.ErrInvalid;
+			_tmp$1 = err$1;
 			n = _tmp;
 			err = _tmp$1;
 			return [n, err];
@@ -8170,13 +8166,14 @@ $packages["os"] = (function() {
 	};
 	File.prototype.Write = function(b) { return this.$val.Write(b); };
 	File.ptr.prototype.WriteAt = function(b, off) {
-		var $ptr, _tmp, _tmp$1, _tuple, b, e, err, f, m, n, off, x;
+		var $ptr, _tmp, _tmp$1, _tuple, b, e, err, err$1, f, m, n, off, x;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		err$1 = f.checkValid("write");
+		if (!($interfaceIsEqual(err$1, $ifaceNil))) {
 			_tmp = 0;
-			_tmp$1 = $pkg.ErrInvalid;
+			_tmp$1 = err$1;
 			n = _tmp;
 			err = _tmp$1;
 			return [n, err];
@@ -8198,13 +8195,14 @@ $packages["os"] = (function() {
 	};
 	File.prototype.WriteAt = function(b, off) { return this.$val.WriteAt(b, off); };
 	File.ptr.prototype.Seek = function(offset, whence) {
-		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, e, err, f, offset, r, ret, whence;
+		var $ptr, _tmp, _tmp$1, _tmp$2, _tmp$3, _tmp$4, _tmp$5, _tuple, e, err, err$1, f, offset, r, ret, whence;
 		ret = new $Int64(0, 0);
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
+		err$1 = f.checkValid("seek");
+		if (!($interfaceIsEqual(err$1, $ifaceNil))) {
 			_tmp = new $Int64(0, 0);
-			_tmp$1 = $pkg.ErrInvalid;
+			_tmp$1 = err$1;
 			ret = _tmp;
 			err = _tmp$1;
 			return [ret, err];
@@ -8212,7 +8210,7 @@ $packages["os"] = (function() {
 		_tuple = f.seek(offset, whence);
 		r = _tuple[0];
 		e = _tuple[1];
-		if ($interfaceIsEqual(e, $ifaceNil) && !(f.file.dirinfo === ptrType.nil) && !((r.$high === 0 && r.$low === 0))) {
+		if ($interfaceIsEqual(e, $ifaceNil) && !(f.file.dirinfo === ptrType$1.nil) && !((r.$high === 0 && r.$low === 0))) {
 			e = new syscall.Errno(21);
 		}
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
@@ -8230,28 +8228,22 @@ $packages["os"] = (function() {
 	};
 	File.prototype.Seek = function(offset, whence) { return this.$val.Seek(offset, whence); };
 	File.ptr.prototype.WriteString = function(s) {
-		var $ptr, _tmp, _tmp$1, _tuple, err, f, n, s;
+		var $ptr, _tuple, err, f, n, s;
 		n = 0;
 		err = $ifaceNil;
 		f = this;
-		if (f === ptrType$1.nil) {
-			_tmp = 0;
-			_tmp$1 = $pkg.ErrInvalid;
-			n = _tmp;
-			err = _tmp$1;
-			return [n, err];
-		}
-		_tuple = f.Write(new sliceType$1($stringToBytes(s)));
+		_tuple = f.Write(new sliceType$2($stringToBytes(s)));
 		n = _tuple[0];
 		err = _tuple[1];
 		return [n, err];
 	};
 	File.prototype.WriteString = function(s) { return this.$val.WriteString(s); };
 	File.ptr.prototype.Chdir = function() {
-		var $ptr, e, f;
+		var $ptr, e, err, f;
 		f = this;
-		if (f === ptrType$1.nil) {
-			return $pkg.ErrInvalid;
+		err = f.checkValid("chdir");
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return err;
 		}
 		e = syscall.Fchdir(f.file.fd);
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
@@ -8267,6 +8259,18 @@ $packages["os"] = (function() {
 		}
 		return [n, err];
 	};
+	File.ptr.prototype.checkValid = function(op) {
+		var $ptr, f, op;
+		f = this;
+		if (f === ptrType.nil) {
+			return $pkg.ErrInvalid;
+		}
+		if (f.file.fd === -1) {
+			return new PathError.ptr(op, f.file.name, $pkg.ErrClosed);
+		}
+		return $ifaceNil;
+	};
+	File.prototype.checkValid = function(op) { return this.$val.checkValid(op); };
 	sigpipe = function() {
 		$throwRuntimeError("native function not implemented: os.sigpipe");
 	};
@@ -8286,10 +8290,11 @@ $packages["os"] = (function() {
 		return o;
 	};
 	File.ptr.prototype.Chmod = function(mode) {
-		var $ptr, e, f, mode;
+		var $ptr, e, err, f, mode;
 		f = this;
-		if (f === ptrType$1.nil) {
-			return $pkg.ErrInvalid;
+		err = f.checkValid("chmod");
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return err;
 		}
 		e = syscall.Fchmod(f.file.fd, syscallMode(mode));
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
@@ -8299,10 +8304,11 @@ $packages["os"] = (function() {
 	};
 	File.prototype.Chmod = function(mode) { return this.$val.Chmod(mode); };
 	File.ptr.prototype.Chown = function(uid, gid) {
-		var $ptr, e, f, gid, uid;
+		var $ptr, e, err, f, gid, uid;
 		f = this;
-		if (f === ptrType$1.nil) {
-			return $pkg.ErrInvalid;
+		err = f.checkValid("chown");
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return err;
 		}
 		e = syscall.Fchown(f.file.fd, uid, gid);
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
@@ -8312,10 +8318,11 @@ $packages["os"] = (function() {
 	};
 	File.prototype.Chown = function(uid, gid) { return this.$val.Chown(uid, gid); };
 	File.ptr.prototype.Truncate = function(size) {
-		var $ptr, e, f, size;
+		var $ptr, e, err, f, size;
 		f = this;
-		if (f === ptrType$1.nil) {
-			return $pkg.ErrInvalid;
+		err = f.checkValid("truncate");
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return err;
 		}
 		e = syscall.Ftruncate(f.file.fd, size);
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
@@ -8325,14 +8332,15 @@ $packages["os"] = (function() {
 	};
 	File.prototype.Truncate = function(size) { return this.$val.Truncate(size); };
 	File.ptr.prototype.Sync = function() {
-		var $ptr, e, f;
+		var $ptr, e, err, f;
 		f = this;
-		if (f === ptrType$1.nil) {
-			return $pkg.ErrInvalid;
+		err = f.checkValid("sync");
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return err;
 		}
 		e = syscall.Fsync(f.file.fd);
 		if (!($interfaceIsEqual(e, $ifaceNil))) {
-			return NewSyscallError("fsync", e);
+			return new PathError.ptr("sync", f.file.name, e);
 		}
 		return $ifaceNil;
 	};
@@ -8340,7 +8348,7 @@ $packages["os"] = (function() {
 	File.ptr.prototype.Fd = function() {
 		var $ptr, f;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType.nil) {
 			return 4294967295;
 		}
 		return (f.file.fd >>> 0);
@@ -8350,9 +8358,9 @@ $packages["os"] = (function() {
 		var $ptr, f, fd, fdi, name;
 		fdi = (fd >> 0);
 		if (fdi < 0) {
-			return ptrType$1.nil;
+			return ptrType.nil;
 		}
-		f = new File.ptr(new file.ptr(fdi, name, ptrType.nil));
+		f = new File.ptr(new file.ptr(fdi, name, ptrType$1.nil));
 		runtime.SetFinalizer(f.file, new funcType$1($methodExpr(ptrType$12, "close")));
 		return f;
 	};
@@ -8366,7 +8374,7 @@ $packages["os"] = (function() {
 	File.ptr.prototype.Close = function() {
 		var $ptr, f;
 		f = this;
-		if (f === ptrType$1.nil) {
+		if (f === ptrType.nil) {
 			return $pkg.ErrInvalid;
 		}
 		return f.file.close();
@@ -8375,7 +8383,7 @@ $packages["os"] = (function() {
 	file.ptr.prototype.close = function() {
 		var $ptr, e, err, file$1;
 		file$1 = this;
-		if (file$1 === ptrType$12.nil || file$1.fd < 0) {
+		if (file$1 === ptrType$12.nil || (file$1.fd === -1)) {
 			return new syscall.Errno(22);
 		}
 		err = $ifaceNil;
@@ -8388,79 +8396,6 @@ $packages["os"] = (function() {
 		return err;
 	};
 	file.prototype.close = function() { return this.$val.close(); };
-	File.ptr.prototype.Stat = function() {
-		var $ptr, err, f, fs;
-		f = this;
-		if (f === ptrType$1.nil) {
-			return [$ifaceNil, $pkg.ErrInvalid];
-		}
-		fs = new fileStat.ptr("", new $Int64(0, 0), 0, new time.Time.ptr(new $Int64(0, 0), 0, ptrType$13.nil), new syscall.Stat_t.ptr(0, 0, 0, new $Uint64(0, 0), 0, 0, 0, arrayType.zero(), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new $Int64(0, 0), new $Int64(0, 0), 0, 0, 0, 0, arrayType$2.zero()));
-		err = syscall.Fstat(f.file.fd, fs.sys);
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			return [$ifaceNil, new PathError.ptr("stat", f.file.name, err)];
-		}
-		fillFileStatFromSys(fs, f.file.name);
-		return [fs, $ifaceNil];
-	};
-	File.prototype.Stat = function() { return this.$val.Stat(); };
-	Lstat = function(name) {
-		var $ptr, err, fs, name;
-		fs = new fileStat.ptr("", new $Int64(0, 0), 0, new time.Time.ptr(new $Int64(0, 0), 0, ptrType$13.nil), new syscall.Stat_t.ptr(0, 0, 0, new $Uint64(0, 0), 0, 0, 0, arrayType.zero(), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new $Int64(0, 0), new $Int64(0, 0), 0, 0, 0, 0, arrayType$2.zero()));
-		err = syscall.Lstat(name, fs.sys);
-		if (!($interfaceIsEqual(err, $ifaceNil))) {
-			return [$ifaceNil, new PathError.ptr("lstat", name, err)];
-		}
-		fillFileStatFromSys(fs, name);
-		return [fs, $ifaceNil];
-	};
-	$pkg.Lstat = Lstat;
-	File.ptr.prototype.readdir = function(n) {
-		var $ptr, _i, _r, _ref, _tmp, _tmp$1, _tmp$2, _tmp$3, _tuple, _tuple$1, dirname, err, f, fi, filename, fip, lerr, n, names, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _r = $f._r; _ref = $f._ref; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; _tuple = $f._tuple; _tuple$1 = $f._tuple$1; dirname = $f.dirname; err = $f.err; f = $f.f; fi = $f.fi; filename = $f.filename; fip = $f.fip; lerr = $f.lerr; n = $f.n; names = $f.names; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		fi = sliceType$2.nil;
-		err = $ifaceNil;
-		f = this;
-		dirname = f.file.name;
-		if (dirname === "") {
-			dirname = ".";
-		}
-		_tuple = f.Readdirnames(n);
-		names = _tuple[0];
-		err = _tuple[1];
-		fi = $makeSlice(sliceType$2, 0, names.$length);
-		_ref = names;
-		_i = 0;
-		/* while (true) { */ case 1:
-			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 2; continue; }
-			filename = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			_r = lstat(dirname + "/" + filename); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-			_tuple$1 = _r;
-			fip = _tuple$1[0];
-			lerr = _tuple$1[1];
-			if (IsNotExist(lerr)) {
-				_i++;
-				/* continue; */ $s = 1; continue;
-			}
-			if (!($interfaceIsEqual(lerr, $ifaceNil))) {
-				_tmp = fi;
-				_tmp$1 = lerr;
-				fi = _tmp;
-				err = _tmp$1;
-				$s = -1; return [fi, err];
-				return [fi, err];
-			}
-			fi = $append(fi, fip);
-			_i++;
-		/* } */ $s = 1; continue; case 2:
-		_tmp$2 = fi;
-		_tmp$3 = err;
-		fi = _tmp$2;
-		err = _tmp$3;
-		$s = -1; return [fi, err];
-		return [fi, err];
-		/* */ } return; } if ($f === undefined) { $f = { $blk: File.ptr.prototype.readdir }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f.dirname = dirname; $f.err = err; $f.f = f; $f.fi = fi; $f.filename = filename; $f.fip = fip; $f.lerr = lerr; $f.n = n; $f.names = names; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	File.prototype.readdir = function(n) { return this.$val.readdir(n); };
 	File.ptr.prototype.read = function(b) {
 		var $ptr, _tuple, _tuple$1, b, err, f, n;
 		n = 0;
@@ -8548,6 +8483,14 @@ $packages["os"] = (function() {
 		return [ret, err];
 	};
 	File.prototype.seek = function(offset, whence) { return this.$val.seek(offset, whence); };
+	init$1 = function() {
+		var $ptr;
+		useSyscallwd = useSyscallwdDarwin;
+	};
+	useSyscallwdDarwin = function(err) {
+		var $ptr, err;
+		return !($interfaceIsEqual(err, new syscall.Errno(45)));
+	};
 	basename = function(name) {
 		var $ptr, i, name;
 		i = name.length - 1 >> 0;
@@ -8567,14 +8510,6 @@ $packages["os"] = (function() {
 		}
 		return name;
 	};
-	init$1 = function() {
-		var $ptr;
-		useSyscallwd = useSyscallwdDarwin;
-	};
-	useSyscallwdDarwin = function(err) {
-		var $ptr, err;
-		return !($interfaceIsEqual(err, new syscall.Errno(45)));
-	};
 	init$2 = function() {
 		var $ptr;
 		if (false) {
@@ -8586,7 +8521,7 @@ $packages["os"] = (function() {
 		var $ptr, _1, fs, name;
 		fs.name = basename(name);
 		fs.size = fs.sys.Size;
-		time.Time.copy(fs.modTime, timespecToTime(fs.sys.Mtimespec));
+		time.Time.copy(fs.modTime, timespecToTime($clone(fs.sys.Mtimespec, syscall.Timespec)));
 		fs.mode = (((fs.sys.Mode & 511) >>> 0) >>> 0);
 		_1 = (fs.sys.Mode & 61440) >>> 0;
 		if ((_1 === (24576)) || (_1 === (57344))) {
@@ -8615,9 +8550,34 @@ $packages["os"] = (function() {
 	};
 	timespecToTime = function(ts) {
 		var $ptr, ts;
-		ts = $clone(ts, syscall.Timespec);
 		return time.Unix(ts.Sec, ts.Nsec);
 	};
+	File.ptr.prototype.Stat = function() {
+		var $ptr, err, f, fs;
+		f = this;
+		if (f === ptrType.nil) {
+			return [$ifaceNil, $pkg.ErrInvalid];
+		}
+		fs = new fileStat.ptr("", new $Int64(0, 0), 0, new time.Time.ptr(new $Int64(0, 0), 0, ptrType$14.nil), new syscall.Stat_t.ptr(0, 0, 0, new $Uint64(0, 0), 0, 0, 0, arrayType.zero(), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new $Int64(0, 0), new $Int64(0, 0), 0, 0, 0, 0, arrayType$3.zero()));
+		err = syscall.Fstat(f.file.fd, fs.sys);
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return [$ifaceNil, new PathError.ptr("stat", f.file.name, err)];
+		}
+		fillFileStatFromSys(fs, f.file.name);
+		return [fs, $ifaceNil];
+	};
+	File.prototype.Stat = function() { return this.$val.Stat(); };
+	Lstat = function(name) {
+		var $ptr, err, fs, name;
+		fs = new fileStat.ptr("", new $Int64(0, 0), 0, new time.Time.ptr(new $Int64(0, 0), 0, ptrType$14.nil), new syscall.Stat_t.ptr(0, 0, 0, new $Uint64(0, 0), 0, 0, 0, arrayType.zero(), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new syscall.Timespec.ptr(new $Int64(0, 0), new $Int64(0, 0)), new $Int64(0, 0), new $Int64(0, 0), 0, 0, 0, 0, arrayType$3.zero()));
+		err = syscall.Lstat(name, fs.sys);
+		if (!($interfaceIsEqual(err, $ifaceNil))) {
+			return [$ifaceNil, new PathError.ptr("lstat", name, err)];
+		}
+		fillFileStatFromSys(fs, name);
+		return [fs, $ifaceNil];
+	};
+	$pkg.Lstat = Lstat;
 	init$3 = function() {
 		var $ptr, _i, _ref, _rune, _tuple, err, i, osver;
 		_tuple = syscall.Sysctl("kern.osrelease");
@@ -8656,13 +8616,13 @@ $packages["os"] = (function() {
 			i = _i;
 			c = _rune[0];
 			if (!((((m & (((y = ((31 - i >> 0) >>> 0), y < 32 ? (1 << y) : 0) >>> 0))) >>> 0) === 0))) {
-				((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = (c << 24 >>> 24));
+				((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = (c << 24 >>> 24));
 				w = w + (1) >> 0;
 			}
 			_i += _rune[1];
 		}
 		if (w === 0) {
-			((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 45);
+			((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 45);
 			w = w + (1) >> 0;
 		}
 		_ref$1 = "rwxrwxrwx";
@@ -8673,14 +8633,14 @@ $packages["os"] = (function() {
 			i$1 = _i$1;
 			c$1 = _rune$1[0];
 			if (!((((m & (((y$1 = ((8 - i$1 >> 0) >>> 0), y$1 < 32 ? (1 << y$1) : 0) >>> 0))) >>> 0) === 0))) {
-				((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = (c$1 << 24 >>> 24));
+				((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = (c$1 << 24 >>> 24));
 			} else {
-				((w < 0 || w >= buf.length) ? $throwRuntimeError("index out of range") : buf[w] = 45);
+				((w < 0 || w >= buf.length) ? ($throwRuntimeError("index out of range"), undefined) : buf[w] = 45);
 			}
 			w = w + (1) >> 0;
 			_i$1 += _rune$1[1];
 		}
-		return $bytesToString($subslice(new sliceType$1(buf), 0, w));
+		return $bytesToString($subslice(new sliceType$2(buf), 0, w));
 	};
 	$ptrType(FileMode).prototype.String = function() { return new FileMode(this.$get()).String(); };
 	FileMode.prototype.IsDir = function() {
@@ -8740,16 +8700,16 @@ $packages["os"] = (function() {
 	ptrType$2.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
 	ptrType$4.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
 	ptrType$3.methods = [{prop: "Error", name: "Error", pkg: "", typ: $funcType([], [$String], false)}];
-	ptrType$1.methods = [{prop: "readdirnames", name: "readdirnames", pkg: "os", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "Readdir", name: "Readdir", pkg: "", typ: $funcType([$Int], [sliceType$2, $error], false)}, {prop: "Readdirnames", name: "Readdirnames", pkg: "", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "ReadAt", name: "ReadAt", pkg: "", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "Write", name: "Write", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "WriteAt", name: "WriteAt", pkg: "", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "Seek", name: "Seek", pkg: "", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}, {prop: "WriteString", name: "WriteString", pkg: "", typ: $funcType([$String], [$Int, $error], false)}, {prop: "Chdir", name: "Chdir", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Chmod", name: "Chmod", pkg: "", typ: $funcType([FileMode], [$error], false)}, {prop: "Chown", name: "Chown", pkg: "", typ: $funcType([$Int, $Int], [$error], false)}, {prop: "Truncate", name: "Truncate", pkg: "", typ: $funcType([$Int64], [$error], false)}, {prop: "Sync", name: "Sync", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Fd", name: "Fd", pkg: "", typ: $funcType([], [$Uintptr], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Stat", name: "Stat", pkg: "", typ: $funcType([], [FileInfo, $error], false)}, {prop: "readdir", name: "readdir", pkg: "os", typ: $funcType([$Int], [sliceType$2, $error], false)}, {prop: "read", name: "read", pkg: "os", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "pread", name: "pread", pkg: "os", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "write", name: "write", pkg: "os", typ: $funcType([sliceType$1], [$Int, $error], false)}, {prop: "pwrite", name: "pwrite", pkg: "os", typ: $funcType([sliceType$1, $Int64], [$Int, $error], false)}, {prop: "seek", name: "seek", pkg: "os", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}];
 	ptrType$12.methods = [{prop: "close", name: "close", pkg: "os", typ: $funcType([], [$error], false)}];
+	ptrType.methods = [{prop: "Readdir", name: "Readdir", pkg: "", typ: $funcType([$Int], [sliceType$1, $error], false)}, {prop: "Readdirnames", name: "Readdirnames", pkg: "", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "readdir", name: "readdir", pkg: "os", typ: $funcType([$Int], [sliceType$1, $error], false)}, {prop: "readdirnames", name: "readdirnames", pkg: "os", typ: $funcType([$Int], [sliceType, $error], false)}, {prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "ReadAt", name: "ReadAt", pkg: "", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "Write", name: "Write", pkg: "", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "WriteAt", name: "WriteAt", pkg: "", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "Seek", name: "Seek", pkg: "", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}, {prop: "WriteString", name: "WriteString", pkg: "", typ: $funcType([$String], [$Int, $error], false)}, {prop: "Chdir", name: "Chdir", pkg: "", typ: $funcType([], [$error], false)}, {prop: "checkValid", name: "checkValid", pkg: "os", typ: $funcType([$String], [$error], false)}, {prop: "Chmod", name: "Chmod", pkg: "", typ: $funcType([FileMode], [$error], false)}, {prop: "Chown", name: "Chown", pkg: "", typ: $funcType([$Int, $Int], [$error], false)}, {prop: "Truncate", name: "Truncate", pkg: "", typ: $funcType([$Int64], [$error], false)}, {prop: "Sync", name: "Sync", pkg: "", typ: $funcType([], [$error], false)}, {prop: "Fd", name: "Fd", pkg: "", typ: $funcType([], [$Uintptr], false)}, {prop: "Close", name: "Close", pkg: "", typ: $funcType([], [$error], false)}, {prop: "read", name: "read", pkg: "os", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "pread", name: "pread", pkg: "os", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "write", name: "write", pkg: "os", typ: $funcType([sliceType$2], [$Int, $error], false)}, {prop: "pwrite", name: "pwrite", pkg: "os", typ: $funcType([sliceType$2, $Int64], [$Int, $error], false)}, {prop: "seek", name: "seek", pkg: "os", typ: $funcType([$Int64, $Int], [$Int64, $error], false)}, {prop: "Stat", name: "Stat", pkg: "", typ: $funcType([], [FileInfo, $error], false)}];
 	FileMode.methods = [{prop: "String", name: "String", pkg: "", typ: $funcType([], [$String], false)}, {prop: "IsDir", name: "IsDir", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "IsRegular", name: "IsRegular", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Perm", name: "Perm", pkg: "", typ: $funcType([], [FileMode], false)}];
 	ptrType$15.methods = [{prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "IsDir", name: "IsDir", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "Size", name: "Size", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Mode", name: "Mode", pkg: "", typ: $funcType([], [FileMode], false)}, {prop: "ModTime", name: "ModTime", pkg: "", typ: $funcType([], [time.Time], false)}, {prop: "Sys", name: "Sys", pkg: "", typ: $funcType([], [$emptyInterface], false)}];
 	PathError.init("", [{prop: "Op", name: "Op", exported: true, typ: $String, tag: ""}, {prop: "Path", name: "Path", exported: true, typ: $String, tag: ""}, {prop: "Err", name: "Err", exported: true, typ: $error, tag: ""}]);
 	SyscallError.init("", [{prop: "Syscall", name: "Syscall", exported: true, typ: $String, tag: ""}, {prop: "Err", name: "Err", exported: true, typ: $error, tag: ""}]);
 	LinkError.init("", [{prop: "Op", name: "Op", exported: true, typ: $String, tag: ""}, {prop: "Old", name: "Old", exported: true, typ: $String, tag: ""}, {prop: "New", name: "New", exported: true, typ: $String, tag: ""}, {prop: "Err", name: "Err", exported: true, typ: $error, tag: ""}]);
+	file.init("os", [{prop: "fd", name: "fd", exported: false, typ: $Int, tag: ""}, {prop: "name", name: "name", exported: false, typ: $String, tag: ""}, {prop: "dirinfo", name: "dirinfo", exported: false, typ: ptrType$1, tag: ""}]);
+	dirInfo.init("os", [{prop: "buf", name: "buf", exported: false, typ: sliceType$2, tag: ""}, {prop: "nbuf", name: "nbuf", exported: false, typ: $Int, tag: ""}, {prop: "bufp", name: "bufp", exported: false, typ: $Int, tag: ""}]);
 	File.init("os", [{prop: "file", name: "", exported: false, typ: ptrType$12, tag: ""}]);
-	file.init("os", [{prop: "fd", name: "fd", exported: false, typ: $Int, tag: ""}, {prop: "name", name: "name", exported: false, typ: $String, tag: ""}, {prop: "dirinfo", name: "dirinfo", exported: false, typ: ptrType, tag: ""}]);
-	dirInfo.init("os", [{prop: "buf", name: "buf", exported: false, typ: sliceType$1, tag: ""}, {prop: "nbuf", name: "nbuf", exported: false, typ: $Int, tag: ""}, {prop: "bufp", name: "bufp", exported: false, typ: $Int, tag: ""}]);
 	FileInfo.init([{prop: "IsDir", name: "IsDir", pkg: "", typ: $funcType([], [$Bool], false)}, {prop: "ModTime", name: "ModTime", pkg: "", typ: $funcType([], [time.Time], false)}, {prop: "Mode", name: "Mode", pkg: "", typ: $funcType([], [FileMode], false)}, {prop: "Name", name: "Name", pkg: "", typ: $funcType([], [$String], false)}, {prop: "Size", name: "Size", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Sys", name: "Sys", pkg: "", typ: $funcType([], [$emptyInterface], false)}]);
 	fileStat.init("os", [{prop: "name", name: "name", exported: false, typ: $String, tag: ""}, {prop: "size", name: "size", exported: false, typ: $Int64, tag: ""}, {prop: "mode", name: "mode", exported: false, typ: FileMode, tag: ""}, {prop: "modTime", name: "modTime", exported: false, typ: time.Time, tag: ""}, {prop: "sys", name: "sys", exported: false, typ: syscall.Stat_t, tag: ""}]);
 	$init = function() {
@@ -8769,15 +8729,16 @@ $packages["os"] = (function() {
 		$pkg.ErrPermission = errors.New("permission denied");
 		$pkg.ErrExist = errors.New("file already exists");
 		$pkg.ErrNotExist = errors.New("file does not exist");
+		$pkg.ErrClosed = errors.New("file already closed");
 		errFinished = errors.New("os: process already finished");
-		$pkg.Stdin = NewFile((syscall.Stdin >>> 0), "/dev/stdin");
-		$pkg.Stdout = NewFile((syscall.Stdout >>> 0), "/dev/stdout");
-		$pkg.Stderr = NewFile((syscall.Stderr >>> 0), "/dev/stderr");
 		useSyscallwd = (function(param) {
 			var $ptr, param;
 			return true;
 		});
 		lstat = Lstat;
+		$pkg.Stdin = NewFile((syscall.Stdin >>> 0), "/dev/stdin");
+		$pkg.Stdout = NewFile((syscall.Stdout >>> 0), "/dev/stdout");
+		$pkg.Stderr = NewFile((syscall.Stderr >>> 0), "/dev/stderr");
 		init();
 		init$1();
 		init$2();
@@ -8788,7 +8749,7 @@ $packages["os"] = (function() {
 	return $pkg;
 })();
 $packages["reflect"] = (function() {
-	var $pkg = {}, $init, errors, js, math, runtime, strconv, sync, uncommonType, funcType, name, nameData, mapIter, Type, Kind, tflag, rtype, typeAlg, method, ChanDir, arrayType, chanType, imethod, interfaceType, mapType, ptrType, sliceType, structField, structType, Method, nameOff, typeOff, textOff, StructField, StructTag, fieldScan, Value, flag, ValueError, sliceType$1, ptrType$1, sliceType$2, sliceType$3, mapType$1, structType$1, sliceType$5, ptrType$3, funcType$1, sliceType$6, ptrType$4, ptrType$5, sliceType$7, sliceType$8, ptrType$6, ptrType$7, structType$8, sliceType$9, sliceType$10, sliceType$11, sliceType$12, ptrType$8, ptrType$9, sliceType$14, sliceType$15, ptrType$10, sliceType$16, ptrType$16, sliceType$18, ptrType$17, funcType$3, funcType$4, funcType$5, arrayType$12, ptrType$18, initialized, uncommonTypeMap, nameMap, nameOffList, typeOffList, callHelper, jsObjectPtr, selectHelper, kindNames, methodCache, uint8Type, init, jsType, reflectType, setKindType, newName, newNameOff, newTypeOff, internalStr, isWrapped, copyStruct, makeValue, MakeSlice, TypeOf, ValueOf, FuncOf, SliceOf, Zero, unsafe_New, makeInt, typedmemmove, keyFor, mapaccess, mapassign, mapdelete, mapiterinit, mapiterkey, mapiternext, maplen, cvtDirect, methodReceiver, valueInterface, ifaceE2I, methodName, makeMethodValue, wrapJsObject, unwrapJsObject, getJsTag, chanrecv, chansend, PtrTo, implements$1, directlyAssignable, haveIdenticalUnderlyingType, toType, ifaceIndir, overflowFloat32, New, convertOp, makeFloat, makeComplex, makeString, makeBytes, makeRunes, cvtInt, cvtUint, cvtFloatInt, cvtFloatUint, cvtIntFloat, cvtUintFloat, cvtFloat, cvtComplex, cvtIntString, cvtUintString, cvtBytesString, cvtStringBytes, cvtRunesString, cvtStringRunes, cvtT2I, cvtI2I;
+	var $pkg = {}, $init, errors, js, math, runtime, strconv, sync, uncommonType, funcType, name, nameData, mapIter, Type, Kind, tflag, rtype, typeAlg, method, ChanDir, arrayType, chanType, imethod, interfaceType, mapType, ptrType, sliceType, structField, structType, Method, nameOff, typeOff, textOff, StructField, StructTag, fieldScan, Value, flag, ValueError, sliceType$1, ptrType$1, sliceType$2, sliceType$3, mapType$1, structType$1, sliceType$5, ptrType$3, funcType$1, sliceType$6, ptrType$4, ptrType$5, sliceType$7, sliceType$8, ptrType$6, ptrType$7, structType$8, sliceType$9, sliceType$10, sliceType$11, sliceType$12, ptrType$8, ptrType$9, sliceType$14, sliceType$15, ptrType$10, sliceType$16, ptrType$16, sliceType$18, ptrType$17, funcType$3, funcType$4, funcType$5, arrayType$12, ptrType$18, initialized, uncommonTypeMap, nameMap, nameOffList, typeOffList, callHelper, jsObjectPtr, selectHelper, kindNames, methodCache, uint8Type, init, jsType, reflectType, setKindType, newName, newNameOff, newTypeOff, internalStr, isWrapped, copyStruct, makeValue, MakeSlice, TypeOf, ValueOf, FuncOf, SliceOf, Zero, unsafe_New, makeInt, typedmemmove, keyFor, mapaccess, mapassign, mapdelete, mapiterinit, mapiterkey, mapiternext, maplen, cvtDirect, methodReceiver, valueInterface, ifaceE2I, methodName, makeMethodValue, wrapJsObject, unwrapJsObject, getJsTag, chanrecv, chansend, PtrTo, implements$1, directlyAssignable, haveIdenticalType, haveIdenticalUnderlyingType, toType, ifaceIndir, overflowFloat32, New, convertOp, makeFloat, makeComplex, makeString, makeBytes, makeRunes, cvtInt, cvtUint, cvtFloatInt, cvtFloatUint, cvtIntFloat, cvtUintFloat, cvtFloat, cvtComplex, cvtIntString, cvtUintString, cvtBytesString, cvtStringBytes, cvtRunesString, cvtStringRunes, cvtT2I, cvtI2I;
 	errors = $packages["errors"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	math = $packages["math"];
@@ -9173,7 +9134,6 @@ $packages["reflect"] = (function() {
 		initialized = true;
 		uint8Type = $assertType(TypeOf(new $Uint8(0)), ptrType$1);
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: init }; } $f.$ptr = $ptr; $f.used = used; $f.x = x; $f.x$1 = x$1; $f.x$10 = x$10; $f.x$11 = x$11; $f.x$12 = x$12; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.x$6 = x$6; $f.x$7 = x$7; $f.x$8 = x$8; $f.x$9 = x$9; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	jsType = function(typ) {
@@ -9183,7 +9143,7 @@ $packages["reflect"] = (function() {
 	reflectType = function(typ) {
 		var $ptr, _1, _i, _i$1, _i$2, _i$3, _i$4, _key, _ref, _ref$1, _ref$2, _ref$3, _ref$4, dir, f, fields, i, i$1, i$2, i$3, i$4, imethods, in$1, m, m$1, methodSet, methods, out, outCount, params, reflectFields, reflectMethods, results, rt, typ, ut;
 		if (typ.reflectType === undefined) {
-			rt = new rtype.ptr((($parseInt(typ.size) >> 0) >>> 0), 0, 0, 0, 0, 0, (($parseInt(typ.kind) >> 0) << 24 >>> 24), ptrType$4.nil, ptrType$5.nil, newNameOff(newName(internalStr(typ.string), "", "", !!(typ.exported))), 0);
+			rt = new rtype.ptr((($parseInt(typ.size) >> 0) >>> 0), 0, 0, 0, 0, 0, (($parseInt(typ.kind) >> 0) << 24 >>> 24), ptrType$4.nil, ptrType$5.nil, newNameOff($clone(newName(internalStr(typ.string), "", "", !!(typ.exported)), name)), 0);
 			rt.jsType = typ;
 			typ.reflectType = rt;
 			methodSet = $methodSet(typ);
@@ -9199,10 +9159,10 @@ $packages["reflect"] = (function() {
 					if (!(_i < _ref.$length)) { break; }
 					i = _i;
 					m = methodSet[i];
-					method.copy(((i < 0 || i >= reflectMethods.$length) ? $throwRuntimeError("index out of range") : reflectMethods.$array[reflectMethods.$offset + i]), new method.ptr(newNameOff(newName(internalStr(m.name), "", "", internalStr(m.pkg) === "")), newTypeOff(reflectType(m.typ)), 0, 0));
+					method.copy(((i < 0 || i >= reflectMethods.$length) ? ($throwRuntimeError("index out of range"), undefined) : reflectMethods.$array[reflectMethods.$offset + i]), new method.ptr(newNameOff($clone(newName(internalStr(m.name), "", "", internalStr(m.pkg) === ""), name)), newTypeOff(reflectType(m.typ)), 0, 0));
 					_i++;
 				}
-				ut = new uncommonType.ptr(newNameOff(newName(internalStr(typ.pkg), "", "", false)), ($parseInt(methodSet.length) << 16 >>> 16), 0, 0, 0, reflectMethods);
+				ut = new uncommonType.ptr(newNameOff($clone(newName(internalStr(typ.pkg), "", "", false), name)), ($parseInt(methodSet.length) << 16 >>> 16), 0, 0, 0, reflectMethods);
 				_key = rt; (uncommonTypeMap || $throwRuntimeError("assignment to entry in nil map"))[ptrType$1.keyFor(_key)] = { k: _key, v: ut };
 				ut.jsType = typ;
 			}
@@ -9226,7 +9186,7 @@ $packages["reflect"] = (function() {
 				while (true) {
 					if (!(_i$1 < _ref$1.$length)) { break; }
 					i$1 = _i$1;
-					((i$1 < 0 || i$1 >= in$1.$length) ? $throwRuntimeError("index out of range") : in$1.$array[in$1.$offset + i$1] = reflectType(params[i$1]));
+					((i$1 < 0 || i$1 >= in$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : in$1.$array[in$1.$offset + i$1] = reflectType(params[i$1]));
 					_i$1++;
 				}
 				results = typ.results;
@@ -9236,7 +9196,7 @@ $packages["reflect"] = (function() {
 				while (true) {
 					if (!(_i$2 < _ref$2.$length)) { break; }
 					i$2 = _i$2;
-					((i$2 < 0 || i$2 >= out.$length) ? $throwRuntimeError("index out of range") : out.$array[out.$offset + i$2] = reflectType(results[i$2]));
+					((i$2 < 0 || i$2 >= out.$length) ? ($throwRuntimeError("index out of range"), undefined) : out.$array[out.$offset + i$2] = reflectType(results[i$2]));
 					_i$2++;
 				}
 				outCount = ($parseInt(results.length) << 16 >>> 16);
@@ -9253,7 +9213,7 @@ $packages["reflect"] = (function() {
 					if (!(_i$3 < _ref$3.$length)) { break; }
 					i$3 = _i$3;
 					m$1 = methods[i$3];
-					imethod.copy(((i$3 < 0 || i$3 >= imethods.$length) ? $throwRuntimeError("index out of range") : imethods.$array[imethods.$offset + i$3]), new imethod.ptr(newNameOff(newName(internalStr(m$1.name), "", "", internalStr(m$1.pkg) === "")), newTypeOff(reflectType(m$1.typ))));
+					imethod.copy(((i$3 < 0 || i$3 >= imethods.$length) ? ($throwRuntimeError("index out of range"), undefined) : imethods.$array[imethods.$offset + i$3]), new imethod.ptr(newNameOff($clone(newName(internalStr(m$1.name), "", "", internalStr(m$1.pkg) === ""), name)), newTypeOff(reflectType(m$1.typ))));
 					_i$3++;
 				}
 				setKindType(rt, new interfaceType.ptr($clone(rt, rtype), new name.ptr(ptrType$5.nil), imethods));
@@ -9272,7 +9232,7 @@ $packages["reflect"] = (function() {
 					if (!(_i$4 < _ref$4.$length)) { break; }
 					i$4 = _i$4;
 					f = fields[i$4];
-					structField.copy(((i$4 < 0 || i$4 >= reflectFields.$length) ? $throwRuntimeError("index out of range") : reflectFields.$array[reflectFields.$offset + i$4]), new structField.ptr($clone(newName(internalStr(f.name), internalStr(f.tag), "", !!(f.exported)), name), reflectType(f.typ), (i$4 >>> 0)));
+					structField.copy(((i$4 < 0 || i$4 >= reflectFields.$length) ? ($throwRuntimeError("index out of range"), undefined) : reflectFields.$array[reflectFields.$offset + i$4]), new structField.ptr($clone(newName(internalStr(f.name), internalStr(f.tag), "", !!(f.exported)), name), reflectType(f.typ), (i$4 >>> 0)));
 					_i$4++;
 				}
 				setKindType(rt, new structType.ptr($clone(rt, rtype), $clone(newName(internalStr(typ.pkgPath), "", "", false), name), reflectFields));
@@ -9312,7 +9272,7 @@ $packages["reflect"] = (function() {
 	name.ptr.prototype.name = function() {
 		var $ptr, _entry, n, s;
 		s = "";
-		n = $clone(this, name);
+		n = this;
 		s = (_entry = nameMap[ptrType$5.keyFor(n.bytes)], _entry !== undefined ? _entry.v : ptrType$7.nil).name;
 		return s;
 	};
@@ -9320,20 +9280,20 @@ $packages["reflect"] = (function() {
 	name.ptr.prototype.tag = function() {
 		var $ptr, _entry, n, s;
 		s = "";
-		n = $clone(this, name);
+		n = this;
 		s = (_entry = nameMap[ptrType$5.keyFor(n.bytes)], _entry !== undefined ? _entry.v : ptrType$7.nil).tag;
 		return s;
 	};
 	name.prototype.tag = function() { return this.$val.tag(); };
 	name.ptr.prototype.pkgPath = function() {
 		var $ptr, _entry, n;
-		n = $clone(this, name);
+		n = this;
 		return (_entry = nameMap[ptrType$5.keyFor(n.bytes)], _entry !== undefined ? _entry.v : ptrType$7.nil).pkgPath;
 	};
 	name.prototype.pkgPath = function() { return this.$val.pkgPath(); };
 	name.ptr.prototype.isExported = function() {
 		var $ptr, _entry, n;
-		n = $clone(this, name);
+		n = this;
 		return (_entry = nameMap[ptrType$5.keyFor(n.bytes)], _entry !== undefined ? _entry.v : ptrType$7.nil).exported;
 	};
 	name.prototype.isExported = function() { return this.$val.isExported(); };
@@ -9346,12 +9306,11 @@ $packages["reflect"] = (function() {
 	rtype.ptr.prototype.nameOff = function(off) {
 		var $ptr, off, t, x;
 		t = this;
-		return (x = (off >> 0), ((x < 0 || x >= nameOffList.$length) ? $throwRuntimeError("index out of range") : nameOffList.$array[nameOffList.$offset + x]));
+		return (x = (off >> 0), ((x < 0 || x >= nameOffList.$length) ? ($throwRuntimeError("index out of range"), undefined) : nameOffList.$array[nameOffList.$offset + x]));
 	};
 	rtype.prototype.nameOff = function(off) { return this.$val.nameOff(off); };
 	newNameOff = function(n) {
 		var $ptr, i, n;
-		n = $clone(n, name);
 		i = nameOffList.$length;
 		nameOffList = $append(nameOffList, n);
 		return (i >> 0);
@@ -9359,7 +9318,7 @@ $packages["reflect"] = (function() {
 	rtype.ptr.prototype.typeOff = function(off) {
 		var $ptr, off, t, x;
 		t = this;
-		return (x = (off >> 0), ((x < 0 || x >= typeOffList.$length) ? $throwRuntimeError("index out of range") : typeOffList.$array[typeOffList.$offset + x]));
+		return (x = (off >> 0), ((x < 0 || x >= typeOffList.$length) ? ($throwRuntimeError("index out of range"), undefined) : typeOffList.$array[typeOffList.$offset + x]));
 	};
 	rtype.prototype.typeOff = function(off) { return this.$val.typeOff(off); };
 	newTypeOff = function(t) {
@@ -9406,11 +9365,9 @@ $packages["reflect"] = (function() {
 		/* if (_v) { */ case 2:
 			_r$4 = t.Kind(); /* */ $s = 9; case 9: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
 			$s = -1; return new Value.ptr(rt, v, (fl | (_r$4 >>> 0)) >>> 0);
-			return new Value.ptr(rt, v, (fl | (_r$4 >>> 0)) >>> 0);
 		/* } */ case 3:
 		_r$5 = t.Kind(); /* */ $s = 10; case 10: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
 		$s = -1; return new Value.ptr(rt, $newDataPointer(v, jsType(rt.ptrTo())), (((fl | (_r$5 >>> 0)) >>> 0) | 128) >>> 0);
-		return new Value.ptr(rt, $newDataPointer(v, jsType(rt.ptrTo())), (((fl | (_r$5 >>> 0)) >>> 0) | 128) >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeValue }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._v = _v; $f._v$1 = _v$1; $f.fl = fl; $f.rt = rt; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	MakeSlice = function(typ, len, cap) {
@@ -9438,11 +9395,9 @@ $packages["reflect"] = (function() {
 			_r$1 = typ[0].Elem(); /* */ $s = 1; case 1: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 			_r$2 = jsType(_r$1); /* */ $s = 2; case 2: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 			$s = -1; return _r$2.zero();
-			return _r$2.zero();
 			/* */ } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.$s = $s; $f.$r = $r; return $f;
 		}; })(typ)), 0); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: MakeSlice }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.cap = cap; $f.len = len; $f.typ = typ; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.MakeSlice = MakeSlice;
@@ -9462,11 +9417,9 @@ $packages["reflect"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; i = $f.i; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		if ($interfaceIsEqual(i, $ifaceNil)) {
 			$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-			return new Value.ptr(ptrType$1.nil, 0, 0);
 		}
 		_r = makeValue(reflectType(i.constructor), i.$val, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ValueOf }; } $f.$ptr = $ptr; $f._r = _r; $f.i = i; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.ValueOf = ValueOf;
@@ -9475,7 +9428,7 @@ $packages["reflect"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _i$1 = $f._i$1; _r = $f._r; _ref = $f._ref; _ref$1 = $f._ref$1; _v = $f._v; _v$1 = $f._v$1; i = $f.i; i$1 = $f.i$1; in$1 = $f.in$1; jsIn = $f.jsIn; jsOut = $f.jsOut; out = $f.out; v = $f.v; v$1 = $f.v$1; variadic = $f.variadic; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		if (!(variadic)) { _v = false; $s = 3; continue s; }
 		if (in$1.$length === 0) { _v$1 = true; $s = 4; continue s; }
-		_r = (x = in$1.$length - 1 >> 0, ((x < 0 || x >= in$1.$length) ? $throwRuntimeError("index out of range") : in$1.$array[in$1.$offset + x])).Kind(); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = (x = in$1.$length - 1 >> 0, ((x < 0 || x >= in$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : in$1.$array[in$1.$offset + x])).Kind(); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_v$1 = !((_r === 23)); case 4:
 		_v = _v$1; case 3:
 		/* */ if (_v) { $s = 1; continue; }
@@ -9489,8 +9442,8 @@ $packages["reflect"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			i = _i;
-			v = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			((i < 0 || i >= jsIn.$length) ? $throwRuntimeError("index out of range") : jsIn.$array[jsIn.$offset + i] = jsType(v));
+			v = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
+			((i < 0 || i >= jsIn.$length) ? ($throwRuntimeError("index out of range"), undefined) : jsIn.$array[jsIn.$offset + i] = jsType(v));
 			_i++;
 		}
 		jsOut = $makeSlice(sliceType$9, out.$length);
@@ -9499,12 +9452,11 @@ $packages["reflect"] = (function() {
 		while (true) {
 			if (!(_i$1 < _ref$1.$length)) { break; }
 			i$1 = _i$1;
-			v$1 = ((_i$1 < 0 || _i$1 >= _ref$1.$length) ? $throwRuntimeError("index out of range") : _ref$1.$array[_ref$1.$offset + _i$1]);
-			((i$1 < 0 || i$1 >= jsOut.$length) ? $throwRuntimeError("index out of range") : jsOut.$array[jsOut.$offset + i$1] = jsType(v$1));
+			v$1 = ((_i$1 < 0 || _i$1 >= _ref$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref$1.$array[_ref$1.$offset + _i$1]);
+			((i$1 < 0 || i$1 >= jsOut.$length) ? ($throwRuntimeError("index out of range"), undefined) : jsOut.$array[jsOut.$offset + i$1] = jsType(v$1));
 			_i$1++;
 		}
 		$s = -1; return reflectType($funcType($externalize(jsIn, sliceType$9), $externalize(jsOut, sliceType$9), $externalize(variadic, $Bool)));
-		return reflectType($funcType($externalize(jsIn, sliceType$9), $externalize(jsOut, sliceType$9), $externalize(variadic, $Bool)));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: FuncOf }; } $f.$ptr = $ptr; $f._i = _i; $f._i$1 = _i$1; $f._r = _r; $f._ref = _ref; $f._ref$1 = _ref$1; $f._v = _v; $f._v$1 = _v$1; $f.i = i; $f.i$1 = i$1; $f.in$1 = in$1; $f.jsIn = jsIn; $f.jsOut = jsOut; $f.out = out; $f.v = v; $f.v$1 = v$1; $f.variadic = variadic; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.FuncOf = FuncOf;
@@ -9524,7 +9476,6 @@ $packages["reflect"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; typ = $f.typ; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_r = makeValue(typ, jsType(typ).zero(), 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Zero }; } $f.$ptr = $ptr; $f._r = _r; $f.typ = typ; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Zero = Zero;
@@ -9564,7 +9515,6 @@ $packages["reflect"] = (function() {
 			ptr.$set(bits);
 		}
 		$s = -1; return new Value.ptr(typ, ptr, (((f | 128) >>> 0) | (typ.Kind() >>> 0)) >>> 0);
-		return new Value.ptr(typ, ptr, (((f | 128) >>> 0) | (typ.Kind() >>> 0)) >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeInt }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f.bits = bits; $f.f = f; $f.ptr = ptr; $f.t = t; $f.typ = typ; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	typedmemmove = function(t, dst, src) {
@@ -9611,7 +9561,6 @@ $packages["reflect"] = (function() {
 		entry.v = jsVal;
 		m[$externalize(k, $String)] = entry;
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: mapassign }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.entry = entry; $f.et = et; $f.jsVal = jsVal; $f.k = k; $f.key = key; $f.kv = kv; $f.m = m; $f.newVal = newVal; $f.t = t; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	mapdelete = function(t, m, key) {
@@ -9633,7 +9582,6 @@ $packages["reflect"] = (function() {
 		_r$1 = PtrTo(_r); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_r$2 = jsType(_r$1); /* */ $s = 3; case 3: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		$s = -1; return $newDataPointer(iter.m[$externalize($internalize(k, $String), $String)].k, _r$2);
-		return $newDataPointer(iter.m[$externalize($internalize(k, $String), $String)].k, _r$2);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: mapiterkey }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.it = it; $f.iter = iter; $f.k = k; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	mapiternext = function(it) {
@@ -9648,14 +9596,12 @@ $packages["reflect"] = (function() {
 	cvtDirect = function(v, typ) {
 		var $ptr, _1, _arg, _arg$1, _arg$2, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, k, slice, srcVal, typ, v, val, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _1 = $f._1; _arg = $f._arg; _arg$1 = $f._arg$1; _arg$2 = $f._arg$2; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _r$7 = $f._r$7; k = $f.k; slice = $f.slice; srcVal = $f.srcVal; typ = $f.typ; v = $f.v; val = $f.val; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		srcVal = v.object();
+		srcVal = $clone(v, Value).object();
 		/* */ if (srcVal === jsType(v.typ).nil) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (srcVal === jsType(v.typ).nil) { */ case 1:
 			_r = makeValue(typ, jsType(typ).nil, v.flag); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			$s = -1; return _r;
-			return _r;
 		/* } */ case 2:
 		val = null;
 			_r$1 = typ.Kind(); /* */ $s = 5; case 5: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
@@ -9710,50 +9656,47 @@ $packages["reflect"] = (function() {
 		_r$6 = typ.common(); /* */ $s = 21; case 21: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
 		_r$7 = typ.Kind(); /* */ $s = 22; case 22: if($c) { $c = false; _r$7 = _r$7.$blk(); } if (_r$7 && _r$7.$blk !== undefined) { break s; }
 		$s = -1; return new Value.ptr(_r$6, val, (((v.flag & 224) >>> 0) | (_r$7 >>> 0)) >>> 0);
-		return new Value.ptr(_r$6, val, (((v.flag & 224) >>> 0) | (_r$7 >>> 0)) >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtDirect }; } $f.$ptr = $ptr; $f._1 = _1; $f._arg = _arg; $f._arg$1 = _arg$1; $f._arg$2 = _arg$2; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f.k = k; $f.slice = slice; $f.srcVal = srcVal; $f.typ = typ; $f.v = v; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	methodReceiver = function(op, v, i) {
-		var $ptr, _$37, fn, i, m, m$1, op, prop, rcvr, t, tt, ut, v, x, x$1;
-		_$37 = ptrType$1.nil;
+		var $ptr, _$38, fn, i, m, m$1, op, prop, rcvr, t, tt, ut, v, x, x$1;
+		_$38 = ptrType$1.nil;
 		t = ptrType$1.nil;
 		fn = 0;
-		v = v;
 		prop = "";
 		if (v.typ.Kind() === 20) {
 			tt = v.typ.kindType;
 			if (i < 0 || i >= tt.methods.$length) {
 				$panic(new $String("reflect: internal error: invalid method index"));
 			}
-			m = (x = tt.methods, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
-			if (!tt.rtype.nameOff(m.name).isExported()) {
+			m = (x = tt.methods, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
+			if (!$clone(tt.rtype.nameOff(m.name), name).isExported()) {
 				$panic(new $String("reflect: " + op + " of unexported method"));
 			}
 			t = tt.rtype.typeOff(m.typ);
-			prop = tt.rtype.nameOff(m.name).name();
+			prop = $clone(tt.rtype.nameOff(m.name), name).name();
 		} else {
 			ut = v.typ.uncommon();
 			if (ut === ptrType$6.nil || (i >>> 0) >= (ut.mcount >>> 0)) {
 				$panic(new $String("reflect: internal error: invalid method index"));
 			}
-			m$1 = $clone((x$1 = ut.methods(), ((i < 0 || i >= x$1.$length) ? $throwRuntimeError("index out of range") : x$1.$array[x$1.$offset + i])), method);
-			if (!v.typ.nameOff(m$1.name).isExported()) {
+			m$1 = $clone((x$1 = ut.methods(), ((i < 0 || i >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + i])), method);
+			if (!$clone(v.typ.nameOff(m$1.name), name).isExported()) {
 				$panic(new $String("reflect: " + op + " of unexported method"));
 			}
 			t = v.typ.typeOff(m$1.mtyp);
 			prop = $internalize($methodSet(jsType(v.typ))[i].prop, $String);
 		}
-		rcvr = v.object();
+		rcvr = $clone(v, Value).object();
 		if (isWrapped(v.typ)) {
 			rcvr = new (jsType(v.typ))(rcvr);
 		}
 		fn = rcvr[$externalize(prop, $String)];
-		return [_$37, t, fn];
+		return [_$38, t, fn];
 	};
 	valueInterface = function(v, safe) {
 		var $ptr, _r, safe, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; safe = $f.safe; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
 		if (v.flag === 0) {
 			$panic(new ValueError.ptr("reflect.Value.Interface", 0));
 		}
@@ -9763,15 +9706,13 @@ $packages["reflect"] = (function() {
 		/* */ if (!((((v.flag & 512) >>> 0) === 0))) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (!((((v.flag & 512) >>> 0) === 0))) { */ case 1:
-			_r = makeMethodValue("Interface", v); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_r = makeMethodValue("Interface", $clone(v, Value)); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			v = _r;
 		/* } */ case 2:
 		if (isWrapped(v.typ)) {
-			$s = -1; return new (jsType(v.typ))(v.object());
-			return new (jsType(v.typ))(v.object());
+			$s = -1; return new (jsType(v.typ))($clone(v, Value).object());
 		}
-		$s = -1; return v.object();
-		return v.object();
+		$s = -1; return $clone(v, Value).object();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: valueInterface }; } $f.$ptr = $ptr; $f._r = _r; $f.safe = safe; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ifaceE2I = function(t, src, dst) {
@@ -9787,13 +9728,12 @@ $packages["reflect"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; fn = $f.fn; fv = $f.fv; op = $f.op; rcvr = $f.rcvr; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		fn = [fn];
 		rcvr = [rcvr];
-		v = v;
 		if (((v.flag & 512) >>> 0) === 0) {
 			$panic(new $String("reflect: internal error: invalid use of makePartialFunc"));
 		}
-		_tuple = methodReceiver(op, v, (v.flag >> 0) >> 10 >> 0);
+		_tuple = methodReceiver(op, $clone(v, Value), (v.flag >> 0) >> 10 >> 0);
 		fn[0] = _tuple[2];
-		rcvr[0] = v.object();
+		rcvr[0] = $clone(v, Value).object();
 		if (isWrapped(v.typ)) {
 			rcvr[0] = new (jsType(v.typ))(rcvr[0]);
 		}
@@ -9801,9 +9741,8 @@ $packages["reflect"] = (function() {
 			var $ptr, arguments$1, this$1;
 			return new $jsObjectPtr(fn[0].apply(rcvr[0], $externalize(arguments$1, sliceType$9)));
 		}; })(fn, rcvr));
-		_r = v.Type().common(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).Type().common(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return new Value.ptr(_r, fv, (((v.flag & 96) >>> 0) | 19) >>> 0);
-		return new Value.ptr(_r, fv, (((v.flag & 96) >>> 0) | 19) >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeMethodValue }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.fn = fn; $f.fv = fv; $f.op = op; $f.rcvr = rcvr; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.ptr.prototype.pointers = function() {
@@ -9828,11 +9767,9 @@ $packages["reflect"] = (function() {
 			/* */ $s = 5; continue;
 			/* if ((_1 === (19)) || (_1 === (23)) || (_1 === (21))) { */ case 2:
 				$s = -1; return false;
-				return false;
 			/* } else if (_1 === (17)) { */ case 3:
 				_r = t.Elem().Comparable(); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				$s = -1; return _r;
-				return _r;
 			/* } else if (_1 === (25)) { */ case 4:
 				i = 0;
 				/* while (true) { */ case 7:
@@ -9843,14 +9780,12 @@ $packages["reflect"] = (function() {
 					/* */ $s = 10; continue;
 					/* if (!_r$2) { */ case 9:
 						$s = -1; return false;
-						return false;
 					/* } */ case 10:
 					i = i + (1) >> 0;
 				/* } */ $s = 7; continue; case 8:
 			/* } */ case 5:
 		case 1:
 		$s = -1; return true;
-		return true;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.Comparable }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.i = i; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.Comparable = function() { return this.$val.Comparable(); };
@@ -9864,16 +9799,15 @@ $packages["reflect"] = (function() {
 			tt = t.kindType;
 			Method.copy(m, tt.Method(i));
 			$s = -1; return m;
-			return m;
 		}
 		_r = t.exportedMethods(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		methods = _r;
 		if (i < 0 || i >= methods.$length) {
 			$panic(new $String("reflect: Method index out of range"));
 		}
-		p = $clone(((i < 0 || i >= methods.$length) ? $throwRuntimeError("index out of range") : methods.$array[methods.$offset + i]), method);
+		p = $clone(((i < 0 || i >= methods.$length) ? ($throwRuntimeError("index out of range"), undefined) : methods.$array[methods.$offset + i]), method);
 		pname = $clone(t.nameOff(p.name), name);
-		m.Name = pname.name();
+		m.Name = $clone(pname, name).name();
 		fl = 19;
 		mtyp = t.typeOff(p.mtyp);
 		ft = mtyp.kindType;
@@ -9883,7 +9817,7 @@ $packages["reflect"] = (function() {
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			arg = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			arg = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			in$1 = $append(in$1, arg);
 			_i++;
 		}
@@ -9892,7 +9826,7 @@ $packages["reflect"] = (function() {
 		_i$1 = 0;
 		while (true) {
 			if (!(_i$1 < _ref$1.$length)) { break; }
-			ret = ((_i$1 < 0 || _i$1 >= _ref$1.$length) ? $throwRuntimeError("index out of range") : _ref$1.$array[_ref$1.$offset + _i$1]);
+			ret = ((_i$1 < 0 || _i$1 >= _ref$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref$1.$array[_ref$1.$offset + _i$1]);
 			out = $append(out, ret);
 			_i$1++;
 		}
@@ -9902,14 +9836,13 @@ $packages["reflect"] = (function() {
 		prop[0] = $internalize($methodSet(t.jsType)[i].prop, $String);
 		fn = js.MakeFunc((function(prop) { return function(this$1, arguments$1) {
 			var $ptr, arguments$1, rcvr, this$1;
-			rcvr = (0 >= arguments$1.$length ? $throwRuntimeError("index out of range") : arguments$1.$array[arguments$1.$offset + 0]);
+			rcvr = (0 >= arguments$1.$length ? ($throwRuntimeError("index out of range"), undefined) : arguments$1.$array[arguments$1.$offset + 0]);
 			return new $jsObjectPtr(rcvr[$externalize(prop[0], $String)].apply(rcvr, $externalize($subslice(arguments$1, 1), sliceType$9)));
 		}; })(prop));
 		m.Func = new Value.ptr($assertType(mt, ptrType$1), fn, fl);
 		m.Index = i;
 		Method.copy(m, m);
 		$s = -1; return m;
-		return m;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.Method }; } $f.$ptr = $ptr; $f._i = _i; $f._i$1 = _i$1; $f._r = _r; $f._r$1 = _r$1; $f._ref = _ref; $f._ref$1 = _ref$1; $f.arg = arg; $f.fl = fl; $f.fn = fn; $f.ft = ft; $f.i = i; $f.in$1 = in$1; $f.m = m; $f.methods = methods; $f.mt = mt; $f.mtyp = mtyp; $f.out = out; $f.p = p; $f.pname = pname; $f.prop = prop; $f.ret = ret; $f.t = t; $f.tt = tt; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.Method = function(i) { return this.$val.Method(i); };
@@ -9954,16 +9887,16 @@ $packages["reflect"] = (function() {
 		fn = 0;
 		rcvr = null;
 		if (!((((v.flag & 512) >>> 0) === 0))) {
-			_tuple = methodReceiver(op, v, (v.flag >> 0) >> 10 >> 0);
+			_tuple = methodReceiver(op, $clone(v, Value), (v.flag >> 0) >> 10 >> 0);
 			t = _tuple[1];
 			fn = _tuple[2];
-			rcvr = v.object();
+			rcvr = $clone(v, Value).object();
 			if (isWrapped(v.typ)) {
 				rcvr = new (jsType(v.typ))(rcvr);
 			}
 		} else {
 			t = v.typ;
-			fn = v.object();
+			fn = $clone(v, Value).object();
 			rcvr = undefined;
 		}
 		if (fn === 0) {
@@ -9996,8 +9929,8 @@ $packages["reflect"] = (function() {
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			x = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
-			if (x.Kind() === 0) {
+			x = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
+			if ($clone(x, Value).Kind() === 0) {
 				$panic(new $String("reflect: " + op + " using zero Value argument"));
 			}
 			_i++;
@@ -10005,7 +9938,7 @@ $packages["reflect"] = (function() {
 		i = 0;
 		/* while (true) { */ case 1:
 			/* if (!(i < n)) { break; } */ if(!(i < n)) { $s = 2; continue; }
-			_tmp = ((i < 0 || i >= in$1.$length) ? $throwRuntimeError("index out of range") : in$1.$array[in$1.$offset + i]).Type();
+			_tmp = $clone(((i < 0 || i >= in$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : in$1.$array[in$1.$offset + i]), Value).Type();
 			_tmp$1 = t.In(i);
 			xt = _tmp;
 			targ = _tmp$1;
@@ -10030,8 +9963,8 @@ $packages["reflect"] = (function() {
 			i$1 = 0;
 			/* while (true) { */ case 12:
 				/* if (!(i$1 < m)) { break; } */ if(!(i$1 < m)) { $s = 13; continue; }
-				x$2 = (x$1 = n + i$1 >> 0, ((x$1 < 0 || x$1 >= in$1.$length) ? $throwRuntimeError("index out of range") : in$1.$array[in$1.$offset + x$1]));
-				xt$1 = x$2.Type();
+				x$2 = (x$1 = n + i$1 >> 0, ((x$1 < 0 || x$1 >= in$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : in$1.$array[in$1.$offset + x$1]));
+				xt$1 = $clone(x$2, Value).Type();
 				_r$5 = xt$1.AssignableTo(elem); /* */ $s = 16; case 16: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
 				/* */ if (!_r$5) { $s = 14; continue; }
 				/* */ $s = 15; continue;
@@ -10040,14 +9973,14 @@ $packages["reflect"] = (function() {
 					_r$7 = elem.String(); /* */ $s = 18; case 18: if($c) { $c = false; _r$7 = _r$7.$blk(); } if (_r$7 && _r$7.$blk !== undefined) { break s; }
 					$panic(new $String("reflect: cannot use " + _r$6 + " as type " + _r$7 + " in " + op));
 				/* } */ case 15:
-				_r$8 = slice.Index(i$1); /* */ $s = 19; case 19: if($c) { $c = false; _r$8 = _r$8.$blk(); } if (_r$8 && _r$8.$blk !== undefined) { break s; }
-				$r = _r$8.Set(x$2); /* */ $s = 20; case 20: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				_r$8 = $clone(slice, Value).Index(i$1); /* */ $s = 19; case 19: if($c) { $c = false; _r$8 = _r$8.$blk(); } if (_r$8 && _r$8.$blk !== undefined) { break s; }
+				$r = $clone(_r$8, Value).Set($clone(x$2, Value)); /* */ $s = 20; case 20: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				i$1 = i$1 + (1) >> 0;
 			/* } */ $s = 12; continue; case 13:
 			origIn = in$1;
 			in$1 = $makeSlice(sliceType$10, (n + 1 >> 0));
 			$copySlice($subslice(in$1, 0, n), origIn);
-			((n < 0 || n >= in$1.$length) ? $throwRuntimeError("index out of range") : in$1.$array[in$1.$offset + n] = slice);
+			((n < 0 || n >= in$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : in$1.$array[in$1.$offset + n] = slice);
 		/* } */ case 9:
 		nin = in$1.$length;
 		if (!((nin === t.NumIn()))) {
@@ -10060,13 +9993,13 @@ $packages["reflect"] = (function() {
 		/* while (true) { */ case 21:
 			/* if (!(_i$1 < _ref$1.$length)) { break; } */ if(!(_i$1 < _ref$1.$length)) { $s = 22; continue; }
 			i$2 = _i$1;
-			arg = ((_i$1 < 0 || _i$1 >= _ref$1.$length) ? $throwRuntimeError("index out of range") : _ref$1.$array[_ref$1.$offset + _i$1]);
+			arg = ((_i$1 < 0 || _i$1 >= _ref$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref$1.$array[_ref$1.$offset + _i$1]);
 			_arg = t.In(i$2);
 			_r$9 = t.In(i$2).common(); /* */ $s = 23; case 23: if($c) { $c = false; _r$9 = _r$9.$blk(); } if (_r$9 && _r$9.$blk !== undefined) { break s; }
 			_arg$1 = _r$9;
 			_arg$2 = 0;
-			_r$10 = arg.assignTo("reflect.Value.Call", _arg$1, _arg$2); /* */ $s = 24; case 24: if($c) { $c = false; _r$10 = _r$10.$blk(); } if (_r$10 && _r$10.$blk !== undefined) { break s; }
-			_r$11 = _r$10.object(); /* */ $s = 25; case 25: if($c) { $c = false; _r$11 = _r$11.$blk(); } if (_r$11 && _r$11.$blk !== undefined) { break s; }
+			_r$10 = $clone(arg, Value).assignTo("reflect.Value.Call", _arg$1, _arg$2); /* */ $s = 24; case 24: if($c) { $c = false; _r$10 = _r$10.$blk(); } if (_r$10 && _r$10.$blk !== undefined) { break s; }
+			_r$11 = $clone(_r$10, Value).object(); /* */ $s = 25; case 25: if($c) { $c = false; _r$11 = _r$11.$blk(); } if (_r$11 && _r$11.$blk !== undefined) { break s; }
 			_arg$3 = _r$11;
 			_r$12 = unwrapJsObject(_arg, _arg$3); /* */ $s = 26; case 26: if($c) { $c = false; _r$12 = _r$12.$blk(); } if (_r$12 && _r$12.$blk !== undefined) { break s; }
 			argsArray[i$2] = _r$12;
@@ -10080,11 +10013,9 @@ $packages["reflect"] = (function() {
 			/* */ $s = 31; continue;
 			/* if (_1 === (0)) { */ case 29:
 				$s = -1; return sliceType$10.nil;
-				return sliceType$10.nil;
 			/* } else if (_1 === (1)) { */ case 30:
 				_r$14 = makeValue(t.Out(0), wrapJsObject(t.Out(0), results), 0); /* */ $s = 33; case 33: if($c) { $c = false; _r$14 = _r$14.$blk(); } if (_r$14 && _r$14.$blk !== undefined) { break s; }
 				$s = -1; return new sliceType$10([$clone(_r$14, Value)]);
-				return new sliceType$10([$clone(_r$14, Value)]);
 			/* } else { */ case 31:
 				ret = $makeSlice(sliceType$10, nout);
 				_ref$2 = ret;
@@ -10093,15 +10024,13 @@ $packages["reflect"] = (function() {
 					/* if (!(_i$2 < _ref$2.$length)) { break; } */ if(!(_i$2 < _ref$2.$length)) { $s = 35; continue; }
 					i$3 = _i$2;
 					_r$15 = makeValue(t.Out(i$3), wrapJsObject(t.Out(i$3), results[i$3]), 0); /* */ $s = 36; case 36: if($c) { $c = false; _r$15 = _r$15.$blk(); } if (_r$15 && _r$15.$blk !== undefined) { break s; }
-					((i$3 < 0 || i$3 >= ret.$length) ? $throwRuntimeError("index out of range") : ret.$array[ret.$offset + i$3] = _r$15);
+					((i$3 < 0 || i$3 >= ret.$length) ? ($throwRuntimeError("index out of range"), undefined) : ret.$array[ret.$offset + i$3] = _r$15);
 					_i$2++;
 				/* } */ $s = 34; continue; case 35:
 				$s = -1; return ret;
-				return ret;
 			/* } */ case 32:
 		case 28:
 		$s = -1; return sliceType$10.nil;
-		return sliceType$10.nil;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.call }; } $f.$ptr = $ptr; $f._1 = _1; $f._arg = _arg; $f._arg$1 = _arg$1; $f._arg$2 = _arg$2; $f._arg$3 = _arg$3; $f._i = _i; $f._i$1 = _i$1; $f._i$2 = _i$2; $f._r = _r; $f._r$1 = _r$1; $f._r$10 = _r$10; $f._r$11 = _r$11; $f._r$12 = _r$12; $f._r$13 = _r$13; $f._r$14 = _r$14; $f._r$15 = _r$15; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._r$8 = _r$8; $f._r$9 = _r$9; $f._ref = _ref; $f._ref$1 = _ref$1; $f._ref$2 = _ref$2; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f.arg = arg; $f.argsArray = argsArray; $f.elem = elem; $f.fn = fn; $f.i = i; $f.i$1 = i$1; $f.i$2 = i$2; $f.i$3 = i$3; $f.in$1 = in$1; $f.isSlice = isSlice; $f.m = m; $f.n = n; $f.nin = nin; $f.nout = nout; $f.op = op; $f.origIn = origIn; $f.rcvr = rcvr; $f.results = results; $f.ret = ret; $f.slice = slice; $f.t = t; $f.targ = targ; $f.v = v; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.xt = xt; $f.xt$1 = xt$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.call = function(op, in$1) { return this.$val.call(op, in$1); };
@@ -10113,7 +10042,7 @@ $packages["reflect"] = (function() {
 		if (_1 === (17)) {
 			return v.typ.Len();
 		} else if ((_1 === (18)) || (_1 === (23))) {
-			return $parseInt(v.object().$capacity) >> 0;
+			return $parseInt($clone(v, Value).object().$capacity) >> 0;
 		}
 		$panic(new ValueError.ptr("reflect.Value.Cap", k));
 	};
@@ -10142,32 +10071,27 @@ $packages["reflect"] = (function() {
 			/* */ if (_1 === (22)) { $s = 3; continue; }
 			/* */ $s = 4; continue;
 			/* if (_1 === (20)) { */ case 2:
-				val = v.object();
+				val = $clone(v, Value).object();
 				if (val === $ifaceNil) {
 					$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-					return new Value.ptr(ptrType$1.nil, 0, 0);
 				}
 				typ = reflectType(val.constructor);
 				_r = makeValue(typ, val.$val, (v.flag & 96) >>> 0); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				$s = -1; return _r;
-				return _r;
 			/* } else if (_1 === (22)) { */ case 3:
-				if (v.IsNil()) {
+				if ($clone(v, Value).IsNil()) {
 					$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-					return new Value.ptr(ptrType$1.nil, 0, 0);
 				}
-				val$1 = v.object();
+				val$1 = $clone(v, Value).object();
 				tt = v.typ.kindType;
 				fl = (((((v.flag & 96) >>> 0) | 128) >>> 0) | 256) >>> 0;
 				fl = (fl | ((tt.elem.Kind() >>> 0))) >>> 0;
 				$s = -1; return new Value.ptr(tt.elem, wrapJsObject(tt.elem, val$1), fl);
-				return new Value.ptr(tt.elem, wrapJsObject(tt.elem, val$1), fl);
 			/* } else { */ case 4:
 				$panic(new ValueError.ptr("reflect.Value.Elem", k));
 			/* } */ case 5:
 		case 1:
 		$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-		return new Value.ptr(ptrType$1.nil, 0, 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Elem }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f.fl = fl; $f.k = k; $f.tt = tt; $f.typ = typ; $f.v = v; $f.val = val; $f.val$1 = val$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Elem = function() { return this.$val.Elem(); };
@@ -10187,17 +10111,17 @@ $packages["reflect"] = (function() {
 			$panic(new $String("reflect: Field index out of range"));
 		}
 		prop[0] = $internalize(jsType(v.typ).fields[i].prop, $String);
-		field = (x = tt.fields, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+		field = (x = tt.fields, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 		typ[0] = field.typ;
 		fl = (((v.flag & 416) >>> 0) | (typ[0].Kind() >>> 0)) >>> 0;
-		if (!field.name.isExported()) {
-			if (field.name.name() === "") {
+		if (!$clone(field.name, name).isExported()) {
+			if ($clone(field.name, name).name() === "") {
 				fl = (fl | (64)) >>> 0;
 			} else {
 				fl = (fl | (32)) >>> 0;
 			}
 		}
-		tag = (x$1 = tt.fields, ((i < 0 || i >= x$1.$length) ? $throwRuntimeError("index out of range") : x$1.$array[x$1.$offset + i])).name.tag();
+		tag = $clone((x$1 = tt.fields, ((i < 0 || i >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + i])).name, name).tag();
 		/* */ if (!(tag === "") && !((i === 0))) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (!(tag === "") && !((i === 0))) { */ case 1:
@@ -10207,20 +10131,13 @@ $packages["reflect"] = (function() {
 			/* if (!(jsTag[0] === "")) { */ case 3:
 				/* while (true) { */ case 5:
 					o = [o];
-					_r = v.Field(0); /* */ $s = 7; case 7: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+					_r = $clone(v, Value).Field(0); /* */ $s = 7; case 7: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 					v = _r;
 					/* */ if (v.typ === jsObjectPtr) { $s = 8; continue; }
 					/* */ $s = 9; continue;
 					/* if (v.typ === jsObjectPtr) { */ case 8:
-						o[0] = v.object().object;
+						o[0] = $clone(v, Value).object().object;
 						$s = -1; return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(jsTag, o, prop, s, typ) { return function() {
-							var $ptr;
-							return $internalize(o[0][$externalize(jsTag[0], $String)], jsType(typ[0]));
-						}; })(jsTag, o, prop, s, typ), (function(jsTag, o, prop, s, typ) { return function(x$2) {
-							var $ptr, x$2;
-							o[0][$externalize(jsTag[0], $String)] = $externalize(x$2, jsType(typ[0]));
-						}; })(jsTag, o, prop, s, typ)), fl);
-						return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(jsTag, o, prop, s, typ) { return function() {
 							var $ptr;
 							return $internalize(o[0][$externalize(jsTag[0], $String)], jsType(typ[0]));
 						}; })(jsTag, o, prop, s, typ), (function(jsTag, o, prop, s, typ) { return function(x$2) {
@@ -10231,7 +10148,7 @@ $packages["reflect"] = (function() {
 					/* */ if (v.typ.Kind() === 22) { $s = 10; continue; }
 					/* */ $s = 11; continue;
 					/* if (v.typ.Kind() === 22) { */ case 10:
-						_r$1 = v.Elem(); /* */ $s = 12; case 12: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+						_r$1 = $clone(v, Value).Elem(); /* */ $s = 12; case 12: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 						v = _r$1;
 					/* } */ case 11:
 				/* } */ $s = 5; continue; case 6:
@@ -10248,17 +10165,9 @@ $packages["reflect"] = (function() {
 				var $ptr, x$2;
 				s[0][$externalize(prop[0], $String)] = unwrapJsObject(typ[0], x$2);
 			}; })(jsTag, prop, s, typ)), fl);
-			return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(jsTag, prop, s, typ) { return function() {
-				var $ptr;
-				return wrapJsObject(typ[0], s[0][$externalize(prop[0], $String)]);
-			}; })(jsTag, prop, s, typ), (function(jsTag, prop, s, typ) { return function(x$2) {
-				var $ptr, x$2;
-				s[0][$externalize(prop[0], $String)] = unwrapJsObject(typ[0], x$2);
-			}; })(jsTag, prop, s, typ)), fl);
 		/* } */ case 14:
 		_r$2 = makeValue(typ[0], wrapJsObject(typ[0], s[0][$externalize(prop[0], $String)]), fl); /* */ $s = 15; case 15: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		$s = -1; return _r$2;
-		return _r$2;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Field }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.field = field; $f.fl = fl; $f.i = i; $f.jsTag = jsTag; $f.o = o; $f.prop = prop; $f.s = s; $f.tag = tag; $f.tt = tt; $f.typ = typ; $f.v = v; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Field = function(i) { return this.$val.Field(i); };
@@ -10327,63 +10236,47 @@ $packages["reflect"] = (function() {
 				if (i[0] < 0 || i[0] > (tt.len >> 0)) {
 					$panic(new $String("reflect: array index out of range"));
 				}
-				typ[0] = tt.elem;
+				typ$1[0] = tt.elem;
 				fl = (v.flag & 480) >>> 0;
-				fl = (fl | ((typ[0].Kind() >>> 0))) >>> 0;
+				fl = (fl | ((typ$1[0].Kind() >>> 0))) >>> 0;
 				a[0] = v.ptr;
-				/* */ if (!((((fl & 128) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { $s = 7; continue; }
+				/* */ if (!((((fl & 128) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { $s = 7; continue; }
 				/* */ $s = 8; continue;
-				/* if (!((((fl & 128) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { */ case 7:
-					$s = -1; return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
+				/* if (!((((fl & 128) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { */ case 7:
+					$s = -1; return new Value.ptr(typ$1[0], new (jsType(PtrTo(typ$1[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
 						var $ptr;
-						return wrapJsObject(typ[0], a[0][i[0]]);
+						return wrapJsObject(typ$1[0], a[0][i[0]]);
 					}; })(a, a$1, c, i, typ, typ$1), (function(a, a$1, c, i, typ, typ$1) { return function(x) {
 						var $ptr, x;
-						a[0][i[0]] = unwrapJsObject(typ[0], x);
-					}; })(a, a$1, c, i, typ, typ$1)), fl);
-					return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
-						var $ptr;
-						return wrapJsObject(typ[0], a[0][i[0]]);
-					}; })(a, a$1, c, i, typ, typ$1), (function(a, a$1, c, i, typ, typ$1) { return function(x) {
-						var $ptr, x;
-						a[0][i[0]] = unwrapJsObject(typ[0], x);
+						a[0][i[0]] = unwrapJsObject(typ$1[0], x);
 					}; })(a, a$1, c, i, typ, typ$1)), fl);
 				/* } */ case 8:
-				_r = makeValue(typ[0], wrapJsObject(typ[0], a[0][i[0]]), fl); /* */ $s = 9; case 9: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_r = makeValue(typ$1[0], wrapJsObject(typ$1[0], a[0][i[0]]), fl); /* */ $s = 9; case 9: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				$s = -1; return _r;
-				return _r;
 			/* } else if (_1 === (23)) { */ case 3:
-				s = v.object();
+				s = $clone(v, Value).object();
 				if (i[0] < 0 || i[0] >= ($parseInt(s.$length) >> 0)) {
 					$panic(new $String("reflect: slice index out of range"));
 				}
 				tt$1 = v.typ.kindType;
-				typ$1[0] = tt$1.elem;
+				typ[0] = tt$1.elem;
 				fl$1 = (384 | ((v.flag & 96) >>> 0)) >>> 0;
-				fl$1 = (fl$1 | ((typ$1[0].Kind() >>> 0))) >>> 0;
+				fl$1 = (fl$1 | ((typ[0].Kind() >>> 0))) >>> 0;
 				i[0] = i[0] + (($parseInt(s.$offset) >> 0)) >> 0;
 				a$1[0] = s.$array;
-				/* */ if (!((((fl$1 & 128) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { $s = 10; continue; }
+				/* */ if (!((((fl$1 & 128) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { $s = 10; continue; }
 				/* */ $s = 11; continue;
-				/* if (!((((fl$1 & 128) >>> 0) === 0)) && !((typ$1[0].Kind() === 17)) && !((typ$1[0].Kind() === 25))) { */ case 10:
-					$s = -1; return new Value.ptr(typ$1[0], new (jsType(PtrTo(typ$1[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
+				/* if (!((((fl$1 & 128) >>> 0) === 0)) && !((typ[0].Kind() === 17)) && !((typ[0].Kind() === 25))) { */ case 10:
+					$s = -1; return new Value.ptr(typ[0], new (jsType(PtrTo(typ[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
 						var $ptr;
-						return wrapJsObject(typ$1[0], a$1[0][i[0]]);
+						return wrapJsObject(typ[0], a$1[0][i[0]]);
 					}; })(a, a$1, c, i, typ, typ$1), (function(a, a$1, c, i, typ, typ$1) { return function(x) {
 						var $ptr, x;
-						a$1[0][i[0]] = unwrapJsObject(typ$1[0], x);
-					}; })(a, a$1, c, i, typ, typ$1)), fl$1);
-					return new Value.ptr(typ$1[0], new (jsType(PtrTo(typ$1[0])))((function(a, a$1, c, i, typ, typ$1) { return function() {
-						var $ptr;
-						return wrapJsObject(typ$1[0], a$1[0][i[0]]);
-					}; })(a, a$1, c, i, typ, typ$1), (function(a, a$1, c, i, typ, typ$1) { return function(x) {
-						var $ptr, x;
-						a$1[0][i[0]] = unwrapJsObject(typ$1[0], x);
+						a$1[0][i[0]] = unwrapJsObject(typ[0], x);
 					}; })(a, a$1, c, i, typ, typ$1)), fl$1);
 				/* } */ case 11:
-				_r$1 = makeValue(typ$1[0], wrapJsObject(typ$1[0], a$1[0][i[0]]), fl$1); /* */ $s = 12; case 12: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+				_r$1 = makeValue(typ[0], wrapJsObject(typ[0], a$1[0][i[0]]), fl$1); /* */ $s = 12; case 12: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 				$s = -1; return _r$1;
-				return _r$1;
 			/* } else if (_1 === (24)) { */ case 4:
 				str = v.ptr.$get();
 				if (i[0] < 0 || i[0] >= str.length) {
@@ -10392,13 +10285,11 @@ $packages["reflect"] = (function() {
 				fl$2 = (((v.flag & 96) >>> 0) | 8) >>> 0;
 				c[0] = str.charCodeAt(i[0]);
 				$s = -1; return new Value.ptr(uint8Type, (c.$ptr || (c.$ptr = new ptrType$5(function() { return this.$target[0]; }, function($v) { this.$target[0] = $v; }, c))), (fl$2 | 128) >>> 0);
-				return new Value.ptr(uint8Type, (c.$ptr || (c.$ptr = new ptrType$5(function() { return this.$target[0]; }, function($v) { this.$target[0] = $v; }, c))), (fl$2 | 128) >>> 0);
 			/* } else { */ case 5:
 				$panic(new ValueError.ptr("reflect.Value.Index", k));
 			/* } */ case 6:
 		case 1:
 		$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-		return new Value.ptr(ptrType$1.nil, 0, 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Index }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f._r$1 = _r$1; $f.a = a; $f.a$1 = a$1; $f.c = c; $f.fl = fl; $f.fl$1 = fl$1; $f.fl$2 = fl$2; $f.i = i; $f.k = k; $f.s = s; $f.str = str; $f.tt = tt; $f.tt$1 = tt$1; $f.typ = typ; $f.typ$1 = typ$1; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Index = function(i) { return this.$val.Index(i); };
@@ -10414,15 +10305,15 @@ $packages["reflect"] = (function() {
 		k = new flag(v.flag).kind();
 		_1 = k;
 		if ((_1 === (22)) || (_1 === (23))) {
-			return v.object() === jsType(v.typ).nil;
+			return $clone(v, Value).object() === jsType(v.typ).nil;
 		} else if (_1 === (18)) {
-			return v.object() === $chanNil;
+			return $clone(v, Value).object() === $chanNil;
 		} else if (_1 === (19)) {
-			return v.object() === $throwNilPointerError;
+			return $clone(v, Value).object() === $throwNilPointerError;
 		} else if (_1 === (21)) {
-			return v.object() === false;
+			return $clone(v, Value).object() === false;
 		} else if (_1 === (20)) {
-			return v.object() === $ifaceNil;
+			return $clone(v, Value).object() === $ifaceNil;
 		} else {
 			$panic(new ValueError.ptr("reflect.Value.IsNil", k));
 		}
@@ -10434,13 +10325,13 @@ $packages["reflect"] = (function() {
 		k = new flag(v.flag).kind();
 		_1 = k;
 		if ((_1 === (17)) || (_1 === (24))) {
-			return $parseInt(v.object().length);
+			return $parseInt($clone(v, Value).object().length);
 		} else if (_1 === (23)) {
-			return $parseInt(v.object().$length) >> 0;
+			return $parseInt($clone(v, Value).object().$length) >> 0;
 		} else if (_1 === (18)) {
-			return $parseInt(v.object().$buffer.length) >> 0;
+			return $parseInt($clone(v, Value).object().$buffer.length) >> 0;
 		} else if (_1 === (21)) {
-			return $parseInt($keys(v.object()).length);
+			return $parseInt($keys($clone(v, Value).object()).length);
 		} else {
 			$panic(new ValueError.ptr("reflect.Value.Len", k));
 		}
@@ -10452,20 +10343,20 @@ $packages["reflect"] = (function() {
 		k = new flag(v.flag).kind();
 		_1 = k;
 		if ((_1 === (18)) || (_1 === (21)) || (_1 === (22)) || (_1 === (26))) {
-			if (v.IsNil()) {
+			if ($clone(v, Value).IsNil()) {
 				return 0;
 			}
-			return v.object();
+			return $clone(v, Value).object();
 		} else if (_1 === (19)) {
-			if (v.IsNil()) {
+			if ($clone(v, Value).IsNil()) {
 				return 0;
 			}
 			return 1;
 		} else if (_1 === (23)) {
-			if (v.IsNil()) {
+			if ($clone(v, Value).IsNil()) {
 				return 0;
 			}
-			return v.object().$array;
+			return $clone(v, Value).object().$array;
 		} else {
 			$panic(new ValueError.ptr("reflect.Value.Pointer", k));
 		}
@@ -10474,11 +10365,10 @@ $packages["reflect"] = (function() {
 	Value.ptr.prototype.Set = function(x) {
 		var $ptr, _1, _r, _r$1, v, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _1 = $f._1; _r = $f._r; _r$1 = $f._r$1; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		x = x;
 		v = this;
 		new flag(v.flag).mustBeAssignable();
 		new flag(x.flag).mustBeExported();
-		_r = x.assignTo("reflect.Set", v.typ, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(x, Value).assignTo("reflect.Set", v.typ, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		x = _r;
 		/* */ if (!((((v.flag & 128) >>> 0) === 0))) { $s = 2; continue; }
 		/* */ $s = 3; continue;
@@ -10492,22 +10382,20 @@ $packages["reflect"] = (function() {
 					jsType(v.typ).copy(v.ptr, x.ptr);
 					$s = 9; continue;
 				/* } else if (_1 === (20)) { */ case 6:
-					_r$1 = valueInterface(x, false); /* */ $s = 10; case 10: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+					_r$1 = valueInterface($clone(x, Value), false); /* */ $s = 10; case 10: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 					v.ptr.$set(_r$1);
 					$s = 9; continue;
 				/* } else if (_1 === (25)) { */ case 7:
 					copyStruct(v.ptr, x.ptr, v.typ);
 					$s = 9; continue;
 				/* } else { */ case 8:
-					v.ptr.$set(x.object());
+					v.ptr.$set($clone(x, Value).object());
 				/* } */ case 9:
 			case 4:
 			$s = -1; return;
-			return;
 		/* } */ case 3:
 		v.ptr = x.ptr;
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Set }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f._r$1 = _r$1; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Set = function(x) { return this.$val.Set(x); };
@@ -10538,7 +10426,6 @@ $packages["reflect"] = (function() {
 		/* } */ case 5:
 		v.ptr.$set(slice);
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.SetBytes }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._v = _v; $f.slice = slice; $f.typedSlice = typedSlice; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.SetBytes = function(x) { return this.$val.SetBytes(x); };
@@ -10594,11 +10481,11 @@ $packages["reflect"] = (function() {
 				tt = v.typ.kindType;
 				cap = (tt.len >> 0);
 				typ = SliceOf(tt.elem);
-				s = new (jsType(typ))(v.object());
+				s = new (jsType(typ))($clone(v, Value).object());
 				$s = 6; continue;
 			/* } else if (_1 === (23)) { */ case 3:
 				typ = v.typ;
-				s = v.object();
+				s = $clone(v, Value).object();
 				cap = $parseInt(s.$capacity) >> 0;
 				$s = 6; continue;
 			/* } else if (_1 === (24)) { */ case 4:
@@ -10608,7 +10495,6 @@ $packages["reflect"] = (function() {
 				}
 				_r = ValueOf(new $String($substring(str, i, j))); /* */ $s = 7; case 7: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				$s = -1; return _r;
-				return _r;
 			/* } else { */ case 5:
 				$panic(new ValueError.ptr("reflect.Value.Slice", kind));
 			/* } */ case 6:
@@ -10618,7 +10504,6 @@ $packages["reflect"] = (function() {
 		}
 		_r$1 = makeValue(typ, $subslice(s, i, j), (v.flag & 96) >>> 0); /* */ $s = 8; case 8: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Slice }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f._r$1 = _r$1; $f.cap = cap; $f.i = i; $f.j = j; $f.kind = kind; $f.s = s; $f.str = str; $f.tt = tt; $f.typ = typ; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Slice = function(i, j) { return this.$val.Slice(i, j); };
@@ -10638,10 +10523,10 @@ $packages["reflect"] = (function() {
 			tt = v.typ.kindType;
 			cap = (tt.len >> 0);
 			typ = SliceOf(tt.elem);
-			s = new (jsType(typ))(v.object());
+			s = new (jsType(typ))($clone(v, Value).object());
 		} else if (_1 === (23)) {
 			typ = v.typ;
-			s = v.object();
+			s = $clone(v, Value).object();
 			cap = $parseInt(s.$capacity) >> 0;
 		} else {
 			$panic(new ValueError.ptr("reflect.Value.Slice3", kind));
@@ -10651,7 +10536,6 @@ $packages["reflect"] = (function() {
 		}
 		_r = makeValue(typ, $subslice(s, i, j, k), (v.flag & 96) >>> 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Slice3 }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f.cap = cap; $f.i = i; $f.j = j; $f.k = k; $f.kind = kind; $f.s = s; $f.tt = tt; $f.typ = typ; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Slice3 = function(i, j, k) { return this.$val.Slice3(i, j, k); };
@@ -10660,7 +10544,7 @@ $packages["reflect"] = (function() {
 		v = this;
 		new flag(v.flag).mustBe(18);
 		new flag(v.flag).mustBeExported();
-		$close(v.object());
+		$close($clone(v, Value).object());
 	};
 	Value.prototype.Close = function() { return this.$val.Close(); };
 	chanrecv = function(t, ch, nb, val) {
@@ -10680,7 +10564,6 @@ $packages["reflect"] = (function() {
 			selected = _tmp;
 			received = _tmp$1;
 			$s = -1; return [selected, received];
-			return [selected, received];
 		}
 		recvRes = selectRes[1];
 		val.$set(recvRes[0]);
@@ -10689,7 +10572,6 @@ $packages["reflect"] = (function() {
 		selected = _tmp$2;
 		received = _tmp$3;
 		$s = -1; return [selected, received];
-		return [selected, received];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: chanrecv }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f.ch = ch; $f.comms = comms; $f.nb = nb; $f.received = received; $f.recvRes = recvRes; $f.selectRes = selectRes; $f.selected = selected; $f.t = t; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	chansend = function(t, ch, val, nb) {
@@ -10703,17 +10585,15 @@ $packages["reflect"] = (function() {
 		selectRes = _r;
 		if (nb && (($parseInt(selectRes[0]) >> 0) === 1)) {
 			$s = -1; return false;
-			return false;
 		}
 		$s = -1; return true;
-		return true;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: chansend }; } $f.$ptr = $ptr; $f._r = _r; $f.ch = ch; $f.comms = comms; $f.nb = nb; $f.selectRes = selectRes; $f.t = t; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Kind.prototype.String = function() {
 		var $ptr, k;
 		k = this.$val;
 		if ((k >> 0) < kindNames.$length) {
-			return ((k < 0 || k >= kindNames.$length) ? $throwRuntimeError("index out of range") : kindNames.$array[kindNames.$offset + k]);
+			return ((k < 0 || k >= kindNames.$length) ? ($throwRuntimeError("index out of range"), undefined) : kindNames.$array[kindNames.$offset + k]);
 		}
 		return "kind" + strconv.Itoa((k >> 0));
 	};
@@ -10721,7 +10601,7 @@ $packages["reflect"] = (function() {
 	rtype.ptr.prototype.String = function() {
 		var $ptr, s, t;
 		t = this;
-		s = t.nameOff(t.str).name();
+		s = $clone(t.nameOff(t.str), name).name();
 		if (!((((t.tflag & 2) >>> 0) === 0))) {
 			return $substring(s, 1);
 		}
@@ -10782,12 +10662,10 @@ $packages["reflect"] = (function() {
 		$r = methodCache.RWMutex.RUnlock(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		if (found) {
 			$s = -1; return methods;
-			return methods;
 		}
 		ut = t.uncommon();
 		if (ut === ptrType$6.nil) {
 			$s = -1; return sliceType$3.nil;
-			return sliceType$3.nil;
 		}
 		allm = ut.methods();
 		allExported = true;
@@ -10795,9 +10673,9 @@ $packages["reflect"] = (function() {
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			m = $clone(((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]), method);
+			m = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), method);
 			name$1 = $clone(t.nameOff(m.name), name);
-			if (!name$1.isExported()) {
+			if (!$clone(name$1, name).isExported()) {
 				allExported = false;
 				break;
 			}
@@ -10811,9 +10689,9 @@ $packages["reflect"] = (function() {
 			_i$1 = 0;
 			while (true) {
 				if (!(_i$1 < _ref$1.$length)) { break; }
-				m$1 = $clone(((_i$1 < 0 || _i$1 >= _ref$1.$length) ? $throwRuntimeError("index out of range") : _ref$1.$array[_ref$1.$offset + _i$1]), method);
+				m$1 = $clone(((_i$1 < 0 || _i$1 >= _ref$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref$1.$array[_ref$1.$offset + _i$1]), method);
 				name$2 = $clone(t.nameOff(m$1.name), name);
-				if (name$2.isExported()) {
+				if ($clone(name$2, name).isExported()) {
 					methods = $append(methods, m$1);
 				}
 				_i$1++;
@@ -10827,7 +10705,6 @@ $packages["reflect"] = (function() {
 		_key = t; (methodCache.m || $throwRuntimeError("assignment to entry in nil map"))[ptrType$1.keyFor(_key)] = { k: _key, v: methods };
 		$r = methodCache.RWMutex.Unlock(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return methods;
-		return methods;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.exportedMethods }; } $f.$ptr = $ptr; $f._entry = _entry; $f._i = _i; $f._i$1 = _i$1; $f._key = _key; $f._ref = _ref; $f._ref$1 = _ref$1; $f._tuple = _tuple; $f.allExported = allExported; $f.allm = allm; $f.found = found; $f.m = m; $f.m$1 = m$1; $f.methods = methods; $f.name$1 = name$1; $f.name$2 = name$2; $f.t = t; $f.ut = ut; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.exportedMethods = function() { return this.$val.exportedMethods(); };
@@ -10838,15 +10715,12 @@ $packages["reflect"] = (function() {
 		if (t.Kind() === 20) {
 			tt = t.kindType;
 			$s = -1; return tt.NumMethod();
-			return tt.NumMethod();
 		}
 		if (((t.tflag & 1) >>> 0) === 0) {
 			$s = -1; return 0;
-			return 0;
 		}
 		_r = t.exportedMethods(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r.$length;
-		return _r.$length;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.NumMethod }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.tt = tt; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.NumMethod = function() { return this.$val.NumMethod(); };
@@ -10862,7 +10736,6 @@ $packages["reflect"] = (function() {
 			Method.copy(m, _tuple[0]);
 			ok = _tuple[1];
 			$s = -1; return [m, ok];
-			return [m, ok];
 		}
 		ut = t.uncommon();
 		if (ut === ptrType$6.nil) {
@@ -10871,24 +10744,22 @@ $packages["reflect"] = (function() {
 			Method.copy(m, _tmp);
 			ok = _tmp$1;
 			$s = -1; return [m, ok];
-			return [m, ok];
 		}
 		utmethods = ut.methods();
 		i = 0;
 		/* while (true) { */ case 1:
 			/* if (!(i < (ut.mcount >> 0))) { break; } */ if(!(i < (ut.mcount >> 0))) { $s = 2; continue; }
-			p = $clone(((i < 0 || i >= utmethods.$length) ? $throwRuntimeError("index out of range") : utmethods.$array[utmethods.$offset + i]), method);
+			p = $clone(((i < 0 || i >= utmethods.$length) ? ($throwRuntimeError("index out of range"), undefined) : utmethods.$array[utmethods.$offset + i]), method);
 			pname = $clone(t.nameOff(p.name), name);
-			/* */ if (pname.isExported() && pname.name() === name$1) { $s = 3; continue; }
+			/* */ if ($clone(pname, name).isExported() && $clone(pname, name).name() === name$1) { $s = 3; continue; }
 			/* */ $s = 4; continue;
-			/* if (pname.isExported() && pname.name() === name$1) { */ case 3:
+			/* if ($clone(pname, name).isExported() && $clone(pname, name).name() === name$1) { */ case 3:
 				_r = t.Method(i); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				_tmp$2 = $clone(_r, Method);
 				_tmp$3 = true;
 				Method.copy(m, _tmp$2);
 				ok = _tmp$3;
 				$s = -1; return [m, ok];
-				return [m, ok];
 			/* } */ case 4:
 			i = i + (1) >> 0;
 		/* } */ $s = 1; continue; case 2:
@@ -10897,7 +10768,6 @@ $packages["reflect"] = (function() {
 		Method.copy(m, _tmp$4);
 		ok = _tmp$5;
 		$s = -1; return [m, ok];
-		return [m, ok];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.MethodByName }; } $f.$ptr = $ptr; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._tmp$4 = _tmp$4; $f._tmp$5 = _tmp$5; $f._tuple = _tuple; $f.i = i; $f.m = m; $f.name$1 = name$1; $f.ok = ok; $f.p = p; $f.pname = pname; $f.t = t; $f.tt = tt; $f.ut = ut; $f.utmethods = utmethods; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.MethodByName = function(name$1) { return this.$val.MethodByName(name$1); };
@@ -10911,7 +10781,7 @@ $packages["reflect"] = (function() {
 		if (ut === ptrType$6.nil) {
 			return "";
 		}
-		return t.nameOff(ut.pkgPath).name();
+		return $clone(t.nameOff(ut.pkgPath), name).name();
 	};
 	rtype.prototype.PkgPath = function() { return this.$val.PkgPath(); };
 	rtype.ptr.prototype.Name = function() {
@@ -10985,7 +10855,6 @@ $packages["reflect"] = (function() {
 		tt = t.kindType;
 		_r = tt.Field(i); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.Field }; } $f.$ptr = $ptr; $f._r = _r; $f.i = i; $f.t = t; $f.tt = tt; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.Field = function(i) { return this.$val.Field(i); };
@@ -10999,7 +10868,6 @@ $packages["reflect"] = (function() {
 		tt = t.kindType;
 		_r = tt.FieldByIndex(index); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.FieldByIndex }; } $f.$ptr = $ptr; $f._r = _r; $f.index = index; $f.t = t; $f.tt = tt; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.FieldByIndex = function(index) { return this.$val.FieldByIndex(index); };
@@ -11013,7 +10881,6 @@ $packages["reflect"] = (function() {
 		tt = t.kindType;
 		_r = tt.FieldByName(name$1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.FieldByName }; } $f.$ptr = $ptr; $f._r = _r; $f.name$1 = name$1; $f.t = t; $f.tt = tt; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.FieldByName = function(name$1) { return this.$val.FieldByName(name$1); };
@@ -11027,7 +10894,6 @@ $packages["reflect"] = (function() {
 		tt = t.kindType;
 		_r = tt.FieldByNameFunc(match); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.FieldByNameFunc }; } $f.$ptr = $ptr; $f._r = _r; $f.match = match; $f.t = t; $f.tt = tt; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.FieldByNameFunc = function(match) { return this.$val.FieldByNameFunc(match); };
@@ -11038,7 +10904,7 @@ $packages["reflect"] = (function() {
 			$panic(new $String("reflect: In of non-func type"));
 		}
 		tt = t.kindType;
-		return toType((x = tt.in$(), ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i])));
+		return toType((x = tt.in$(), ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i])));
 	};
 	rtype.prototype.In = function(i) { return this.$val.In(i); };
 	rtype.ptr.prototype.Key = function() {
@@ -11098,7 +10964,7 @@ $packages["reflect"] = (function() {
 			$panic(new $String("reflect: Out of non-func type"));
 		}
 		tt = t.kindType;
-		return toType((x = tt.out(), ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i])));
+		return toType((x = tt.out(), ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i])));
 	};
 	rtype.prototype.Out = function(i) { return this.$val.Out(i); };
 	ChanDir.prototype.String = function() {
@@ -11122,13 +10988,13 @@ $packages["reflect"] = (function() {
 		if (i < 0 || i >= t.methods.$length) {
 			return m;
 		}
-		p = (x = t.methods, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+		p = (x = t.methods, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 		pname = $clone(t.rtype.nameOff(p.name), name);
-		m.Name = pname.name();
-		if (!pname.isExported()) {
-			m.PkgPath = pname.pkgPath();
+		m.Name = $clone(pname, name).name();
+		if (!$clone(pname, name).isExported()) {
+			m.PkgPath = $clone(pname, name).pkgPath();
 			if (m.PkgPath === "") {
-				m.PkgPath = t.pkgPath.name();
+				m.PkgPath = $clone(t.pkgPath, name).name();
 			}
 		}
 		m.Type = toType(t.rtype.typeOff(p.typ));
@@ -11156,8 +11022,8 @@ $packages["reflect"] = (function() {
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
 			i = _i;
-			p = (x = t.methods, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
-			if (t.rtype.nameOff(p.name).name() === name$1) {
+			p = (x = t.methods, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
+			if ($clone(t.rtype.nameOff(p.name), name).name() === name$1) {
 				_tmp = $clone(t.Method(i), Method);
 				_tmp$1 = true;
 				Method.copy(m, _tmp);
@@ -11245,9 +11111,9 @@ $packages["reflect"] = (function() {
 		if (i < 0 || i >= t.fields.$length) {
 			$panic(new $String("reflect: Field index out of bounds"));
 		}
-		p = (x = t.fields, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+		p = (x = t.fields, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 		f.Type = toType(p.typ);
-		name$1 = p.name.name();
+		name$1 = $clone(p.name, name).name();
 		/* */ if (!(name$1 === "")) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (!(name$1 === "")) { */ case 1:
@@ -11266,17 +11132,19 @@ $packages["reflect"] = (function() {
 			f.Name = _r$2;
 			f.Anonymous = true;
 		/* } */ case 3:
-		if (!p.name.isExported()) {
-			f.PkgPath = t.pkgPath.name();
+		if (!$clone(p.name, name).isExported()) {
+			f.PkgPath = $clone(p.name, name).pkgPath();
+			if (f.PkgPath === "") {
+				f.PkgPath = $clone(t.pkgPath, name).name();
+			}
 		}
-		tag = p.name.tag();
+		tag = $clone(p.name, name).tag();
 		if (!(tag === "")) {
 			f.Tag = tag;
 		}
 		f.Offset = p.offset;
 		f.Index = new sliceType$14([i]);
 		$s = -1; return f;
-		return f;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: structType.ptr.prototype.Field }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.f = f; $f.i = i; $f.name$1 = name$1; $f.p = p; $f.t = t; $f.t$1 = t$1; $f.tag = tag; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	structType.prototype.Field = function(i) { return this.$val.Field(i); };
@@ -11291,7 +11159,7 @@ $packages["reflect"] = (function() {
 		/* while (true) { */ case 1:
 			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 2; continue; }
 			i = _i;
-			x = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			x = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			/* */ if (i > 0) { $s = 3; continue; }
 			/* */ $s = 4; continue;
 			/* if (i > 0) { */ case 3:
@@ -11314,7 +11182,6 @@ $packages["reflect"] = (function() {
 			_i++;
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return f;
-		return f;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: structType.ptr.prototype.FieldByIndex }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._ref = _ref; $f._v = _v; $f.f = f; $f.ft = ft; $f.i = i; $f.index = index; $f.t = t; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	structType.prototype.FieldByIndex = function(index) { return this.$val.FieldByIndex(index); };
@@ -11340,7 +11207,7 @@ $packages["reflect"] = (function() {
 			_i = 0;
 			/* while (true) { */ case 3:
 				/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 4; continue; }
-				scan = $clone(((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]), fieldScan);
+				scan = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), fieldScan);
 				t$1 = scan.typ;
 				/* */ if ((_entry = visited[ptrType$10.keyFor(t$1)], _entry !== undefined ? _entry.v : false)) { $s = 5; continue; }
 				/* */ $s = 6; continue;
@@ -11354,10 +11221,10 @@ $packages["reflect"] = (function() {
 				/* while (true) { */ case 7:
 					/* if (!(_i$1 < _ref$1.$length)) { break; } */ if(!(_i$1 < _ref$1.$length)) { $s = 8; continue; }
 					i = _i$1;
-					f = (x = t$1.fields, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+					f = (x = t$1.fields, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 					fname = "";
 					ntyp = ptrType$1.nil;
-					name$1 = f.name.name();
+					name$1 = $clone(f.name, name).name();
 					/* */ if (!(name$1 === "")) { $s = 9; continue; }
 					/* */ $s = 10; continue;
 					/* if (!(name$1 === "")) { */ case 9:
@@ -11383,7 +11250,6 @@ $packages["reflect"] = (function() {
 							StructField.copy(result, _tmp$2);
 							ok = _tmp$3;
 							$s = -1; return [result, ok];
-							return [result, ok];
 						}
 						_r$2 = t$1.Field(i); /* */ $s = 18; case 18: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 						StructField.copy(result, _r$2);
@@ -11424,7 +11290,6 @@ $packages["reflect"] = (function() {
 			}
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return [result, ok];
-		return [result, ok];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: structType.ptr.prototype.FieldByNameFunc }; } $f.$ptr = $ptr; $f._entry = _entry; $f._entry$1 = _entry$1; $f._entry$2 = _entry$2; $f._entry$3 = _entry$3; $f._i = _i; $f._i$1 = _i$1; $f._key = _key; $f._key$1 = _key$1; $f._key$2 = _key$2; $f._key$3 = _key$3; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._ref = _ref; $f._ref$1 = _ref$1; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f.count = count; $f.current = current; $f.f = f; $f.fname = fname; $f.i = i; $f.index = index; $f.match = match; $f.name$1 = name$1; $f.next = next; $f.nextCount = nextCount; $f.ntyp = ntyp; $f.ok = ok; $f.result = result; $f.scan = scan; $f.styp = styp; $f.t = t; $f.t$1 = t$1; $f.visited = visited; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	structType.prototype.FieldByNameFunc = function(match) { return this.$val.FieldByNameFunc(match); };
@@ -11444,8 +11309,8 @@ $packages["reflect"] = (function() {
 			/* while (true) { */ case 3:
 				/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 4; continue; }
 				i = _i;
-				tf = (x = t.fields, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
-				tfname = tf.name.name();
+				tf = (x = t.fields, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
+				tfname = $clone(tf.name, name).name();
 				/* */ if (tfname === "") { $s = 5; continue; }
 				/* */ $s = 6; continue;
 				/* if (tfname === "") { */ case 5:
@@ -11462,14 +11327,12 @@ $packages["reflect"] = (function() {
 					StructField.copy(f, _tmp);
 					present = _tmp$1;
 					$s = -1; return [f, present];
-					return [f, present];
 				/* } */ case 8:
 				_i++;
 			/* } */ $s = 3; continue; case 4:
 		/* } */ case 2:
 		if (!hasAnon) {
 			$s = -1; return [f, present];
-			return [f, present];
 		}
 		_r$1 = t.FieldByNameFunc((function(name$1) { return function(s) {
 			var $ptr, s;
@@ -11479,7 +11342,6 @@ $packages["reflect"] = (function() {
 		StructField.copy(f, _tuple[0]);
 		present = _tuple[1];
 		$s = -1; return [f, present];
-		return [f, present];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: structType.ptr.prototype.FieldByName }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._r$1 = _r$1; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tuple = _tuple; $f.f = f; $f.hasAnon = hasAnon; $f.i = i; $f.name$1 = name$1; $f.present = present; $f.t = t; $f.tf = tf; $f.tfname = tfname; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	structType.prototype.FieldByName = function(name$1) { return this.$val.FieldByName(name$1); };
@@ -11502,18 +11364,20 @@ $packages["reflect"] = (function() {
 			$panic(new $String("reflect: non-interface type passed to Type.Implements"));
 		/* } */ case 2:
 		$s = -1; return implements$1($assertType(u, ptrType$1), t);
-		return implements$1($assertType(u, ptrType$1), t);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.Implements }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.u = u; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.Implements = function(u) { return this.$val.Implements(u); };
 	rtype.ptr.prototype.AssignableTo = function(u) {
-		var $ptr, t, u, uu;
+		var $ptr, _r, t, u, uu, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; u = $f.u; uu = $f.uu; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		t = this;
 		if ($interfaceIsEqual(u, $ifaceNil)) {
 			$panic(new $String("reflect: nil type passed to Type.AssignableTo"));
 		}
 		uu = $assertType(u, ptrType$1);
-		return directlyAssignable(uu, t) || implements$1(uu, t);
+		_r = directlyAssignable(uu, t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return _r || implements$1(uu, t);
+		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.AssignableTo }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.u = u; $f.uu = uu; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.AssignableTo = function(u) { return this.$val.AssignableTo(u); };
 	rtype.ptr.prototype.ConvertibleTo = function(u) {
@@ -11526,7 +11390,6 @@ $packages["reflect"] = (function() {
 		uu = $assertType(u, ptrType$1);
 		_r = convertOp(uu, t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return !(_r === $throwNilPointerError);
-		return !(_r === $throwNilPointerError);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: rtype.ptr.prototype.ConvertibleTo }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.u = u; $f.uu = uu; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	rtype.prototype.ConvertibleTo = function(u) { return this.$val.ConvertibleTo(u); };
@@ -11545,9 +11408,9 @@ $packages["reflect"] = (function() {
 			j = 0;
 			while (true) {
 				if (!(j < v.methods.$length)) { break; }
-				tm = (x = t.methods, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
-				vm = (x$1 = v.methods, ((j < 0 || j >= x$1.$length) ? $throwRuntimeError("index out of range") : x$1.$array[x$1.$offset + j]));
-				if (V.nameOff(vm.name).name() === t.rtype.nameOff(tm.name).name() && V.typeOff(vm.typ) === t.rtype.typeOff(tm.typ)) {
+				tm = (x = t.methods, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
+				vm = (x$1 = v.methods, ((j < 0 || j >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + j]));
+				if ($clone(V.nameOff(vm.name), name).name() === $clone(t.rtype.nameOff(tm.name), name).name() && V.typeOff(vm.typ) === t.rtype.typeOff(tm.typ)) {
 					i = i + (1) >> 0;
 					if (i >= t.methods.$length) {
 						return true;
@@ -11566,9 +11429,9 @@ $packages["reflect"] = (function() {
 		j$1 = 0;
 		while (true) {
 			if (!(j$1 < (v$1.mcount >> 0))) { break; }
-			tm$1 = (x$2 = t.methods, ((i$1 < 0 || i$1 >= x$2.$length) ? $throwRuntimeError("index out of range") : x$2.$array[x$2.$offset + i$1]));
-			vm$1 = $clone(((j$1 < 0 || j$1 >= vmethods.$length) ? $throwRuntimeError("index out of range") : vmethods.$array[vmethods.$offset + j$1]), method);
-			if (V.nameOff(vm$1.name).name() === t.rtype.nameOff(tm$1.name).name() && V.typeOff(vm$1.mtyp) === t.rtype.typeOff(tm$1.typ)) {
+			tm$1 = (x$2 = t.methods, ((i$1 < 0 || i$1 >= x$2.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$2.$array[x$2.$offset + i$1]));
+			vm$1 = $clone(((j$1 < 0 || j$1 >= vmethods.$length) ? ($throwRuntimeError("index out of range"), undefined) : vmethods.$array[vmethods.$offset + j$1]), method);
+			if ($clone(V.nameOff(vm$1.name), name).name() === $clone(t.rtype.nameOff(tm$1.name), name).name() && V.typeOff(vm$1.mtyp) === t.rtype.typeOff(tm$1.typ)) {
 				i$1 = i$1 + (1) >> 0;
 				if (i$1 >= t.methods.$length) {
 					return true;
@@ -11579,99 +11442,176 @@ $packages["reflect"] = (function() {
 		return false;
 	};
 	directlyAssignable = function(T, V) {
-		var $ptr, T, V;
+		var $ptr, T, V, _r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; T = $f.T; V = $f.V; _r = $f._r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		if (T === V) {
-			return true;
+			$s = -1; return true;
 		}
 		if (!(T.Name() === "") && !(V.Name() === "") || !((T.Kind() === V.Kind()))) {
-			return false;
+			$s = -1; return false;
 		}
-		return haveIdenticalUnderlyingType(T, V);
+		_r = haveIdenticalUnderlyingType(T, V, true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return _r;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: directlyAssignable }; } $f.$ptr = $ptr; $f.T = T; $f.V = V; $f._r = _r; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	haveIdenticalUnderlyingType = function(T, V) {
-		var $ptr, T, V, _1, _i, _ref, i, i$1, i$2, kind, t, t$1, t$2, tf, v, v$1, v$2, vf, x, x$1;
+	haveIdenticalType = function(T, V, cmpTags) {
+		var $ptr, T, V, _arg, _arg$1, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _v, cmpTags, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; T = $f.T; V = $f.V; _arg = $f._arg; _arg$1 = $f._arg$1; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _v = $f._v; cmpTags = $f.cmpTags; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		if (cmpTags) {
+			$s = -1; return $interfaceIsEqual(T, V);
+		}
+		_r = T.Name(); /* */ $s = 4; case 4: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r$1 = V.Name(); /* */ $s = 5; case 5: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		if (!(_r === _r$1)) { _v = true; $s = 3; continue s; }
+		_r$2 = T.Kind(); /* */ $s = 6; case 6: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_r$3 = V.Kind(); /* */ $s = 7; case 7: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+		_v = !((_r$2 === _r$3)); case 3:
+		/* */ if (_v) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (_v) { */ case 1:
+			$s = -1; return false;
+		/* } */ case 2:
+		_r$4 = T.common(); /* */ $s = 8; case 8: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+		_arg = _r$4;
+		_r$5 = V.common(); /* */ $s = 9; case 9: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
+		_arg$1 = _r$5;
+		_r$6 = haveIdenticalUnderlyingType(_arg, _arg$1, false); /* */ $s = 10; case 10: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
+		$s = -1; return _r$6;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: haveIdenticalType }; } $f.$ptr = $ptr; $f.T = T; $f.V = V; $f._arg = _arg; $f._arg$1 = _arg$1; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._v = _v; $f.cmpTags = cmpTags; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	haveIdenticalUnderlyingType = function(T, V, cmpTags) {
+		var $ptr, T, V, _1, _i, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, _r$8, _ref, _v, _v$1, _v$2, _v$3, cmpTags, i, i$1, i$2, kind, t, t$1, t$2, tf, tp, v, v$1, v$2, vf, vp, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; T = $f.T; V = $f.V; _1 = $f._1; _i = $f._i; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _r$7 = $f._r$7; _r$8 = $f._r$8; _ref = $f._ref; _v = $f._v; _v$1 = $f._v$1; _v$2 = $f._v$2; _v$3 = $f._v$3; cmpTags = $f.cmpTags; i = $f.i; i$1 = $f.i$1; i$2 = $f.i$2; kind = $f.kind; t = $f.t; t$1 = $f.t$1; t$2 = $f.t$2; tf = $f.tf; tp = $f.tp; v = $f.v; v$1 = $f.v$1; v$2 = $f.v$2; vf = $f.vf; vp = $f.vp; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		if (T === V) {
-			return true;
+			$s = -1; return true;
 		}
 		kind = T.Kind();
 		if (!((kind === V.Kind()))) {
-			return false;
+			$s = -1; return false;
 		}
 		if (1 <= kind && kind <= 16 || (kind === 24) || (kind === 26)) {
-			return true;
+			$s = -1; return true;
 		}
-		_1 = kind;
-		if (_1 === (17)) {
-			return $interfaceIsEqual(T.Elem(), V.Elem()) && (T.Len() === V.Len());
-		} else if (_1 === (18)) {
-			if ((V.ChanDir() === 3) && $interfaceIsEqual(T.Elem(), V.Elem())) {
-				return true;
-			}
-			return (V.ChanDir() === T.ChanDir()) && $interfaceIsEqual(T.Elem(), V.Elem());
-		} else if (_1 === (19)) {
-			t = T.kindType;
-			v = V.kindType;
-			if (!((t.outCount === v.outCount)) || !((t.inCount === v.inCount))) {
-				return false;
-			}
-			i = 0;
-			while (true) {
-				if (!(i < t.rtype.NumIn())) { break; }
-				if (!($interfaceIsEqual(t.rtype.In(i), v.rtype.In(i)))) {
-					return false;
+			_1 = kind;
+			/* */ if (_1 === (17)) { $s = 2; continue; }
+			/* */ if (_1 === (18)) { $s = 3; continue; }
+			/* */ if (_1 === (19)) { $s = 4; continue; }
+			/* */ if (_1 === (20)) { $s = 5; continue; }
+			/* */ if (_1 === (21)) { $s = 6; continue; }
+			/* */ if ((_1 === (22)) || (_1 === (23))) { $s = 7; continue; }
+			/* */ if (_1 === (25)) { $s = 8; continue; }
+			/* */ $s = 9; continue;
+			/* if (_1 === (17)) { */ case 2:
+				if (!(T.Len() === V.Len())) { _v = false; $s = 10; continue s; }
+				_r = haveIdenticalType(T.Elem(), V.Elem(), cmpTags); /* */ $s = 11; case 11: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_v = _r; case 10:
+				$s = -1; return _v;
+			/* } else if (_1 === (18)) { */ case 3:
+				if (!(V.ChanDir() === 3)) { _v$1 = false; $s = 14; continue s; }
+				_r$1 = haveIdenticalType(T.Elem(), V.Elem(), cmpTags); /* */ $s = 15; case 15: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+				_v$1 = _r$1; case 14:
+				/* */ if (_v$1) { $s = 12; continue; }
+				/* */ $s = 13; continue;
+				/* if (_v$1) { */ case 12:
+					$s = -1; return true;
+				/* } */ case 13:
+				if (!(V.ChanDir() === T.ChanDir())) { _v$2 = false; $s = 16; continue s; }
+				_r$2 = haveIdenticalType(T.Elem(), V.Elem(), cmpTags); /* */ $s = 17; case 17: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				_v$2 = _r$2; case 16:
+				$s = -1; return _v$2;
+			/* } else if (_1 === (19)) { */ case 4:
+				t = T.kindType;
+				v = V.kindType;
+				if (!((t.outCount === v.outCount)) || !((t.inCount === v.inCount))) {
+					$s = -1; return false;
 				}
-				i = i + (1) >> 0;
-			}
-			i$1 = 0;
-			while (true) {
-				if (!(i$1 < t.rtype.NumOut())) { break; }
-				if (!($interfaceIsEqual(t.rtype.Out(i$1), v.rtype.Out(i$1)))) {
-					return false;
+				i = 0;
+				/* while (true) { */ case 18:
+					/* if (!(i < t.rtype.NumIn())) { break; } */ if(!(i < t.rtype.NumIn())) { $s = 19; continue; }
+					_r$3 = haveIdenticalType(t.rtype.In(i), v.rtype.In(i), cmpTags); /* */ $s = 22; case 22: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+					/* */ if (!_r$3) { $s = 20; continue; }
+					/* */ $s = 21; continue;
+					/* if (!_r$3) { */ case 20:
+						$s = -1; return false;
+					/* } */ case 21:
+					i = i + (1) >> 0;
+				/* } */ $s = 18; continue; case 19:
+				i$1 = 0;
+				/* while (true) { */ case 23:
+					/* if (!(i$1 < t.rtype.NumOut())) { break; } */ if(!(i$1 < t.rtype.NumOut())) { $s = 24; continue; }
+					_r$4 = haveIdenticalType(t.rtype.Out(i$1), v.rtype.Out(i$1), cmpTags); /* */ $s = 27; case 27: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+					/* */ if (!_r$4) { $s = 25; continue; }
+					/* */ $s = 26; continue;
+					/* if (!_r$4) { */ case 25:
+						$s = -1; return false;
+					/* } */ case 26:
+					i$1 = i$1 + (1) >> 0;
+				/* } */ $s = 23; continue; case 24:
+				$s = -1; return true;
+			/* } else if (_1 === (20)) { */ case 5:
+				t$1 = T.kindType;
+				v$1 = V.kindType;
+				if ((t$1.methods.$length === 0) && (v$1.methods.$length === 0)) {
+					$s = -1; return true;
 				}
-				i$1 = i$1 + (1) >> 0;
-			}
-			return true;
-		} else if (_1 === (20)) {
-			t$1 = T.kindType;
-			v$1 = V.kindType;
-			if ((t$1.methods.$length === 0) && (v$1.methods.$length === 0)) {
-				return true;
-			}
-			return false;
-		} else if (_1 === (21)) {
-			return $interfaceIsEqual(T.Key(), V.Key()) && $interfaceIsEqual(T.Elem(), V.Elem());
-		} else if ((_1 === (22)) || (_1 === (23))) {
-			return $interfaceIsEqual(T.Elem(), V.Elem());
-		} else if (_1 === (25)) {
-			t$2 = T.kindType;
-			v$2 = V.kindType;
-			if (!((t$2.fields.$length === v$2.fields.$length))) {
-				return false;
-			}
-			_ref = t$2.fields;
-			_i = 0;
-			while (true) {
-				if (!(_i < _ref.$length)) { break; }
-				i$2 = _i;
-				tf = (x = t$2.fields, ((i$2 < 0 || i$2 >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i$2]));
-				vf = (x$1 = v$2.fields, ((i$2 < 0 || i$2 >= x$1.$length) ? $throwRuntimeError("index out of range") : x$1.$array[x$1.$offset + i$2]));
-				if (!(tf.name.name() === vf.name.name())) {
-					return false;
+				$s = -1; return false;
+			/* } else if (_1 === (21)) { */ case 6:
+				_r$5 = haveIdenticalType(T.Key(), V.Key(), cmpTags); /* */ $s = 29; case 29: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
+				if (!(_r$5)) { _v$3 = false; $s = 28; continue s; }
+				_r$6 = haveIdenticalType(T.Elem(), V.Elem(), cmpTags); /* */ $s = 30; case 30: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
+				_v$3 = _r$6; case 28:
+				$s = -1; return _v$3;
+			/* } else if ((_1 === (22)) || (_1 === (23))) { */ case 7:
+				_r$7 = haveIdenticalType(T.Elem(), V.Elem(), cmpTags); /* */ $s = 31; case 31: if($c) { $c = false; _r$7 = _r$7.$blk(); } if (_r$7 && _r$7.$blk !== undefined) { break s; }
+				$s = -1; return _r$7;
+			/* } else if (_1 === (25)) { */ case 8:
+				t$2 = T.kindType;
+				v$2 = V.kindType;
+				if (!((t$2.fields.$length === v$2.fields.$length))) {
+					$s = -1; return false;
 				}
-				if (!(tf.typ === vf.typ)) {
-					return false;
-				}
-				if (!(tf.name.tag() === vf.name.tag())) {
-					return false;
-				}
-				if (!((tf.offset === vf.offset))) {
-					return false;
-				}
-				_i++;
-			}
-			return true;
-		}
-		return false;
+				_ref = t$2.fields;
+				_i = 0;
+				/* while (true) { */ case 32:
+					/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 33; continue; }
+					i$2 = _i;
+					tf = (x = t$2.fields, ((i$2 < 0 || i$2 >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i$2]));
+					vf = (x$1 = v$2.fields, ((i$2 < 0 || i$2 >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + i$2]));
+					if (!($clone(tf.name, name).name() === $clone(vf.name, name).name())) {
+						$s = -1; return false;
+					}
+					_r$8 = haveIdenticalType(tf.typ, vf.typ, cmpTags); /* */ $s = 36; case 36: if($c) { $c = false; _r$8 = _r$8.$blk(); } if (_r$8 && _r$8.$blk !== undefined) { break s; }
+					/* */ if (!_r$8) { $s = 34; continue; }
+					/* */ $s = 35; continue;
+					/* if (!_r$8) { */ case 34:
+						$s = -1; return false;
+					/* } */ case 35:
+					if (cmpTags && !($clone(tf.name, name).tag() === $clone(vf.name, name).tag())) {
+						$s = -1; return false;
+					}
+					if (!((tf.offset === vf.offset))) {
+						$s = -1; return false;
+					}
+					if (!$clone(tf.name, name).isExported()) {
+						tp = $clone(tf.name, name).pkgPath();
+						if (tp === "") {
+							tp = $clone(t$2.pkgPath, name).name();
+						}
+						vp = $clone(vf.name, name).pkgPath();
+						if (vp === "") {
+							vp = $clone(v$2.pkgPath, name).name();
+						}
+						if (!(tp === vp)) {
+							$s = -1; return false;
+						}
+					}
+					_i++;
+				/* } */ $s = 32; continue; case 33:
+				$s = -1; return true;
+			/* } */ case 9:
+		case 1:
+		$s = -1; return false;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: haveIdenticalUnderlyingType }; } $f.$ptr = $ptr; $f.T = T; $f.V = V; $f._1 = _1; $f._i = _i; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._r$8 = _r$8; $f._ref = _ref; $f._v = _v; $f._v$1 = _v$1; $f._v$2 = _v$2; $f._v$3 = _v$3; $f.cmpTags = cmpTags; $f.i = i; $f.i$1 = i$1; $f.i$2 = i$2; $f.kind = kind; $f.t = t; $f.t$1 = t$1; $f.t$2 = t$2; $f.tf = tf; $f.tp = tp; $f.v = v; $f.v$1 = v$1; $f.v$2 = v$2; $f.vf = vf; $f.vp = vp; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	toType = function(t) {
 		var $ptr, t;
@@ -11772,7 +11712,6 @@ $packages["reflect"] = (function() {
 			$panic(new $String("reflect.Value.Bytes of non-byte slice"));
 		/* } */ case 2:
 		$s = -1; return v.ptr.$get();
-		return v.ptr.$get();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Bytes }; } $f.$ptr = $ptr; $f._r = _r; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Bytes = function() { return this.$val.Bytes(); };
@@ -11788,7 +11727,6 @@ $packages["reflect"] = (function() {
 			$panic(new $String("reflect.Value.Bytes of non-rune slice"));
 		/* } */ case 2:
 		$s = -1; return v.ptr.$get();
-		return v.ptr.$get();
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.runes }; } $f.$ptr = $ptr; $f._r = _r; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.runes = function() { return this.$val.runes(); };
@@ -11810,9 +11748,8 @@ $packages["reflect"] = (function() {
 		v = this;
 		new flag(v.flag).mustBe(19);
 		new flag(v.flag).mustBeExported();
-		_r = v.call("Call", in$1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).call("Call", in$1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Call }; } $f.$ptr = $ptr; $f._r = _r; $f.in$1 = in$1; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Call = function(in$1) { return this.$val.Call(in$1); };
@@ -11822,9 +11759,8 @@ $packages["reflect"] = (function() {
 		v = this;
 		new flag(v.flag).mustBe(19);
 		new flag(v.flag).mustBeExported();
-		_r = v.call("CallSlice", in$1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).call("CallSlice", in$1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.CallSlice }; } $f.$ptr = $ptr; $f._r = _r; $f.in$1 = in$1; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.CallSlice = function(in$1) { return this.$val.CallSlice(in$1); };
@@ -11848,9 +11784,8 @@ $packages["reflect"] = (function() {
 		/* */ if (index.$length === 1) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (index.$length === 1) { */ case 1:
-			_r = v.Field((0 >= index.$length ? $throwRuntimeError("index out of range") : index.$array[index.$offset + 0])); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_r = $clone(v, Value).Field((0 >= index.$length ? ($throwRuntimeError("index out of range"), undefined) : index.$array[index.$offset + 0])); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			$s = -1; return _r;
-			return _r;
 		/* } */ case 2:
 		new flag(v.flag).mustBe(25);
 		_ref = index;
@@ -11858,29 +11793,28 @@ $packages["reflect"] = (function() {
 		/* while (true) { */ case 4:
 			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 5; continue; }
 			i = _i;
-			x = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			x = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			/* */ if (i > 0) { $s = 6; continue; }
 			/* */ $s = 7; continue;
 			/* if (i > 0) { */ case 6:
-				if (!(v.Kind() === 22)) { _v = false; $s = 10; continue s; }
+				if (!($clone(v, Value).Kind() === 22)) { _v = false; $s = 10; continue s; }
 				_r$1 = v.typ.Elem().Kind(); /* */ $s = 11; case 11: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 				_v = _r$1 === 25; case 10:
 				/* */ if (_v) { $s = 8; continue; }
 				/* */ $s = 9; continue;
 				/* if (_v) { */ case 8:
-					if (v.IsNil()) {
+					if ($clone(v, Value).IsNil()) {
 						$panic(new $String("reflect: indirection through nil pointer to embedded struct"));
 					}
-					_r$2 = v.Elem(); /* */ $s = 12; case 12: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+					_r$2 = $clone(v, Value).Elem(); /* */ $s = 12; case 12: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 					v = _r$2;
 				/* } */ case 9:
 			/* } */ case 7:
-			_r$3 = v.Field(x); /* */ $s = 13; case 13: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+			_r$3 = $clone(v, Value).Field(x); /* */ $s = 13; case 13: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
 			v = _r$3;
 			_i++;
 		/* } */ $s = 4; continue; case 5:
 		$s = -1; return v;
-		return v;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.FieldByIndex }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._ref = _ref; $f._v = _v; $f.i = i; $f.index = index; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.FieldByIndex = function(index) { return this.$val.FieldByIndex(index); };
@@ -11896,12 +11830,10 @@ $packages["reflect"] = (function() {
 		/* */ if (ok) { $s = 2; continue; }
 		/* */ $s = 3; continue;
 		/* if (ok) { */ case 2:
-			_r$1 = v.FieldByIndex(f.Index); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			_r$1 = $clone(v, Value).FieldByIndex(f.Index); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 			$s = -1; return _r$1;
-			return _r$1;
 		/* } */ case 3:
 		$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-		return new Value.ptr(ptrType$1.nil, 0, 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.FieldByName }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.f = f; $f.name$1 = name$1; $f.ok = ok; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.FieldByName = function(name$1) { return this.$val.FieldByName(name$1); };
@@ -11916,12 +11848,10 @@ $packages["reflect"] = (function() {
 		/* */ if (ok) { $s = 2; continue; }
 		/* */ $s = 3; continue;
 		/* if (ok) { */ case 2:
-			_r$1 = v.FieldByIndex(f.Index); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			_r$1 = $clone(v, Value).FieldByIndex(f.Index); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 			$s = -1; return _r$1;
-			return _r$1;
 		/* } */ case 3:
 		$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-		return new Value.ptr(ptrType$1.nil, 0, 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.FieldByNameFunc }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.f = f; $f.match = match; $f.ok = ok; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.FieldByNameFunc = function(match) { return this.$val.FieldByNameFunc(match); };
@@ -11972,10 +11902,9 @@ $packages["reflect"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; i = $f.i; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		i = $ifaceNil;
 		v = this;
-		_r = valueInterface(v, true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = valueInterface($clone(v, Value), true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		i = _r;
 		$s = -1; return i;
-		return i;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Interface }; } $f.$ptr = $ptr; $f._r = _r; $f.i = i; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Interface = function() { return this.$val.Interface(); };
@@ -11994,11 +11923,10 @@ $packages["reflect"] = (function() {
 	Value.ptr.prototype.MapIndex = function(key) {
 		var $ptr, _r, c, e, fl, k, key, tt, typ, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; c = $f.c; e = $f.e; fl = $f.fl; k = $f.k; key = $f.key; tt = $f.tt; typ = $f.typ; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		key = key;
 		v = this;
 		new flag(v.flag).mustBe(21);
 		tt = v.typ.kindType;
-		_r = key.assignTo("reflect.Value.MapIndex", tt.key, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(key, Value).assignTo("reflect.Value.MapIndex", tt.key, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		key = _r;
 		k = 0;
 		if (!((((key.flag & 128) >>> 0) === 0))) {
@@ -12006,10 +11934,9 @@ $packages["reflect"] = (function() {
 		} else {
 			k = (key.$ptr_ptr || (key.$ptr_ptr = new ptrType$16(function() { return this.$target.ptr; }, function($v) { this.$target.ptr = $v; }, key)));
 		}
-		e = mapaccess(v.typ, v.pointer(), k);
+		e = mapaccess(v.typ, $clone(v, Value).pointer(), k);
 		if (e === 0) {
 			$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-			return new Value.ptr(ptrType$1.nil, 0, 0);
 		}
 		typ = tt.elem;
 		fl = ((((v.flag | key.flag) >>> 0)) & 96) >>> 0;
@@ -12018,13 +11945,10 @@ $packages["reflect"] = (function() {
 			c = unsafe_New(typ);
 			typedmemmove(typ, c, e);
 			$s = -1; return new Value.ptr(typ, c, (fl | 128) >>> 0);
-			return new Value.ptr(typ, c, (fl | 128) >>> 0);
 		} else {
 			$s = -1; return new Value.ptr(typ, e.$get(), fl);
-			return new Value.ptr(typ, e.$get(), fl);
 		}
 		$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-		return new Value.ptr(ptrType$1.nil, 0, 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.MapIndex }; } $f.$ptr = $ptr; $f._r = _r; $f.c = c; $f.e = e; $f.fl = fl; $f.k = k; $f.key = key; $f.tt = tt; $f.typ = typ; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.MapIndex = function(key) { return this.$val.MapIndex(key); };
@@ -12036,7 +11960,7 @@ $packages["reflect"] = (function() {
 		tt = v.typ.kindType;
 		keyType = tt.key;
 		fl = (((v.flag & 96) >>> 0) | (keyType.Kind() >>> 0)) >>> 0;
-		m = v.pointer();
+		m = $clone(v, Value).pointer();
 		mlen = 0;
 		if (!(m === 0)) {
 			mlen = maplen(m);
@@ -12055,15 +11979,14 @@ $packages["reflect"] = (function() {
 			if (ifaceIndir(keyType)) {
 				c = unsafe_New(keyType);
 				typedmemmove(keyType, c, key);
-				((i < 0 || i >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + i] = new Value.ptr(keyType, c, (fl | 128) >>> 0));
+				((i < 0 || i >= a.$length) ? ($throwRuntimeError("index out of range"), undefined) : a.$array[a.$offset + i] = new Value.ptr(keyType, c, (fl | 128) >>> 0));
 			} else {
-				((i < 0 || i >= a.$length) ? $throwRuntimeError("index out of range") : a.$array[a.$offset + i] = new Value.ptr(keyType, key.$get(), fl));
+				((i < 0 || i >= a.$length) ? ($throwRuntimeError("index out of range"), undefined) : a.$array[a.$offset + i] = new Value.ptr(keyType, key.$get(), fl));
 			}
 			mapiternext(it);
 			i = i + (1) >> 0;
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return $subslice(a, 0, i);
-		return $subslice(a, 0, i);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.MapKeys }; } $f.$ptr = $ptr; $f._r = _r; $f.a = a; $f.c = c; $f.fl = fl; $f.i = i; $f.it = it; $f.key = key; $f.keyType = keyType; $f.m = m; $f.mlen = mlen; $f.tt = tt; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.MapKeys = function() { return this.$val.MapKeys(); };
@@ -12082,14 +12005,13 @@ $packages["reflect"] = (function() {
 		/* if (_v) { */ case 1:
 			$panic(new $String("reflect: Method index out of range"));
 		/* } */ case 2:
-		if ((v.typ.Kind() === 20) && v.IsNil()) {
+		if ((v.typ.Kind() === 20) && $clone(v, Value).IsNil()) {
 			$panic(new $String("reflect: Method on nil interface value"));
 		}
 		fl = (v.flag & 160) >>> 0;
 		fl = (fl | (19)) >>> 0;
 		fl = (fl | (((((i >>> 0) << 10 >>> 0) | 512) >>> 0))) >>> 0;
 		$s = -1; return new Value.ptr(v.typ, v.ptr, fl);
-		return new Value.ptr(v.typ, v.ptr, fl);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Method }; } $f.$ptr = $ptr; $f._r = _r; $f._v = _v; $f.fl = fl; $f.i = i; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Method = function(i) { return this.$val.Method(i); };
@@ -12102,11 +12024,9 @@ $packages["reflect"] = (function() {
 		}
 		if (!((((v.flag & 512) >>> 0) === 0))) {
 			$s = -1; return 0;
-			return 0;
 		}
 		_r = v.typ.NumMethod(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.NumMethod }; } $f.$ptr = $ptr; $f._r = _r; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.NumMethod = function() { return this.$val.NumMethod(); };
@@ -12119,7 +12039,6 @@ $packages["reflect"] = (function() {
 		}
 		if (!((((v.flag & 512) >>> 0) === 0))) {
 			$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-			return new Value.ptr(ptrType$1.nil, 0, 0);
 		}
 		_r = v.typ.MethodByName(name$1); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_tuple = _r;
@@ -12127,11 +12046,9 @@ $packages["reflect"] = (function() {
 		ok = _tuple[1];
 		if (!ok) {
 			$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-			return new Value.ptr(ptrType$1.nil, 0, 0);
 		}
-		_r$1 = v.Method(m.Index); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$1 = $clone(v, Value).Method(m.Index); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.MethodByName }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.m = m; $f.name$1 = name$1; $f.ok = ok; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.MethodByName = function(name$1) { return this.$val.MethodByName(name$1); };
@@ -12210,12 +12127,11 @@ $packages["reflect"] = (function() {
 		v = this;
 		new flag(v.flag).mustBe(18);
 		new flag(v.flag).mustBeExported();
-		_r = v.recv(false); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).recv(false); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_tuple = _r;
 		x = _tuple[0];
 		ok = _tuple[1];
 		$s = -1; return [x, ok];
-		return [x, ok];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Recv }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.ok = ok; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Recv = function() { return this.$val.Recv(); };
@@ -12239,7 +12155,7 @@ $packages["reflect"] = (function() {
 		} else {
 			p = (val.$ptr_ptr || (val.$ptr_ptr = new ptrType$16(function() { return this.$target.ptr; }, function($v) { this.$target.ptr = $v; }, val)));
 		}
-		_r = chanrecv(v.typ, v.pointer(), nb, p); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = chanrecv(v.typ, $clone(v, Value).pointer(), nb, p); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_tuple = _r;
 		selected = _tuple[0];
 		ok = _tuple[1];
@@ -12247,21 +12163,18 @@ $packages["reflect"] = (function() {
 			val = new Value.ptr(ptrType$1.nil, 0, 0);
 		}
 		$s = -1; return [val, ok];
-		return [val, ok];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.recv }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.nb = nb; $f.ok = ok; $f.p = p; $f.selected = selected; $f.t = t; $f.tt = tt; $f.v = v; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.recv = function(nb) { return this.$val.recv(nb); };
 	Value.ptr.prototype.Send = function(x) {
 		var $ptr, _r, v, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		x = x;
 		v = this;
 		new flag(v.flag).mustBe(18);
 		new flag(v.flag).mustBeExported();
-		_r = v.send(x, false); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).send($clone(x, Value), false); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r;
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Send }; } $f.$ptr = $ptr; $f._r = _r; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Send = function(x) { return this.$val.Send(x); };
@@ -12269,14 +12182,13 @@ $packages["reflect"] = (function() {
 		var $ptr, _r, _r$1, nb, p, selected, tt, v, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; nb = $f.nb; p = $f.p; selected = $f.selected; tt = $f.tt; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		selected = false;
-		x = x;
 		v = this;
 		tt = v.typ.kindType;
 		if (((tt.dir >> 0) & 2) === 0) {
 			$panic(new $String("reflect: send on recv-only channel"));
 		}
 		new flag(x.flag).mustBeExported();
-		_r = x.assignTo("reflect.Value.Send", tt.elem, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(x, Value).assignTo("reflect.Value.Send", tt.elem, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		x = _r;
 		p = 0;
 		if (!((((x.flag & 128) >>> 0) === 0))) {
@@ -12284,10 +12196,9 @@ $packages["reflect"] = (function() {
 		} else {
 			p = (x.$ptr_ptr || (x.$ptr_ptr = new ptrType$16(function() { return this.$target.ptr; }, function($v) { this.$target.ptr = $v; }, x)));
 		}
-		_r$1 = chansend(v.typ, v.pointer(), p, nb); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$1 = chansend(v.typ, $clone(v, Value).pointer(), p, nb); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		selected = _r$1;
 		$s = -1; return selected;
-		return selected;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.send }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.nb = nb; $f.p = p; $f.selected = selected; $f.tt = tt; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.send = function(x, nb) { return this.$val.send(x, nb); };
@@ -12313,7 +12224,6 @@ $packages["reflect"] = (function() {
 		/* } */ case 2:
 		v.ptr.$set(x);
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.setRunes }; } $f.$ptr = $ptr; $f._r = _r; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.setRunes = function(x) { return this.$val.setRunes(x); };
@@ -12371,14 +12281,12 @@ $packages["reflect"] = (function() {
 	Value.ptr.prototype.SetMapIndex = function(key, val) {
 		var $ptr, _r, _r$1, e, k, key, tt, v, val, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; e = $f.e; k = $f.k; key = $f.key; tt = $f.tt; v = $f.v; val = $f.val; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		val = val;
-		key = key;
 		v = this;
 		new flag(v.flag).mustBe(21);
 		new flag(v.flag).mustBeExported();
 		new flag(key.flag).mustBeExported();
 		tt = v.typ.kindType;
-		_r = key.assignTo("reflect.Value.SetMapIndex", tt.key, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(key, Value).assignTo("reflect.Value.SetMapIndex", tt.key, 0); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		key = _r;
 		k = 0;
 		if (!((((key.flag & 128) >>> 0) === 0))) {
@@ -12387,12 +12295,11 @@ $packages["reflect"] = (function() {
 			k = (key.$ptr_ptr || (key.$ptr_ptr = new ptrType$16(function() { return this.$target.ptr; }, function($v) { this.$target.ptr = $v; }, key)));
 		}
 		if (val.typ === ptrType$1.nil) {
-			mapdelete(v.typ, v.pointer(), k);
+			mapdelete(v.typ, $clone(v, Value).pointer(), k);
 			$s = -1; return;
-			return;
 		}
 		new flag(val.flag).mustBeExported();
-		_r$1 = val.assignTo("reflect.Value.SetMapIndex", tt.elem, 0); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$1 = $clone(val, Value).assignTo("reflect.Value.SetMapIndex", tt.elem, 0); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		val = _r$1;
 		e = 0;
 		if (!((((val.flag & 128) >>> 0) === 0))) {
@@ -12400,9 +12307,8 @@ $packages["reflect"] = (function() {
 		} else {
 			e = (val.$ptr_ptr || (val.$ptr_ptr = new ptrType$16(function() { return this.$target.ptr; }, function($v) { this.$target.ptr = $v; }, val)));
 		}
-		$r = mapassign(v.typ, v.pointer(), k, e); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = mapassign(v.typ, $clone(v, Value).pointer(), k, e); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.SetMapIndex }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.e = e; $f.k = k; $f.key = key; $f.tt = tt; $f.v = v; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.SetMapIndex = function(key, val) { return this.$val.SetMapIndex(key, val); };
@@ -12453,14 +12359,11 @@ $packages["reflect"] = (function() {
 		_1 = k;
 		if (_1 === (0)) {
 			$s = -1; return "<invalid Value>";
-			return "<invalid Value>";
 		} else if (_1 === (24)) {
 			$s = -1; return v.ptr.$get();
-			return v.ptr.$get();
 		}
-		_r = v.Type().String(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).Type().String(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return "<" + _r + " Value>";
-		return "<" + _r + " Value>";
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.String }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f.k = k; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.String = function() { return this.$val.String(); };
@@ -12472,25 +12375,22 @@ $packages["reflect"] = (function() {
 		v = this;
 		new flag(v.flag).mustBe(18);
 		new flag(v.flag).mustBeExported();
-		_r = v.recv(true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).recv(true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_tuple = _r;
 		x = _tuple[0];
 		ok = _tuple[1];
 		$s = -1; return [x, ok];
-		return [x, ok];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.TryRecv }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.ok = ok; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.TryRecv = function() { return this.$val.TryRecv(); };
 	Value.ptr.prototype.TrySend = function(x) {
 		var $ptr, _r, v, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		x = x;
 		v = this;
 		new flag(v.flag).mustBe(18);
 		new flag(v.flag).mustBeExported();
-		_r = v.send(x, true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).send($clone(x, Value), true); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.TrySend }; } $f.$ptr = $ptr; $f._r = _r; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.TrySend = function(x) { return this.$val.TrySend(x); };
@@ -12510,14 +12410,14 @@ $packages["reflect"] = (function() {
 			if ((i >>> 0) >= (tt.methods.$length >>> 0)) {
 				$panic(new $String("reflect: internal error: invalid method index"));
 			}
-			m = (x = tt.methods, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+			m = (x = tt.methods, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 			return v.typ.typeOff(m.typ);
 		}
 		ut = v.typ.uncommon();
 		if (ut === ptrType$6.nil || (i >>> 0) >= (ut.mcount >>> 0)) {
 			$panic(new $String("reflect: internal error: invalid method index"));
 		}
-		m$1 = $clone((x$1 = ut.methods(), ((i < 0 || i >= x$1.$length) ? $throwRuntimeError("index out of range") : x$1.$array[x$1.$offset + i])), method);
+		m$1 = $clone((x$1 = ut.methods(), ((i < 0 || i >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + i])), method);
 		return v.typ.typeOff(m$1.mtyp);
 	};
 	Value.prototype.Type = function() { return this.$val.Type(); };
@@ -12566,52 +12466,49 @@ $packages["reflect"] = (function() {
 		_r = typ.common(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r$1 = _r.ptrTo(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return new Value.ptr(_r$1, ptr, fl);
-		return new Value.ptr(_r$1, ptr, fl);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: New }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.fl = fl; $f.ptr = ptr; $f.typ = typ; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.New = New;
 	Value.ptr.prototype.assignTo = function(context, dst, target) {
-		var $ptr, _r, _r$1, _r$2, context, dst, fl, target, v, x, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; context = $f.context; dst = $f.dst; fl = $f.fl; target = $f.target; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r, _r$1, _r$2, _r$3, context, dst, fl, target, v, x, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; context = $f.context; dst = $f.dst; fl = $f.fl; target = $f.target; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		v = this;
 		/* */ if (!((((v.flag & 512) >>> 0) === 0))) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (!((((v.flag & 512) >>> 0) === 0))) { */ case 1:
-			_r = makeMethodValue(context, v); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_r = makeMethodValue(context, $clone(v, Value)); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			v = _r;
 		/* } */ case 2:
-			/* */ if (directlyAssignable(dst, v.typ)) { $s = 5; continue; }
+			_r$1 = directlyAssignable(dst, v.typ); /* */ $s = 8; case 8: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+			/* */ if (_r$1) { $s = 5; continue; }
 			/* */ if (implements$1(dst, v.typ)) { $s = 6; continue; }
 			/* */ $s = 7; continue;
-			/* if (directlyAssignable(dst, v.typ)) { */ case 5:
+			/* if (_r$1) { */ case 5:
 				v.typ = dst;
 				fl = (v.flag & 480) >>> 0;
 				fl = (fl | ((dst.Kind() >>> 0))) >>> 0;
 				$s = -1; return new Value.ptr(dst, v.ptr, fl);
-				return new Value.ptr(dst, v.ptr, fl);
 			/* } else if (implements$1(dst, v.typ)) { */ case 6:
 				if (target === 0) {
 					target = unsafe_New(dst);
 				}
-				_r$1 = valueInterface(v, false); /* */ $s = 8; case 8: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-				x = _r$1;
-				_r$2 = dst.NumMethod(); /* */ $s = 12; case 12: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
-				/* */ if (_r$2 === 0) { $s = 9; continue; }
-				/* */ $s = 10; continue;
-				/* if (_r$2 === 0) { */ case 9:
+				_r$2 = valueInterface($clone(v, Value), false); /* */ $s = 9; case 9: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+				x = _r$2;
+				_r$3 = dst.NumMethod(); /* */ $s = 13; case 13: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
+				/* */ if (_r$3 === 0) { $s = 10; continue; }
+				/* */ $s = 11; continue;
+				/* if (_r$3 === 0) { */ case 10:
 					target.$set(x);
-					$s = 11; continue;
-				/* } else { */ case 10:
+					$s = 12; continue;
+				/* } else { */ case 11:
 					ifaceE2I(dst, x, target);
-				/* } */ case 11:
+				/* } */ case 12:
 				$s = -1; return new Value.ptr(dst, target, 148);
-				return new Value.ptr(dst, target, 148);
 			/* } */ case 7:
 		case 4:
 		$panic(new $String(context + ": value of type " + v.typ.String() + " is not assignable to type " + dst.String()));
 		$s = -1; return new Value.ptr(ptrType$1.nil, 0, 0);
-		return new Value.ptr(ptrType$1.nil, 0, 0);
-		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.assignTo }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.context = context; $f.dst = dst; $f.fl = fl; $f.target = target; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.assignTo }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f.context = context; $f.dst = dst; $f.fl = fl; $f.target = target; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.assignTo = function(context, dst, target) { return this.$val.assignTo(context, dst, target); };
 	Value.ptr.prototype.Convert = function(t) {
@@ -12621,7 +12518,7 @@ $packages["reflect"] = (function() {
 		/* */ if (!((((v.flag & 512) >>> 0) === 0))) { $s = 1; continue; }
 		/* */ $s = 2; continue;
 		/* if (!((((v.flag & 512) >>> 0) === 0))) { */ case 1:
-			_r = makeMethodValue("Convert", v); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			_r = makeMethodValue("Convert", $clone(v, Value)); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			v = _r;
 		/* } */ case 2:
 		_r$1 = t.common(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
@@ -12633,15 +12530,14 @@ $packages["reflect"] = (function() {
 			_r$3 = t.String(); /* */ $s = 8; case 8: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
 			$panic(new $String("reflect.Value.Convert: value of type " + v.typ.String() + " cannot be converted to type " + _r$3));
 		/* } */ case 7:
-		_r$4 = op(v, t); /* */ $s = 9; case 9: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+		_r$4 = op($clone(v, Value), t); /* */ $s = 9; case 9: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
 		$s = -1; return _r$4;
-		return _r$4;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Value.ptr.prototype.Convert }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f.op = op; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Value.prototype.Convert = function(t) { return this.$val.Convert(t); };
 	convertOp = function(dst, src) {
-		var $ptr, _1, _2, _3, _4, _5, _6, _7, _arg, _arg$1, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _v, _v$1, _v$2, dst, src, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _1 = $f._1; _2 = $f._2; _3 = $f._3; _4 = $f._4; _5 = $f._5; _6 = $f._6; _7 = $f._7; _arg = $f._arg; _arg$1 = $f._arg$1; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _v = $f._v; _v$1 = $f._v$1; _v$2 = $f._v$2; dst = $f.dst; src = $f.src; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _1, _2, _3, _4, _5, _6, _7, _arg, _arg$1, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, _v, _v$1, _v$2, dst, src, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _1 = $f._1; _2 = $f._2; _3 = $f._3; _4 = $f._4; _5 = $f._5; _6 = $f._6; _7 = $f._7; _arg = $f._arg; _arg$1 = $f._arg$1; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; _r$5 = $f._r$5; _r$6 = $f._r$6; _r$7 = $f._r$7; _v = $f._v; _v$1 = $f._v$1; _v$2 = $f._v$2; dst = $f.dst; src = $f.src; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 			_1 = src.Kind();
 			/* */ if ((_1 === (2)) || (_1 === (3)) || (_1 === (4)) || (_1 === (5)) || (_1 === (6))) { $s = 2; continue; }
 			/* */ if ((_1 === (7)) || (_1 === (8)) || (_1 === (9)) || (_1 === (10)) || (_1 === (11)) || (_1 === (12))) { $s = 3; continue; }
@@ -12654,46 +12550,36 @@ $packages["reflect"] = (function() {
 				_2 = dst.Kind();
 				if ((_2 === (2)) || (_2 === (3)) || (_2 === (4)) || (_2 === (5)) || (_2 === (6)) || (_2 === (7)) || (_2 === (8)) || (_2 === (9)) || (_2 === (10)) || (_2 === (11)) || (_2 === (12))) {
 					$s = -1; return cvtInt;
-					return cvtInt;
 				} else if ((_2 === (13)) || (_2 === (14))) {
 					$s = -1; return cvtIntFloat;
-					return cvtIntFloat;
 				} else if (_2 === (24)) {
 					$s = -1; return cvtIntString;
-					return cvtIntString;
 				}
 				$s = 8; continue;
 			/* } else if ((_1 === (7)) || (_1 === (8)) || (_1 === (9)) || (_1 === (10)) || (_1 === (11)) || (_1 === (12))) { */ case 3:
 				_3 = dst.Kind();
 				if ((_3 === (2)) || (_3 === (3)) || (_3 === (4)) || (_3 === (5)) || (_3 === (6)) || (_3 === (7)) || (_3 === (8)) || (_3 === (9)) || (_3 === (10)) || (_3 === (11)) || (_3 === (12))) {
 					$s = -1; return cvtUint;
-					return cvtUint;
 				} else if ((_3 === (13)) || (_3 === (14))) {
 					$s = -1; return cvtUintFloat;
-					return cvtUintFloat;
 				} else if (_3 === (24)) {
 					$s = -1; return cvtUintString;
-					return cvtUintString;
 				}
 				$s = 8; continue;
 			/* } else if ((_1 === (13)) || (_1 === (14))) { */ case 4:
 				_4 = dst.Kind();
 				if ((_4 === (2)) || (_4 === (3)) || (_4 === (4)) || (_4 === (5)) || (_4 === (6))) {
 					$s = -1; return cvtFloatInt;
-					return cvtFloatInt;
 				} else if ((_4 === (7)) || (_4 === (8)) || (_4 === (9)) || (_4 === (10)) || (_4 === (11)) || (_4 === (12))) {
 					$s = -1; return cvtFloatUint;
-					return cvtFloatUint;
 				} else if ((_4 === (13)) || (_4 === (14))) {
 					$s = -1; return cvtFloat;
-					return cvtFloat;
 				}
 				$s = 8; continue;
 			/* } else if ((_1 === (15)) || (_1 === (16))) { */ case 5:
 				_5 = dst.Kind();
 				if ((_5 === (15)) || (_5 === (16))) {
 					$s = -1; return cvtComplex;
-					return cvtComplex;
 				}
 				$s = 8; continue;
 			/* } else if (_1 === (24)) { */ case 6:
@@ -12707,10 +12593,8 @@ $packages["reflect"] = (function() {
 						_6 = _r$1;
 						if (_6 === (8)) {
 							$s = -1; return cvtStringBytes;
-							return cvtStringBytes;
 						} else if (_6 === (5)) {
 							$s = -1; return cvtStringRunes;
-							return cvtStringRunes;
 						}
 					case 13:
 				/* } */ case 10:
@@ -12726,43 +12610,39 @@ $packages["reflect"] = (function() {
 						_7 = _r$3;
 						if (_7 === (8)) {
 							$s = -1; return cvtBytesString;
-							return cvtBytesString;
 						} else if (_7 === (5)) {
 							$s = -1; return cvtRunesString;
-							return cvtRunesString;
 						}
 					case 19:
 				/* } */ case 16:
 			/* } */ case 8:
 		case 1:
-		if (haveIdenticalUnderlyingType(dst, src)) {
-			$s = -1; return cvtDirect;
-			return cvtDirect;
-		}
-		if (!((dst.Kind() === 22) && dst.Name() === "" && (src.Kind() === 22) && src.Name() === "")) { _v$2 = false; $s = 23; continue s; }
-		_r$4 = dst.Elem().common(); /* */ $s = 24; case 24: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
-		_arg = _r$4;
-		_r$5 = src.Elem().common(); /* */ $s = 25; case 25: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
-		_arg$1 = _r$5;
-		_r$6 = haveIdenticalUnderlyingType(_arg, _arg$1); /* */ $s = 26; case 26: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
-		_v$2 = _r$6; case 23:
-		/* */ if (_v$2) { $s = 21; continue; }
+		_r$4 = haveIdenticalUnderlyingType(dst, src, false); /* */ $s = 23; case 23: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
+		/* */ if (_r$4) { $s = 21; continue; }
 		/* */ $s = 22; continue;
-		/* if (_v$2) { */ case 21:
+		/* if (_r$4) { */ case 21:
 			$s = -1; return cvtDirect;
-			return cvtDirect;
 		/* } */ case 22:
+		if (!((dst.Kind() === 22) && dst.Name() === "" && (src.Kind() === 22) && src.Name() === "")) { _v$2 = false; $s = 26; continue s; }
+		_r$5 = dst.Elem().common(); /* */ $s = 27; case 27: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
+		_arg = _r$5;
+		_r$6 = src.Elem().common(); /* */ $s = 28; case 28: if($c) { $c = false; _r$6 = _r$6.$blk(); } if (_r$6 && _r$6.$blk !== undefined) { break s; }
+		_arg$1 = _r$6;
+		_r$7 = haveIdenticalUnderlyingType(_arg, _arg$1, false); /* */ $s = 29; case 29: if($c) { $c = false; _r$7 = _r$7.$blk(); } if (_r$7 && _r$7.$blk !== undefined) { break s; }
+		_v$2 = _r$7; case 26:
+		/* */ if (_v$2) { $s = 24; continue; }
+		/* */ $s = 25; continue;
+		/* if (_v$2) { */ case 24:
+			$s = -1; return cvtDirect;
+		/* } */ case 25:
 		if (implements$1(dst, src)) {
 			if (src.Kind() === 20) {
 				$s = -1; return cvtI2I;
-				return cvtI2I;
 			}
 			$s = -1; return cvtT2I;
-			return cvtT2I;
 		}
 		$s = -1; return $throwNilPointerError;
-		return $throwNilPointerError;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: convertOp }; } $f.$ptr = $ptr; $f._1 = _1; $f._2 = _2; $f._3 = _3; $f._4 = _4; $f._5 = _5; $f._6 = _6; $f._7 = _7; $f._arg = _arg; $f._arg$1 = _arg$1; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._v = _v; $f._v$1 = _v$1; $f._v$2 = _v$2; $f.dst = dst; $f.src = src; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: convertOp }; } $f.$ptr = $ptr; $f._1 = _1; $f._2 = _2; $f._3 = _3; $f._4 = _4; $f._5 = _5; $f._6 = _6; $f._7 = _7; $f._arg = _arg; $f._arg$1 = _arg$1; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._v = _v; $f._v$1 = _v$1; $f._v$2 = _v$2; $f.dst = dst; $f.src = src; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	makeFloat = function(f, v, t) {
 		var $ptr, _1, _r, f, ptr, t, typ, v, $s, $r;
@@ -12777,7 +12657,6 @@ $packages["reflect"] = (function() {
 			ptr.$set(v);
 		}
 		$s = -1; return new Value.ptr(typ, ptr, (((f | 128) >>> 0) | (typ.Kind() >>> 0)) >>> 0);
-		return new Value.ptr(typ, ptr, (((f | 128) >>> 0) | (typ.Kind() >>> 0)) >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeFloat }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f.f = f; $f.ptr = ptr; $f.t = t; $f.typ = typ; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	makeComplex = function(f, v, t) {
@@ -12793,195 +12672,162 @@ $packages["reflect"] = (function() {
 			ptr.$set(v);
 		}
 		$s = -1; return new Value.ptr(typ, ptr, (((f | 128) >>> 0) | (typ.Kind() >>> 0)) >>> 0);
-		return new Value.ptr(typ, ptr, (((f | 128) >>> 0) | (typ.Kind() >>> 0)) >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeComplex }; } $f.$ptr = $ptr; $f._1 = _1; $f._r = _r; $f.f = f; $f.ptr = ptr; $f.t = t; $f.typ = typ; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	makeString = function(f, v, t) {
 		var $ptr, _r, _r$1, f, ret, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; f = $f.f; ret = $f.ret; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_r = New(t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_r$1 = _r.Elem(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$1 = $clone(_r, Value).Elem(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		ret = _r$1;
-		ret.SetString(v);
+		$clone(ret, Value).SetString(v);
 		ret.flag = (((ret.flag & ~256) >>> 0) | f) >>> 0;
 		$s = -1; return ret;
-		return ret;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeString }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.f = f; $f.ret = ret; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	makeBytes = function(f, v, t) {
 		var $ptr, _r, _r$1, f, ret, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; f = $f.f; ret = $f.ret; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_r = New(t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_r$1 = _r.Elem(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$1 = $clone(_r, Value).Elem(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		ret = _r$1;
-		$r = ret.SetBytes(v); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = $clone(ret, Value).SetBytes(v); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		ret.flag = (((ret.flag & ~256) >>> 0) | f) >>> 0;
 		$s = -1; return ret;
-		return ret;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeBytes }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.f = f; $f.ret = ret; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	makeRunes = function(f, v, t) {
 		var $ptr, _r, _r$1, f, ret, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; f = $f.f; ret = $f.ret; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_r = New(t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_r$1 = _r.Elem(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$1 = $clone(_r, Value).Elem(); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		ret = _r$1;
-		$r = ret.setRunes(v); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = $clone(ret, Value).setRunes(v); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		ret.flag = (((ret.flag & ~256) >>> 0) | f) >>> 0;
 		$s = -1; return ret;
-		return ret;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: makeRunes }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.f = f; $f.ret = ret; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtInt = function(v, t) {
 		var $ptr, _r, t, v, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeInt((v.flag & 96) >>> 0, (x = v.Int(), new $Uint64(x.$high, x.$low)), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeInt((v.flag & 96) >>> 0, (x = $clone(v, Value).Int(), new $Uint64(x.$high, x.$low)), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtInt }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtUint = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeInt((v.flag & 96) >>> 0, v.Uint(), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeInt((v.flag & 96) >>> 0, $clone(v, Value).Uint(), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtUint }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtFloatInt = function(v, t) {
 		var $ptr, _r, t, v, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeInt((v.flag & 96) >>> 0, (x = new $Int64(0, v.Float()), new $Uint64(x.$high, x.$low)), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeInt((v.flag & 96) >>> 0, (x = new $Int64(0, $clone(v, Value).Float()), new $Uint64(x.$high, x.$low)), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtFloatInt }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtFloatUint = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeInt((v.flag & 96) >>> 0, new $Uint64(0, v.Float()), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeInt((v.flag & 96) >>> 0, new $Uint64(0, $clone(v, Value).Float()), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtFloatUint }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtIntFloat = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeFloat((v.flag & 96) >>> 0, $flatten64(v.Int()), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeFloat((v.flag & 96) >>> 0, $flatten64($clone(v, Value).Int()), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtIntFloat }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtUintFloat = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeFloat((v.flag & 96) >>> 0, $flatten64(v.Uint()), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeFloat((v.flag & 96) >>> 0, $flatten64($clone(v, Value).Uint()), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtUintFloat }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtFloat = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeFloat((v.flag & 96) >>> 0, v.Float(), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeFloat((v.flag & 96) >>> 0, $clone(v, Value).Float(), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtFloat }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtComplex = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeComplex((v.flag & 96) >>> 0, v.Complex(), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeComplex((v.flag & 96) >>> 0, $clone(v, Value).Complex(), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtComplex }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtIntString = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeString((v.flag & 96) >>> 0, $encodeRune(v.Int().$low), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeString((v.flag & 96) >>> 0, $encodeRune($clone(v, Value).Int().$low), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtIntString }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtUintString = function(v, t) {
 		var $ptr, _r, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		_r = makeString((v.flag & 96) >>> 0, $encodeRune(v.Uint().$low), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = makeString((v.flag & 96) >>> 0, $encodeRune($clone(v, Value).Uint().$low), t); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtUintString }; } $f.$ptr = $ptr; $f._r = _r; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtBytesString = function(v, t) {
 		var $ptr, _arg, _arg$1, _arg$2, _r, _r$1, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _arg = $f._arg; _arg$1 = $f._arg$1; _arg$2 = $f._arg$2; _r = $f._r; _r$1 = $f._r$1; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
 		_arg = (v.flag & 96) >>> 0;
-		_r = v.Bytes(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).Bytes(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_arg$1 = $bytesToString(_r);
 		_arg$2 = t;
 		_r$1 = makeString(_arg, _arg$1, _arg$2); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtBytesString }; } $f.$ptr = $ptr; $f._arg = _arg; $f._arg$1 = _arg$1; $f._arg$2 = _arg$2; $f._r = _r; $f._r$1 = _r$1; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtStringBytes = function(v, t) {
 		var $ptr, _arg, _arg$1, _arg$2, _r, _r$1, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _arg = $f._arg; _arg$1 = $f._arg$1; _arg$2 = $f._arg$2; _r = $f._r; _r$1 = $f._r$1; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
 		_arg = (v.flag & 96) >>> 0;
-		_r = v.String(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).String(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_arg$1 = new sliceType$16($stringToBytes(_r));
 		_arg$2 = t;
 		_r$1 = makeBytes(_arg, _arg$1, _arg$2); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtStringBytes }; } $f.$ptr = $ptr; $f._arg = _arg; $f._arg$1 = _arg$1; $f._arg$2 = _arg$2; $f._r = _r; $f._r$1 = _r$1; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtRunesString = function(v, t) {
 		var $ptr, _arg, _arg$1, _arg$2, _r, _r$1, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _arg = $f._arg; _arg$1 = $f._arg$1; _arg$2 = $f._arg$2; _r = $f._r; _r$1 = $f._r$1; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
 		_arg = (v.flag & 96) >>> 0;
-		_r = v.runes(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).runes(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_arg$1 = $runesToString(_r);
 		_arg$2 = t;
 		_r$1 = makeString(_arg, _arg$1, _arg$2); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtRunesString }; } $f.$ptr = $ptr; $f._arg = _arg; $f._arg$1 = _arg$1; $f._arg$2 = _arg$2; $f._r = _r; $f._r$1 = _r$1; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtStringRunes = function(v, t) {
 		var $ptr, _arg, _arg$1, _arg$2, _r, _r$1, t, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _arg = $f._arg; _arg$1 = $f._arg$1; _arg$2 = $f._arg$2; _r = $f._r; _r$1 = $f._r$1; t = $f.t; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
 		_arg = (v.flag & 96) >>> 0;
-		_r = v.String(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		_r = $clone(v, Value).String(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_arg$1 = new sliceType$18($stringToRunes(_r));
 		_arg$2 = t;
 		_r$1 = makeRunes(_arg, _arg$1, _arg$2); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return _r$1;
-		return _r$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtStringRunes }; } $f.$ptr = $ptr; $f._arg = _arg; $f._arg$1 = _arg$1; $f._arg$2 = _arg$2; $f._r = _r; $f._r$1 = _r$1; $f.t = t; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtT2I = function(v, typ) {
 		var $ptr, _r, _r$1, _r$2, _r$3, _r$4, target, typ, v, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; _r$4 = $f._r$4; target = $f.target; typ = $f.typ; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
 		_r = typ.common(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r$1 = unsafe_New(_r); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		target = _r$1;
-		_r$2 = valueInterface(v, false); /* */ $s = 3; case 3: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_r$2 = valueInterface($clone(v, Value), false); /* */ $s = 3; case 3: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		x = _r$2;
 		_r$3 = typ.NumMethod(); /* */ $s = 7; case 7: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
 		/* */ if (_r$3 === 0) { $s = 4; continue; }
@@ -12994,26 +12840,22 @@ $packages["reflect"] = (function() {
 		/* } */ case 6:
 		_r$4 = typ.common(); /* */ $s = 8; case 8: if($c) { $c = false; _r$4 = _r$4.$blk(); } if (_r$4 && _r$4.$blk !== undefined) { break s; }
 		$s = -1; return new Value.ptr(_r$4, target, (((((v.flag & 96) >>> 0) | 128) >>> 0) | 20) >>> 0);
-		return new Value.ptr(_r$4, target, (((((v.flag & 96) >>> 0) | 128) >>> 0) | 20) >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtT2I }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f.target = target; $f.typ = typ; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	cvtI2I = function(v, typ) {
 		var $ptr, _r, _r$1, _r$2, ret, typ, v, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; ret = $f.ret; typ = $f.typ; v = $f.v; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = v;
-		/* */ if (v.IsNil()) { $s = 1; continue; }
+		/* */ if ($clone(v, Value).IsNil()) { $s = 1; continue; }
 		/* */ $s = 2; continue;
-		/* if (v.IsNil()) { */ case 1:
+		/* if ($clone(v, Value).IsNil()) { */ case 1:
 			_r = Zero(typ); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			ret = _r;
 			ret.flag = (ret.flag | (((v.flag & 96) >>> 0))) >>> 0;
 			$s = -1; return ret;
-			return ret;
 		/* } */ case 2:
-		_r$1 = v.Elem(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		_r$2 = cvtT2I(_r$1, typ); /* */ $s = 5; case 5: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		_r$1 = $clone(v, Value).Elem(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$2 = cvtT2I($clone(_r$1, Value), typ); /* */ $s = 5; case 5: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 		$s = -1; return _r$2;
-		return _r$2;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: cvtI2I }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.ret = ret; $f.typ = typ; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ptrType$6.methods = [{prop: "methods", name: "methods", pkg: "reflect", typ: $funcType([], [sliceType$3], false)}];
@@ -13068,8 +12910,8 @@ $packages["reflect"] = (function() {
 		nameMap = {};
 		callHelper = $assertType($internalize($call, $emptyInterface), funcType$1);
 		selectHelper = $assertType($internalize($select, $emptyInterface), funcType$1);
-		kindNames = new sliceType$6(["invalid", "bool", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "uintptr", "float32", "float64", "complex64", "complex128", "array", "chan", "func", "interface", "map", "ptr", "slice", "string", "struct", "unsafe.Pointer"]);
 		jsObjectPtr = reflectType($jsObjectPtr);
+		kindNames = new sliceType$6(["invalid", "bool", "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "uintptr", "float32", "float64", "complex64", "complex128", "array", "chan", "func", "interface", "map", "ptr", "slice", "string", "struct", "unsafe.Pointer"]);
 		uint8Type = $assertType(TypeOf(new $Uint8(0)), ptrType$1);
 		$r = init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
@@ -13311,7 +13153,6 @@ $packages["fmt"] = (function() {
 		if (s.atEOF || s.count >= s.ssave.argLimit) {
 			err = io.EOF;
 			$s = -1; return [r, size, err];
-			return [r, size, err];
 		}
 		_r = s.rs.ReadRune(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_tuple = _r;
@@ -13327,7 +13168,6 @@ $packages["fmt"] = (function() {
 			s.atEOF = true;
 		}
 		$s = -1; return [r, size, err];
-		return [r, size, err];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ss.ptr.prototype.ReadRune }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.err = err; $f.r = r; $f.s = s; $f.size = size; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ss.prototype.ReadRune = function() { return this.$val.ReadRune(); };
@@ -13363,12 +13203,10 @@ $packages["fmt"] = (function() {
 			if ($interfaceIsEqual(err, io.EOF)) {
 				r = -1;
 				$s = -1; return r;
-				return r;
 			}
 			s.error(err);
 		}
 		$s = -1; return r;
-		return r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ss.ptr.prototype.getRune }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.err = err; $f.r = r; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ss.prototype.getRune = function() { return this.$val.getRune(); };
@@ -13381,7 +13219,6 @@ $packages["fmt"] = (function() {
 		s.atEOF = false;
 		s.count = s.count - (1) >> 0;
 		$s = -1; return $ifaceNil;
-		return $ifaceNil;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ss.ptr.prototype.UnreadRune }; } $f.$ptr = $ptr; $f._r = _r; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ss.prototype.UnreadRune = function() { return this.$val.UnreadRune(); };
@@ -13425,7 +13262,6 @@ $packages["fmt"] = (function() {
 		_r = s.token(skipSpace, f); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		tok = _r;
 		$s = -1; return [tok, err[0]];
-		return [tok, err[0]];
 		/* */ } return; } } catch(err) { $err = err; $s = -1; } finally { $callDeferred($deferred, $err); if (!$curGoroutine.asleep) { return  [tok, err[0]]; } if($curGoroutine.asleep) { if ($f === undefined) { $f = { $blk: ss.ptr.prototype.Token }; } $f.$ptr = $ptr; $f._r = _r; $f.err = err; $f.f = f; $f.s = s; $f.skipSpace = skipSpace; $f.tok = tok; $f.$s = $s; $f.$deferred = $deferred; $f.$r = $r; return $f; } }
 	};
 	ss.prototype.Token = function(skipSpace, f) { return this.$val.Token(skipSpace, f); };
@@ -13439,7 +13275,7 @@ $packages["fmt"] = (function() {
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			rng = $clone(((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]), arrayType$1);
+			rng = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), arrayType$1);
 			if (rx < rng[0]) {
 				return false;
 			}
@@ -13460,7 +13296,6 @@ $packages["fmt"] = (function() {
 		s = this;
 		$r = s.skipSpace(false); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ss.ptr.prototype.SkipSpace }; } $f.$ptr = $ptr; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ss.prototype.SkipSpace = function() { return this.$val.SkipSpace(); };
@@ -13473,7 +13308,6 @@ $packages["fmt"] = (function() {
 			r = _r;
 			if (r === -1) {
 				$s = -1; return;
-				return;
 			}
 			if (!(r === 13)) { _v = false; $s = 6; continue s; }
 			_r$1 = s.peek("\n"); /* */ $s = 7; case 7: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
@@ -13494,7 +13328,6 @@ $packages["fmt"] = (function() {
 				}
 				s.errorString("unexpected newline");
 				$s = -1; return;
-				return;
 			/* } */ case 9:
 			/* */ if (!isSpace(r)) { $s = 10; continue; }
 			/* */ $s = 11; continue;
@@ -13505,7 +13338,6 @@ $packages["fmt"] = (function() {
 			/* } */ case 11:
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ss.ptr.prototype.skipSpace }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._v = _v; $f.r = r; $f.s = s; $f.stopAtNewline = stopAtNewline; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ss.prototype.skipSpace = function(stopAtNewline) { return this.$val.skipSpace(stopAtNewline); };
@@ -13535,7 +13367,6 @@ $packages["fmt"] = (function() {
 			(s.$ptr_buf || (s.$ptr_buf = new ptrType$1(function() { return this.$target.buf; }, function($v) { this.$target.buf = $v; }, s))).WriteRune(r);
 		/* } */ $s = 4; continue; case 5:
 		$s = -1; return (x = s.buf, $subslice(new sliceType$2(x.$array), x.$offset, x.$offset + x.$length));
-		return (x = s.buf, $subslice(new sliceType$2(x.$array), x.$offset, x.$offset + x.$length));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ss.ptr.prototype.token }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.f = f; $f.r = r; $f.s = s; $f.skipSpace = skipSpace; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ss.prototype.token = function(skipSpace, f) { return this.$val.token(skipSpace, f); };
@@ -13568,7 +13399,6 @@ $packages["fmt"] = (function() {
 			_r$1;
 		/* } */ case 3:
 		$s = -1; return indexRune(ok, r) >= 0;
-		return indexRune(ok, r) >= 0;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: ss.ptr.prototype.peek }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.ok = ok; $f.r = r; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	ss.prototype.peek = function(ok) { return this.$val.peek(ok); };
@@ -13611,37 +13441,9 @@ $packages["fmt"] = (function() {
 	$pkg.$init = $init;
 	return $pkg;
 })();
-$packages["unicode"] = (function() {
-	var $pkg = {}, $init;
-	$init = function() {
-		$pkg.$init = function() {};
-		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.$init = $init;
-	return $pkg;
-})();
-$packages["bytes"] = (function() {
-	var $pkg = {}, $init, errors, io, unicode, utf8;
-	errors = $packages["errors"];
-	io = $packages["io"];
-	unicode = $packages["unicode"];
-	utf8 = $packages["unicode/utf8"];
-	$init = function() {
-		$pkg.$init = function() {};
-		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		$r = errors.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = io.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = unicode.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = utf8.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$pkg.ErrTooLarge = errors.New("bytes.Buffer: too large");
-		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.$init = $init;
-	return $pkg;
-})();
 $packages["sort"] = (function() {
-	var $pkg = {}, $init, insertionSort, siftDown, heapSort, medianOfThree, doPivot, quickSort, Sort;
+	var $pkg = {}, $init, reflect, insertionSort, siftDown, heapSort, medianOfThree, doPivot, quickSort, Sort, maxDepth;
+	reflect = $packages["reflect"];
 	insertionSort = function(data, a, b) {
 		var $ptr, _r, _v, a, b, data, i, j, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _v = $f._v; a = $f.a; b = $f.b; data = $f.data; i = $f.i; j = $f.j; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -13660,7 +13462,6 @@ $packages["sort"] = (function() {
 			i = i + (1) >> 0;
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: insertionSort }; } $f.$ptr = $ptr; $f._r = _r; $f._v = _v; $f.a = a; $f.b = b; $f.data = data; $f.i = i; $f.j = j; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	siftDown = function(data, lo, hi, first) {
@@ -13685,13 +13486,11 @@ $packages["sort"] = (function() {
 			/* */ $s = 8; continue;
 			/* if (!_r$1) { */ case 7:
 				$s = -1; return;
-				return;
 			/* } */ case 8:
 			$r = data.Swap(first + root >> 0, first + child >> 0); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 			root = child;
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: siftDown }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._v = _v; $f.child = child; $f.data = data; $f.first = first; $f.hi = hi; $f.lo = lo; $f.root = root; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	heapSort = function(data, a, b) {
@@ -13714,7 +13513,6 @@ $packages["sort"] = (function() {
 			i$1 = i$1 - (1) >> 0;
 		/* } */ $s = 4; continue; case 5:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: heapSort }; } $f.$ptr = $ptr; $f._q = _q; $f.a = a; $f.b = b; $f.data = data; $f.first = first; $f.hi = hi; $f.i = i; $f.i$1 = i$1; $f.lo = lo; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	medianOfThree = function(data, m1, m0, m2) {
@@ -13739,7 +13537,6 @@ $packages["sort"] = (function() {
 			/* } */ case 10:
 		/* } */ case 6:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: medianOfThree }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.data = data; $f.m0 = m0; $f.m1 = m1; $f.m2 = m2; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	doPivot = function(data, lo, hi) {
@@ -13854,22 +13651,20 @@ $packages["sort"] = (function() {
 		midlo = _tmp$2;
 		midhi = _tmp$3;
 		$s = -1; return [midlo, midhi];
-		return [midlo, midhi];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: doPivot }; } $f.$ptr = $ptr; $f._q = _q; $f._q$1 = _q$1; $f._q$2 = _q$2; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f._v = _v; $f._v$1 = _v$1; $f._v$2 = _v$2; $f._v$3 = _v$3; $f._v$4 = _v$4; $f.a = a; $f.b = b; $f.c = c; $f.data = data; $f.dups = dups; $f.hi = hi; $f.lo = lo; $f.m = m; $f.midhi = midhi; $f.midlo = midlo; $f.pivot = pivot; $f.protect = protect; $f.s = s; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	quickSort = function(data, a, b, maxDepth) {
-		var $ptr, _r, _r$1, _tuple, a, b, data, i, maxDepth, mhi, mlo, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple = $f._tuple; a = $f.a; b = $f.b; data = $f.data; i = $f.i; maxDepth = $f.maxDepth; mhi = $f.mhi; mlo = $f.mlo; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+	quickSort = function(data, a, b, maxDepth$1) {
+		var $ptr, _r, _r$1, _tuple, a, b, data, i, maxDepth$1, mhi, mlo, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _tuple = $f._tuple; a = $f.a; b = $f.b; data = $f.data; i = $f.i; maxDepth$1 = $f.maxDepth$1; mhi = $f.mhi; mlo = $f.mlo; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		/* while (true) { */ case 1:
 			/* if (!((b - a >> 0) > 12)) { break; } */ if(!((b - a >> 0) > 12)) { $s = 2; continue; }
-			/* */ if (maxDepth === 0) { $s = 3; continue; }
+			/* */ if (maxDepth$1 === 0) { $s = 3; continue; }
 			/* */ $s = 4; continue;
-			/* if (maxDepth === 0) { */ case 3:
+			/* if (maxDepth$1 === 0) { */ case 3:
 				$r = heapSort(data, a, b); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				$s = -1; return;
-				return;
 			/* } */ case 4:
-			maxDepth = maxDepth - (1) >> 0;
+			maxDepth$1 = maxDepth$1 - (1) >> 0;
 			_r = doPivot(data, a, b); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			_tuple = _r;
 			mlo = _tuple[0];
@@ -13877,11 +13672,11 @@ $packages["sort"] = (function() {
 			/* */ if ((mlo - a >> 0) < (b - mhi >> 0)) { $s = 7; continue; }
 			/* */ $s = 8; continue;
 			/* if ((mlo - a >> 0) < (b - mhi >> 0)) { */ case 7:
-				$r = quickSort(data, a, mlo, maxDepth); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$r = quickSort(data, a, mlo, maxDepth$1); /* */ $s = 10; case 10: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				a = mhi;
 				$s = 9; continue;
 			/* } else { */ case 8:
-				$r = quickSort(data, mhi, b, maxDepth); /* */ $s = 11; case 11: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				$r = quickSort(data, mhi, b, maxDepth$1); /* */ $s = 11; case 11: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 				b = mlo;
 			/* } */ case 9:
 		/* } */ $s = 1; continue; case 2:
@@ -13902,132 +13697,55 @@ $packages["sort"] = (function() {
 			$r = insertionSort(data, a, b); /* */ $s = 20; case 20: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* } */ case 13:
 		$s = -1; return;
-		return;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: quickSort }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.a = a; $f.b = b; $f.data = data; $f.i = i; $f.maxDepth = maxDepth; $f.mhi = mhi; $f.mlo = mlo; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: quickSort }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f.a = a; $f.b = b; $f.data = data; $f.i = i; $f.maxDepth$1 = maxDepth$1; $f.mhi = mhi; $f.mlo = mlo; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Sort = function(data) {
-		var $ptr, _r, data, i, maxDepth, n, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; data = $f.data; i = $f.i; maxDepth = $f.maxDepth; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _r, data, n, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; data = $f.data; n = $f.n; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_r = data.Len(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		n = _r;
-		maxDepth = 0;
+		$r = quickSort(data, 0, n, maxDepth(n)); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$s = -1; return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Sort }; } $f.$ptr = $ptr; $f._r = _r; $f.data = data; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	$pkg.Sort = Sort;
+	maxDepth = function(n) {
+		var $ptr, depth, i, n;
+		depth = 0;
 		i = n;
 		while (true) {
 			if (!(i > 0)) { break; }
-			maxDepth = maxDepth + (1) >> 0;
+			depth = depth + (1) >> 0;
 			i = (i >> $min((1), 31)) >> 0;
 		}
-		maxDepth = $imul(maxDepth, (2));
-		$r = quickSort(data, 0, n, maxDepth); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$s = -1; return;
-		return;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: Sort }; } $f.$ptr = $ptr; $f._r = _r; $f.data = data; $f.i = i; $f.maxDepth = maxDepth; $f.n = n; $f.$s = $s; $f.$r = $r; return $f;
+		return $imul(depth, 2);
 	};
-	$pkg.Sort = Sort;
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.$init = $init;
-	return $pkg;
-})();
-$packages["strings"] = (function() {
-	var $pkg = {}, $init, errors, js, io, unicode, utf8;
-	errors = $packages["errors"];
-	js = $packages["github.com/gopherjs/gopherjs/js"];
-	io = $packages["io"];
-	unicode = $packages["unicode"];
-	utf8 = $packages["unicode/utf8"];
-	$init = function() {
-		$pkg.$init = function() {};
-		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		$r = errors.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = js.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = io.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = unicode.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = utf8.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.$init = $init;
-	return $pkg;
-})();
-$packages["path/filepath"] = (function() {
-	var $pkg = {}, $init, errors, os, runtime, sort, strings, utf8;
-	errors = $packages["errors"];
-	os = $packages["os"];
-	runtime = $packages["runtime"];
-	sort = $packages["sort"];
-	strings = $packages["strings"];
-	utf8 = $packages["unicode/utf8"];
-	$init = function() {
-		$pkg.$init = function() {};
-		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		$r = errors.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = os.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = runtime.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = sort.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = strings.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = utf8.$init(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$pkg.ErrBadPattern = errors.New("syntax error in pattern");
-		$pkg.SkipDir = errors.New("skip this directory");
-		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
-	};
-	$pkg.$init = $init;
-	return $pkg;
-})();
-$packages["io/ioutil"] = (function() {
-	var $pkg = {}, $init, bytes, io, os, filepath, sort, strconv, sync, time, sliceType, sliceType$1, ptrType, blackHolePool;
-	bytes = $packages["bytes"];
-	io = $packages["io"];
-	os = $packages["os"];
-	filepath = $packages["path/filepath"];
-	sort = $packages["sort"];
-	strconv = $packages["strconv"];
-	sync = $packages["sync"];
-	time = $packages["time"];
-	sliceType = $sliceType($emptyInterface);
-	sliceType$1 = $sliceType($Uint8);
-	ptrType = $ptrType(sliceType$1);
-	$init = function() {
-		$pkg.$init = function() {};
-		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		$r = bytes.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = io.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = os.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = filepath.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = sort.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = strconv.$init(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = sync.$init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = time.$init(); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		blackHolePool = new sync.Pool.ptr(0, 0, sliceType.nil, (function() {
-			var $ptr, b, b$24ptr;
-			b = $makeSlice(sliceType$1, 8192);
-			return (b$24ptr || (b$24ptr = new ptrType(function() { return b; }, function($v) { b = $subslice(new sliceType$1($v.$array), $v.$offset, $v.$offset + $v.$length); })));
-		}));
+		$r = reflect.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
 	return $pkg;
 })();
 $packages["github.com/tidwall/rbush"] = (function() {
-	var $pkg = {}, $init, md5, fmt, ioutil, math, os, sort, strconv, strings, Node, RBush, byMinX, byMinY, ptrType, sliceType$1, sliceType$2, ptrType$1, New, calcBBox, distBBox, extend, bboxArea, bboxMargin, enlargedArea, intersectionArea, createNode, multiSelect, splice, ncopy, quickselect, sortNodes;
+	var $pkg = {}, $init, md5, fmt, math, sort, strconv, Node, RBush, byDim, ptrType, sliceType, sliceType$1, ptrType$1, funcType, infPos, infNeg, New, findItem, calcBBox, distBBox, extend, bboxArea, bboxMargin, enlargedArea, maxFlt, minFlt, intersectionArea, contains, intersects, createNode, multiSelect, ncopy, sortNodes, quickselect;
 	md5 = $packages["crypto/md5"];
 	fmt = $packages["fmt"];
-	ioutil = $packages["io/ioutil"];
 	math = $packages["math"];
-	os = $packages["os"];
 	sort = $packages["sort"];
 	strconv = $packages["strconv"];
-	strings = $packages["strings"];
-	Node = $pkg.Node = $newType(0, $kindStruct, "rbush.Node", true, "github.com/tidwall/rbush", true, function(MinX_, MinY_, MaxX_, MaxY_, Children_, Height_, Leaf_, Item_) {
+	Node = $pkg.Node = $newType(0, $kindStruct, "rbush.Node", true, "github.com/tidwall/rbush", true, function(MinX_, MinY_, MinZ_, MaxX_, MaxY_, MaxZ_, Children_, Height_, Leaf_, Item_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.MinX = 0;
 			this.MinY = 0;
+			this.MinZ = 0;
 			this.MaxX = 0;
 			this.MaxY = 0;
-			this.Children = sliceType$1.nil;
+			this.MaxZ = 0;
+			this.Children = sliceType.nil;
 			this.Height = 0;
 			this.Leaf = false;
 			this.Item = $ifaceNil;
@@ -14035,129 +13753,211 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		}
 		this.MinX = MinX_;
 		this.MinY = MinY_;
+		this.MinZ = MinZ_;
 		this.MaxX = MaxX_;
 		this.MaxY = MaxY_;
+		this.MaxZ = MaxZ_;
 		this.Children = Children_;
 		this.Height = Height_;
 		this.Leaf = Leaf_;
 		this.Item = Item_;
 	});
-	RBush = $pkg.RBush = $newType(0, $kindStruct, "rbush.RBush", true, "github.com/tidwall/rbush", true, function(MaxEntries_, MinEntries_, Data_) {
+	RBush = $pkg.RBush = $newType(0, $kindStruct, "rbush.RBush", true, "github.com/tidwall/rbush", true, function(MaxEntries_, MinEntries_, Data_, pathReuseBuf_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.MaxEntries = 0;
 			this.MinEntries = 0;
 			this.Data = ptrType.nil;
+			this.pathReuseBuf = sliceType.nil;
 			return;
 		}
 		this.MaxEntries = MaxEntries_;
 		this.MinEntries = MinEntries_;
 		this.Data = Data_;
+		this.pathReuseBuf = pathReuseBuf_;
 	});
-	byMinX = $pkg.byMinX = $newType(12, $kindSlice, "rbush.byMinX", true, "github.com/tidwall/rbush", false, null);
-	byMinY = $pkg.byMinY = $newType(12, $kindSlice, "rbush.byMinY", true, "github.com/tidwall/rbush", false, null);
+	byDim = $pkg.byDim = $newType(0, $kindStruct, "rbush.byDim", true, "github.com/tidwall/rbush", false, function(nodes_, dim_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.nodes = sliceType.nil;
+			this.dim = 0;
+			return;
+		}
+		this.nodes = nodes_;
+		this.dim = dim_;
+	});
 	ptrType = $ptrType(Node);
-	sliceType$1 = $sliceType(ptrType);
-	sliceType$2 = $sliceType($Int);
+	sliceType = $sliceType(ptrType);
+	sliceType$1 = $sliceType($Int);
 	ptrType$1 = $ptrType(RBush);
-	byMinX.prototype.At = function(i) {
-		var $ptr, arr, i;
+	funcType = $funcType([ptrType], [], false);
+	byDim.ptr.prototype.At = function(i) {
+		var $ptr, arr, i, x;
 		arr = this;
-		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
+		return (x = arr.nodes, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 	};
-	$ptrType(byMinX).prototype.At = function(i) { return this.$get().At(i); };
-	byMinX.prototype.Compare = function(a, b) {
-		var $ptr, _tmp, _tmp$1, a, arr, b, na, nb;
-		arr = this;
-		_tmp = $assertType(a, ptrType);
-		_tmp$1 = $assertType(b, ptrType);
-		na = _tmp;
-		nb = _tmp$1;
-		if (na.MinX < nb.MinX) {
-			return -1;
-		}
-		if (na.MinX > nb.MinX) {
-			return 1;
-		}
-		return 0;
-	};
-	$ptrType(byMinX).prototype.Compare = function(a, b) { return this.$get().Compare(a, b); };
-	byMinX.prototype.Less = function(i, j) {
-		var $ptr, arr, i, j;
-		arr = this;
-		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]).MinX < ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]).MinX;
-	};
-	$ptrType(byMinX).prototype.Less = function(i, j) { return this.$get().Less(i, j); };
-	byMinX.prototype.Swap = function(i, j) {
-		var $ptr, _tmp, _tmp$1, arr, i, j;
-		arr = this;
-		_tmp = ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]);
-		_tmp$1 = ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
-		((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i] = _tmp);
-		((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j] = _tmp$1);
-	};
-	$ptrType(byMinX).prototype.Swap = function(i, j) { return this.$get().Swap(i, j); };
-	byMinX.prototype.Len = function() {
-		var $ptr, arr;
-		arr = this;
-		return arr.$length;
-	};
-	$ptrType(byMinX).prototype.Len = function() { return this.$get().Len(); };
-	byMinY.prototype.At = function(i) {
-		var $ptr, arr, i;
-		arr = this;
-		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
-	};
-	$ptrType(byMinY).prototype.At = function(i) { return this.$get().At(i); };
-	byMinY.prototype.Compare = function(a, b) {
-		var $ptr, _tmp, _tmp$1, a, arr, b, na, nb;
+	byDim.prototype.At = function(i) { return this.$val.At(i); };
+	byDim.ptr.prototype.Compare = function(a, b) {
+		var $ptr, _1, _tmp, _tmp$1, a, arr, b, na, nb;
 		arr = this;
 		_tmp = $assertType(a, ptrType);
 		_tmp$1 = $assertType(b, ptrType);
 		na = _tmp;
 		nb = _tmp$1;
-		if (na.MinY < nb.MinY) {
-			return -1;
-		}
-		if (na.MinY > nb.MinY) {
-			return 1;
+		_1 = arr.dim;
+		if (_1 === (1)) {
+			if (na.MinX < nb.MinX) {
+				return -1;
+			}
+			if (na.MinX > nb.MinX) {
+				return 1;
+			}
+		} else if (_1 === (2)) {
+			if (na.MinY < nb.MinY) {
+				return -1;
+			}
+			if (na.MinY > nb.MinY) {
+				return 1;
+			}
+		} else if (_1 === (3)) {
+			if (na.MinZ < nb.MinZ) {
+				return -1;
+			}
+			if (na.MinZ > nb.MinZ) {
+				return 1;
+			}
 		}
 		return 0;
 	};
-	$ptrType(byMinY).prototype.Compare = function(a, b) { return this.$get().Compare(a, b); };
-	byMinY.prototype.Less = function(i, j) {
-		var $ptr, arr, i, j;
+	byDim.prototype.Compare = function(a, b) { return this.$val.Compare(a, b); };
+	byDim.ptr.prototype.Less = function(i, j) {
+		var $ptr, _1, _tmp, _tmp$1, arr, i, j, na, nb, x, x$1;
 		arr = this;
-		return ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]).MinY < ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]).MinY;
+		_tmp = (x = arr.nodes, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
+		_tmp$1 = (x$1 = arr.nodes, ((j < 0 || j >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + j]));
+		na = _tmp;
+		nb = _tmp$1;
+		_1 = arr.dim;
+		if (_1 === (1)) {
+			return na.MinX < na.MinX;
+		} else if (_1 === (2)) {
+			return nb.MinY < nb.MinY;
+		} else if (_1 === (3)) {
+			return nb.MinZ < nb.MinZ;
+		}
+		return false;
 	};
-	$ptrType(byMinY).prototype.Less = function(i, j) { return this.$get().Less(i, j); };
-	byMinY.prototype.Swap = function(i, j) {
-		var $ptr, _tmp, _tmp$1, arr, i, j;
+	byDim.prototype.Less = function(i, j) { return this.$val.Less(i, j); };
+	byDim.ptr.prototype.Swap = function(i, j) {
+		var $ptr, _tmp, _tmp$1, arr, i, j, x, x$1, x$2, x$3;
 		arr = this;
-		_tmp = ((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j]);
-		_tmp$1 = ((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i]);
-		((i < 0 || i >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + i] = _tmp);
-		((j < 0 || j >= arr.$length) ? $throwRuntimeError("index out of range") : arr.$array[arr.$offset + j] = _tmp$1);
+		_tmp = (x = arr.nodes, ((j < 0 || j >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + j]));
+		_tmp$1 = (x$1 = arr.nodes, ((i < 0 || i >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + i]));
+		(x$2 = arr.nodes, ((i < 0 || i >= x$2.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$2.$array[x$2.$offset + i] = _tmp));
+		(x$3 = arr.nodes, ((j < 0 || j >= x$3.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$3.$array[x$3.$offset + j] = _tmp$1));
 	};
-	$ptrType(byMinY).prototype.Swap = function(i, j) { return this.$get().Swap(i, j); };
-	byMinY.prototype.Len = function() {
+	byDim.prototype.Swap = function(i, j) { return this.$val.Swap(i, j); };
+	byDim.ptr.prototype.Len = function() {
 		var $ptr, arr;
 		arr = this;
-		return arr.$length;
+		return arr.nodes.$length;
 	};
-	$ptrType(byMinY).prototype.Len = function() { return this.$get().Len(); };
+	byDim.prototype.Len = function() { return this.$val.Len(); };
 	New = function(maxEntries) {
 		var $ptr, maxEntries, this$1;
-		this$1 = new RBush.ptr(0, 0, ptrType.nil);
+		this$1 = new RBush.ptr(0, 0, ptrType.nil, sliceType.nil);
 		if (maxEntries <= 0) {
 			maxEntries = 9;
 		}
-		this$1.MaxEntries = (math.Max(4, maxEntries) >> 0);
-		this$1.MinEntries = (math.Max(2, math.Ceil(this$1.MaxEntries * 0.4)) >> 0);
+		this$1.MaxEntries = (maxFlt(4, maxEntries) >> 0);
+		this$1.MinEntries = (maxFlt(2, math.Ceil(this$1.MaxEntries * 0.4)) >> 0);
 		this$1.clear();
 		return this$1;
 	};
 	$pkg.New = New;
+	RBush.ptr.prototype.Search = function(bbox) {
+		var $ptr, bbox, this$1;
+		this$1 = this;
+		return this$1.search(bbox);
+	};
+	RBush.prototype.Search = function(bbox) { return this.$val.Search(bbox); };
+	RBush.ptr.prototype.SearchAll = function(bbox, iter) {
+		var $ptr, bbox, iter, node, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; bbox = $f.bbox; iter = $f.iter; node = $f.node; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		node = this$1.Data;
+		if (!intersects(bbox, node)) {
+			$s = -1; return;
+		}
+		$r = this$1.searchAll(node, bbox, iter); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$s = -1; return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.SearchAll }; } $f.$ptr = $ptr; $f.bbox = bbox; $f.iter = iter; $f.node = node; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype.SearchAll = function(bbox, iter) { return this.$val.SearchAll(bbox, iter); };
+	RBush.ptr.prototype.searchAll = function(node, bbox, iter) {
+		var $ptr, _i, _ref, bbox, child, iter, node, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _ref = $f._ref; bbox = $f.bbox; child = $f.child; iter = $f.iter; node = $f.node; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		_ref = node.Children;
+		_i = 0;
+		/* while (true) { */ case 1:
+			/* if (!(_i < _ref.$length)) { break; } */ if(!(_i < _ref.$length)) { $s = 2; continue; }
+			child = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
+			/* */ if (intersects(bbox, child)) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if (intersects(bbox, child)) { */ case 3:
+				/* */ if (node.Leaf) { $s = 5; continue; }
+				/* */ $s = 6; continue;
+				/* if (node.Leaf) { */ case 5:
+					$r = iter(child); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+					$s = 7; continue;
+				/* } else { */ case 6:
+					$r = this$1.searchAll(child, bbox, iter); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+				/* } */ case 7:
+			/* } */ case 4:
+			_i++;
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.searchAll }; } $f.$ptr = $ptr; $f._i = _i; $f._ref = _ref; $f.bbox = bbox; $f.child = child; $f.iter = iter; $f.node = node; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype.searchAll = function(node, bbox, iter) { return this.$val.searchAll(node, bbox, iter); };
+	RBush.ptr.prototype.search = function(bbox) {
+		var $ptr, _i, _ref, bbox, child, node, nodesToSearch, result, this$1, x;
+		this$1 = this;
+		node = this$1.Data;
+		result = sliceType.nil;
+		if (!intersects(bbox, node)) {
+			return result;
+		}
+		nodesToSearch = sliceType.nil;
+		while (true) {
+			if (!(!(node === ptrType.nil))) { break; }
+			_ref = node.Children;
+			_i = 0;
+			while (true) {
+				if (!(_i < _ref.$length)) { break; }
+				child = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
+				if (intersects(bbox, child)) {
+					if (node.Leaf) {
+						result = $append(result, child);
+					} else if (contains(bbox, child)) {
+						result = this$1._all(child, result);
+					} else {
+						nodesToSearch = $append(nodesToSearch, child);
+					}
+				}
+				_i++;
+			}
+			if (nodesToSearch.$length === 0) {
+				node = ptrType.nil;
+			} else {
+				node = (x = nodesToSearch.$length - 1 >> 0, ((x < 0 || x >= nodesToSearch.$length) ? ($throwRuntimeError("index out of range"), undefined) : nodesToSearch.$array[nodesToSearch.$offset + x]));
+				nodesToSearch = $subslice(nodesToSearch, 0, (nodesToSearch.$length - 1 >> 0));
+			}
+		}
+		return result;
+	};
+	RBush.prototype.search = function(bbox) { return this.$val.search(bbox); };
 	RBush.ptr.prototype.Load = function(data) {
 		var $ptr, _r, data, this$1, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; data = $f.data; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -14165,7 +13965,6 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		_r = this$1.load(data); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		_r;
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.Load }; } $f.$ptr = $ptr; $f._r = _r; $f.data = data; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype.Load = function(data) { return this.$val.Load(data); };
@@ -14175,7 +13974,6 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		this$1 = this;
 		if (data.$length === 0) {
 			$s = -1; return this$1;
-			return this$1;
 		}
 		data = ncopy(data);
 		/* */ if (data.$length < this$1.MinEntries) { $s = 1; continue; }
@@ -14187,12 +13985,11 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			len_ = _tmp$1;
 			/* while (true) { */ case 3:
 				/* if (!(i < len_)) { break; } */ if(!(i < len_)) { $s = 4; continue; }
-				_r = this$1.insert(((i < 0 || i >= data.$length) ? $throwRuntimeError("index out of range") : data.$array[data.$offset + i])); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				_r = this$1.insert(((i < 0 || i >= data.$length) ? ($throwRuntimeError("index out of range"), undefined) : data.$array[data.$offset + i])); /* */ $s = 5; case 5: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				_r;
 				i = i + (1) >> 0;
 			/* } */ $s = 3; continue; case 4:
 			$s = -1; return this$1;
-			return this$1;
 		/* } */ case 2:
 		_r$1 = this$1._build(data, 0, data.$length - 1 >> 0, 0); /* */ $s = 6; case 6: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		node = _r$1;
@@ -14215,10 +14012,18 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			$r = this$1._insert(node, (this$1.Data.Height - node.Height >> 0) - 1 >> 0, true); /* */ $s = 11; case 11: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* } */ case 10:
 		$s = -1; return this$1;
-		return this$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.load }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f.data = data; $f.i = i; $f.len_ = len_; $f.node = node; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype.load = function(data) { return this.$val.load(data); };
+	RBush.ptr.prototype.Insert = function(item) {
+		var $ptr, _r, item, this$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; item = $f.item; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		this$1 = this;
+		_r = this$1.insert(item); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return _r;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.Insert }; } $f.$ptr = $ptr; $f._r = _r; $f.item = item; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	RBush.prototype.Insert = function(item) { return this.$val.Insert(item); };
 	RBush.ptr.prototype.insert = function(item) {
 		var $ptr, item, this$1, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; item = $f.item; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -14229,20 +14034,114 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			$r = this$1._insert(item, this$1.Data.Height - 1 >> 0, false); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* } */ case 2:
 		$s = -1; return this$1;
-		return this$1;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype.insert }; } $f.$ptr = $ptr; $f.item = item; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype.insert = function(item) { return this.$val.insert(item); };
 	RBush.ptr.prototype.clear = function() {
 		var $ptr, this$1;
 		this$1 = this;
-		this$1.Data = createNode(sliceType$1.nil);
+		this$1.Data = createNode(sliceType.nil);
 		return this$1;
 	};
 	RBush.prototype.clear = function() { return this.$val.clear(); };
+	RBush.ptr.prototype.Remove = function(item) {
+		var $ptr, item, this$1;
+		this$1 = this;
+		return this$1.remove(item);
+	};
+	RBush.prototype.Remove = function(item) { return this.$val.Remove(item); };
+	RBush.ptr.prototype.remove = function(item) {
+		var $ptr, _i, _ref, bbox, goingUp, i, i$1, index, indexes, item, node, parent, path, this$1, x, x$1, x$2, x$3, x$4, x$5, x$6, x$7, $deferred;
+		/* */ var $err = null; try { $deferred = []; $deferred.index = $curGoroutine.deferStack.length; $curGoroutine.deferStack.push($deferred);
+		this$1 = this;
+		if (item === ptrType.nil) {
+			return this$1;
+		}
+		node = this$1.Data;
+		bbox = item;
+		indexes = sliceType$1.nil;
+		_ref = this$1.pathReuseBuf;
+		_i = 0;
+		while (true) {
+			if (!(_i < _ref.$length)) { break; }
+			i = _i;
+			(x = this$1.pathReuseBuf, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i] = ptrType.nil));
+			_i++;
+		}
+		path = $subslice(this$1.pathReuseBuf, 0, 0);
+		$deferred.push([(function() {
+			var $ptr;
+			this$1.pathReuseBuf = path;
+		}), []]);
+		i$1 = 0;
+		parent = ptrType.nil;
+		index = 0;
+		goingUp = false;
+		while (true) {
+			if (!(!(node === ptrType.nil) || !((path.$length === 0)))) { break; }
+			if (node === ptrType.nil) {
+				node = (x$1 = path.$length - 1 >> 0, ((x$1 < 0 || x$1 >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + x$1]));
+				path = $subslice(path, 0, (path.$length - 1 >> 0));
+				if (path.$length === 0) {
+					parent = ptrType.nil;
+				} else {
+					parent = (x$2 = path.$length - 1 >> 0, ((x$2 < 0 || x$2 >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + x$2]));
+				}
+				i$1 = (x$3 = indexes.$length - 1 >> 0, ((x$3 < 0 || x$3 >= indexes.$length) ? ($throwRuntimeError("index out of range"), undefined) : indexes.$array[indexes.$offset + x$3]));
+				indexes = $subslice(indexes, 0, (indexes.$length - 1 >> 0));
+				goingUp = true;
+			}
+			if (node.Leaf) {
+				index = findItem(item, node.Children);
+				if (!((index === -1))) {
+					$copySlice($subslice(node.Children, index), $subslice(node.Children, (index + 1 >> 0)));
+					(x$4 = node.Children, x$5 = node.Children.$length - 1 >> 0, ((x$5 < 0 || x$5 >= x$4.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$4.$array[x$4.$offset + x$5] = ptrType.nil));
+					node.Children = $subslice(node.Children, 0, (node.Children.$length - 1 >> 0));
+					path = $append(path, node);
+					this$1._condense(path);
+					return this$1;
+				}
+			}
+			if (!goingUp && !node.Leaf && contains(node, bbox)) {
+				path = $append(path, node);
+				indexes = $append(indexes, i$1);
+				i$1 = 0;
+				parent = node;
+				node = (x$6 = node.Children, (0 >= x$6.$length ? ($throwRuntimeError("index out of range"), undefined) : x$6.$array[x$6.$offset + 0]));
+			} else if (!(parent === ptrType.nil)) {
+				i$1 = i$1 + (1) >> 0;
+				if (i$1 === parent.Children.$length) {
+					node = ptrType.nil;
+				} else {
+					node = (x$7 = parent.Children, ((i$1 < 0 || i$1 >= x$7.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$7.$array[x$7.$offset + i$1]));
+				}
+				goingUp = false;
+			} else {
+				node = ptrType.nil;
+			}
+		}
+		return this$1;
+		/* */ } catch(err) { $err = err; return ptrType$1.nil; } finally { $callDeferred($deferred, $err); }
+	};
+	RBush.prototype.remove = function(item) { return this.$val.remove(item); };
+	RBush.ptr.prototype._all = function(node, result) {
+		var $ptr, i, node, result, this$1, x;
+		this$1 = this;
+		if (node.Leaf) {
+			return $appendSlice(result, node.Children);
+		}
+		i = node.Children.$length - 1 >> 0;
+		while (true) {
+			if (!(i >= 0)) { break; }
+			result = this$1._all((x = node.Children, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i])), result);
+			i = i - (1) >> 0;
+		}
+		return result;
+	};
+	RBush.prototype._all = function(node, result) { return this.$val._all(node, result); };
 	RBush.ptr.prototype._build = function(items, left, right, height) {
-		var $ptr, M, N, N1, N2, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, child, height, i, items, j, left, node, right, right2, right3, this$1, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; N = $f.N; N1 = $f.N1; N2 = $f.N2; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; child = $f.child; height = $f.height; i = $f.i; items = $f.items; j = $f.j; left = $f.left; node = $f.node; right = $f.right; right2 = $f.right2; right3 = $f.right3; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, M, N, N1, N2, _r, _tmp, _tmp$1, _tmp$2, _tmp$3, child, height, i, items, j, left, node, right, right2, right3, this$1, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; N = $f.N; N1 = $f.N1; N2 = $f.N2; _r = $f._r; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; _tmp$2 = $f._tmp$2; _tmp$3 = $f._tmp$3; child = $f.child; height = $f.height; i = $f.i; items = $f.items; j = $f.j; left = $f.left; node = $f.node; right = $f.right; right2 = $f.right2; right3 = $f.right3; this$1 = $f.this$1; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		this$1 = this;
 		N = (right - left >> 0) + 1 >> 0;
 		M = this$1.MaxEntries;
@@ -14251,13 +14150,12 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			node = createNode($subslice(items, left, (right + 1 >> 0)));
 			calcBBox(node);
 			$s = -1; return node;
-			return node;
 		}
 		if (height === 0) {
 			height = (math.Ceil(math.Log(N) / math.Log(M)) >> 0);
 			M = (math.Ceil(N / math.Pow(M, height - 1)) >> 0);
 		}
-		node = createNode(sliceType$1.nil);
+		node = createNode(sliceType.nil);
 		node.Leaf = false;
 		node.Height = height;
 		N2 = (math.Ceil(N / M) >> 0);
@@ -14270,16 +14168,16 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		j = _tmp$1;
 		right2 = _tmp$2;
 		right3 = _tmp$3;
-		$r = multiSelect($subslice(new byMinX(items.$array), items.$offset, items.$offset + items.$length), left, right, N1); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = multiSelect((x = new byDim.ptr(items, 1), new x.constructor.elem(x)), left, right, N1); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		i = left;
 		/* while (true) { */ case 2:
 			/* if (!(i <= right)) { break; } */ if(!(i <= right)) { $s = 3; continue; }
-			right2 = (math.Min(((i + N1 >> 0) - 1 >> 0), right) >> 0);
-			$r = multiSelect($subslice(new byMinY(items.$array), items.$offset, items.$offset + items.$length), i, right2, N2); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			right2 = (minFlt(((i + N1 >> 0) - 1 >> 0), right) >> 0);
+			$r = multiSelect((x$1 = new byDim.ptr(items, 2), new x$1.constructor.elem(x$1)), i, right2, N2); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 			j = i;
 			/* while (true) { */ case 5:
 				/* if (!(j <= right2)) { break; } */ if(!(j <= right2)) { $s = 6; continue; }
-				right3 = (math.Min(((j + N2 >> 0) - 1 >> 0), right2) >> 0);
+				right3 = (minFlt(((j + N2 >> 0) - 1 >> 0), right2) >> 0);
 				_r = this$1._build(items, j, right3, height - 1 >> 0); /* */ $s = 7; case 7: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				child = _r;
 				node.Children = $append(node.Children, child);
@@ -14289,8 +14187,7 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		/* } */ $s = 2; continue; case 3:
 		calcBBox(node);
 		$s = -1; return node;
-		return node;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._build }; } $f.$ptr = $ptr; $f.M = M; $f.N = N; $f.N1 = N1; $f.N2 = N2; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f.child = child; $f.height = height; $f.i = i; $f.items = items; $f.j = j; $f.left = left; $f.node = node; $f.right = right; $f.right2 = right2; $f.right3 = right3; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._build }; } $f.$ptr = $ptr; $f.M = M; $f.N = N; $f.N1 = N1; $f.N2 = N2; $f._r = _r; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f._tmp$2 = _tmp$2; $f._tmp$3 = _tmp$3; $f.child = child; $f.height = height; $f.i = i; $f.items = items; $f.j = j; $f.left = left; $f.node = node; $f.right = right; $f.right2 = right2; $f.right3 = right3; $f.this$1 = this$1; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype._build = function(items, left, right, height) { return this.$val._build(items, left, right, height); };
 	RBush.ptr.prototype._chooseSubtree = function(bbox, node, level, path) {
@@ -14310,13 +14207,13 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			if (node.Leaf || ((path.$length - 1 >> 0) === level)) {
 				break;
 			}
-			minEnlargement = math.Inf(1);
+			minEnlargement = infPos;
 			minArea = minEnlargement;
 			_ref = node.Children;
 			_i = 0;
 			while (true) {
 				if (!(_i < _ref.$length)) { break; }
-				child = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+				child = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 				area = bboxArea(child);
 				enlargement = enlargedArea(bbox, child) - area;
 				if (enlargement < minEnlargement) {
@@ -14336,7 +14233,7 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			if (!(targetNode === ptrType.nil)) {
 				node = targetNode;
 			} else if (node.Children.$length > 0) {
-				node = (x = node.Children, (0 >= x.$length ? $throwRuntimeError("index out of range") : x.$array[x.$offset + 0]));
+				node = (x = node.Children, (0 >= x.$length ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + 0]));
 			} else {
 				node = ptrType.nil;
 			}
@@ -14345,22 +14242,31 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	};
 	RBush.prototype._chooseSubtree = function(bbox, node, level, path) { return this.$val._chooseSubtree(bbox, node, level, path); };
 	RBush.ptr.prototype._insert = function(item, level, isNode) {
-		var $ptr, _r, _tuple, bbox, insertPath, isNode, item, level, node, this$1, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; bbox = $f.bbox; insertPath = $f.insertPath; isNode = $f.isNode; item = $f.item; level = $f.level; node = $f.node; this$1 = $f.this$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, _i, _r, _ref, _tuple, bbox, i, insertPath, isNode, item, level, node, this$1, x, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _r = $f._r; _ref = $f._ref; _tuple = $f._tuple; bbox = $f.bbox; i = $f.i; insertPath = $f.insertPath; isNode = $f.isNode; item = $f.item; level = $f.level; node = $f.node; this$1 = $f.this$1; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		this$1 = this;
 		bbox = item;
-		insertPath = sliceType$1.nil;
 		node = ptrType.nil;
-		_tuple = this$1._chooseSubtree(bbox, this$1.Data, level, insertPath);
+		insertPath = sliceType.nil;
+		_ref = this$1.pathReuseBuf;
+		_i = 0;
+		while (true) {
+			if (!(_i < _ref.$length)) { break; }
+			i = _i;
+			(x = this$1.pathReuseBuf, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i] = ptrType.nil));
+			_i++;
+		}
+		_tuple = this$1._chooseSubtree(bbox, this$1.Data, level, $subslice(this$1.pathReuseBuf, 0, 0));
 		node = _tuple[0];
-		insertPath = _tuple[1];
+		this$1.pathReuseBuf = _tuple[1];
+		insertPath = this$1.pathReuseBuf;
 		node.Children = $append(node.Children, item);
 		extend(node, bbox);
 		/* while (true) { */ case 1:
 			/* if (!(level >= 0)) { break; } */ if(!(level >= 0)) { $s = 2; continue; }
-			/* */ if (((level < 0 || level >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + level]).Children.$length > this$1.MaxEntries) { $s = 3; continue; }
+			/* */ if (((level < 0 || level >= insertPath.$length) ? ($throwRuntimeError("index out of range"), undefined) : insertPath.$array[insertPath.$offset + level]).Children.$length > this$1.MaxEntries) { $s = 3; continue; }
 			/* */ $s = 4; continue;
-			/* if (((level < 0 || level >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + level]).Children.$length > this$1.MaxEntries) { */ case 3:
+			/* if (((level < 0 || level >= insertPath.$length) ? ($throwRuntimeError("index out of range"), undefined) : insertPath.$array[insertPath.$offset + level]).Children.$length > this$1.MaxEntries) { */ case 3:
 				_r = this$1._split(insertPath, level); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 				insertPath = _r;
 				level = level - (1) >> 0;
@@ -14371,42 +14277,38 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		/* } */ $s = 1; continue; case 2:
 		this$1._adjustParentBBoxes(bbox, insertPath, level);
 		$s = -1; return;
-		return;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._insert }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.bbox = bbox; $f.insertPath = insertPath; $f.isNode = isNode; $f.item = item; $f.level = level; $f.node = node; $f.this$1 = this$1; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._insert }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._ref = _ref; $f._tuple = _tuple; $f.bbox = bbox; $f.i = i; $f.insertPath = insertPath; $f.isNode = isNode; $f.item = item; $f.level = level; $f.node = node; $f.this$1 = this$1; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype._insert = function(item, level, isNode) { return this.$val._insert(item, level, isNode); };
 	RBush.ptr.prototype._split = function(insertPath, level) {
-		var $ptr, M, _tuple, insertPath, level, m, newNode, node, spliced, splitIndex, this$1, x, x$1, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; _tuple = $f._tuple; insertPath = $f.insertPath; level = $f.level; m = $f.m; newNode = $f.newNode; node = $f.node; spliced = $f.spliced; splitIndex = $f.splitIndex; this$1 = $f.this$1; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		var $ptr, M, insertPath, level, m, newNode, node, spliced, splitIndex, this$1, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; M = $f.M; insertPath = $f.insertPath; level = $f.level; m = $f.m; newNode = $f.newNode; node = $f.node; spliced = $f.spliced; splitIndex = $f.splitIndex; this$1 = $f.this$1; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		this$1 = this;
-		node = ((level < 0 || level >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + level]);
+		node = ((level < 0 || level >= insertPath.$length) ? ($throwRuntimeError("index out of range"), undefined) : insertPath.$array[insertPath.$offset + level]);
 		M = node.Children.$length;
 		m = this$1.MinEntries;
 		$r = this$1._chooseSplitAxis(node, m, M); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		splitIndex = this$1._chooseSplitIndex(node, m, M);
-		spliced = sliceType$1.nil;
-		_tuple = splice(node.Children, splitIndex, node.Children.$length - splitIndex >> 0, new sliceType$1([]));
-		node.Children = _tuple[0];
-		spliced = _tuple[1];
+		spliced = $subslice(node.Children, splitIndex);
+		node.Children = $subslice(node.Children, 0, splitIndex, splitIndex);
 		newNode = createNode(spliced);
 		newNode.Height = node.Height;
 		newNode.Leaf = node.Leaf;
 		calcBBox(node);
 		calcBBox(newNode);
 		if (!((level === 0))) {
-			(x$1 = level - 1 >> 0, ((x$1 < 0 || x$1 >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + x$1])).Children = $append((x = level - 1 >> 0, ((x < 0 || x >= insertPath.$length) ? $throwRuntimeError("index out of range") : insertPath.$array[insertPath.$offset + x])).Children, newNode);
+			(x$1 = level - 1 >> 0, ((x$1 < 0 || x$1 >= insertPath.$length) ? ($throwRuntimeError("index out of range"), undefined) : insertPath.$array[insertPath.$offset + x$1])).Children = $append((x = level - 1 >> 0, ((x < 0 || x >= insertPath.$length) ? ($throwRuntimeError("index out of range"), undefined) : insertPath.$array[insertPath.$offset + x])).Children, newNode);
 		} else {
 			this$1._splitRoot(node, newNode);
 		}
 		$s = -1; return insertPath;
-		return insertPath;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._split }; } $f.$ptr = $ptr; $f.M = M; $f._tuple = _tuple; $f.insertPath = insertPath; $f.level = level; $f.m = m; $f.newNode = newNode; $f.node = node; $f.spliced = spliced; $f.splitIndex = splitIndex; $f.this$1 = this$1; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._split }; } $f.$ptr = $ptr; $f.M = M; $f.insertPath = insertPath; $f.level = level; $f.m = m; $f.newNode = newNode; $f.node = node; $f.spliced = spliced; $f.splitIndex = splitIndex; $f.this$1 = this$1; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype._split = function(insertPath, level) { return this.$val._split(insertPath, level); };
 	RBush.ptr.prototype._splitRoot = function(node, newNode) {
 		var $ptr, newNode, node, this$1;
 		this$1 = this;
-		this$1.Data = createNode(new sliceType$1([node, newNode]));
+		this$1.Data = createNode(new sliceType([node, newNode]));
 		this$1.Data.Height = node.Height + 1 >> 0;
 		this$1.Data.Leaf = false;
 		calcBBox(this$1.Data);
@@ -14429,7 +14331,7 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		minOverlap = _tmp$4;
 		minArea = _tmp$5;
 		index = 0;
-		minArea = math.Inf(1);
+		minArea = infPos;
 		minOverlap = minArea;
 		i = m;
 		while (true) {
@@ -14469,7 +14371,6 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			$r = sortNodes(node.Children, 1); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		/* } */ case 4:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._chooseSplitAxis }; } $f.$ptr = $ptr; $f.M = M; $f._r = _r; $f._r$1 = _r$1; $f.m = m; $f.node = node; $f.this$1 = this$1; $f.xMargin = xMargin; $f.yMargin = yMargin; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype._chooseSplitAxis = function(node, m, M) { return this.$val._chooseSplitAxis(node, m, M); };
@@ -14486,7 +14387,7 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		i = m;
 		while (true) {
 			if (!(i < (M - m >> 0))) { break; }
-			child = (x = node.Children, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+			child = (x = node.Children, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 			extend(leftBBox, child);
 			margin = margin + (bboxMargin(leftBBox));
 			i = i + (1) >> 0;
@@ -14494,13 +14395,12 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		i = (M - m >> 0) - 1 >> 0;
 		while (true) {
 			if (!(i >= m)) { break; }
-			child = (x$1 = node.Children, ((i < 0 || i >= x$1.$length) ? $throwRuntimeError("index out of range") : x$1.$array[x$1.$offset + i]));
+			child = (x$1 = node.Children, ((i < 0 || i >= x$1.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + i]));
 			extend(rightBBox, child);
 			margin = margin + (bboxMargin(rightBBox));
 			i = i - (1) >> 0;
 		}
 		$s = -1; return margin;
-		return margin;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: RBush.ptr.prototype._allDistMargin }; } $f.$ptr = $ptr; $f.M = M; $f.child = child; $f.dim = dim; $f.i = i; $f.leftBBox = leftBBox; $f.m = m; $f.margin = margin; $f.node = node; $f.rightBBox = rightBBox; $f.this$1 = this$1; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	RBush.prototype._allDistMargin = function(node, m, M, dim) { return this.$val._allDistMargin(node, m, M, dim); };
@@ -14510,11 +14410,57 @@ $packages["github.com/tidwall/rbush"] = (function() {
 		i = level;
 		while (true) {
 			if (!(i >= 0)) { break; }
-			extend(((i < 0 || i >= path.$length) ? $throwRuntimeError("index out of range") : path.$array[path.$offset + i]), bbox);
+			extend(((i < 0 || i >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + i]), bbox);
 			i = i - (1) >> 0;
 		}
 	};
 	RBush.prototype._adjustParentBBoxes = function(bbox, path, level) { return this.$val._adjustParentBBoxes(bbox, path, level); };
+	RBush.ptr.prototype._condense = function(path) {
+		var $ptr, i, index, j, path, siblings, this$1, x, x$1, x$2;
+		this$1 = this;
+		siblings = sliceType.nil;
+		i = path.$length - 1 >> 0;
+		while (true) {
+			if (!(i >= 0)) { break; }
+			if (((i < 0 || i >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + i]).Children.$length === 0) {
+				if (i > 0) {
+					siblings = (x = i - 1 >> 0, ((x < 0 || x >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + x])).Children;
+					index = -1;
+					j = 0;
+					while (true) {
+						if (!(j < siblings.$length)) { break; }
+						if (((j < 0 || j >= siblings.$length) ? ($throwRuntimeError("index out of range"), undefined) : siblings.$array[siblings.$offset + j]) === ((i < 0 || i >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + i])) {
+							index = j;
+							break;
+						}
+						j = j + (1) >> 0;
+					}
+					$copySlice($subslice(siblings, index), $subslice(siblings, (index + 1 >> 0)));
+					(x$1 = siblings.$length - 1 >> 0, ((x$1 < 0 || x$1 >= siblings.$length) ? ($throwRuntimeError("index out of range"), undefined) : siblings.$array[siblings.$offset + x$1] = ptrType.nil));
+					siblings = $subslice(siblings, 0, (siblings.$length - 1 >> 0));
+					(x$2 = i - 1 >> 0, ((x$2 < 0 || x$2 >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + x$2])).Children = siblings;
+				} else {
+					this$1.clear();
+				}
+			} else {
+				calcBBox(((i < 0 || i >= path.$length) ? ($throwRuntimeError("index out of range"), undefined) : path.$array[path.$offset + i]));
+			}
+			i = i - (1) >> 0;
+		}
+	};
+	RBush.prototype._condense = function(path) { return this.$val._condense(path); };
+	findItem = function(item, items) {
+		var $ptr, i, item, items;
+		i = 0;
+		while (true) {
+			if (!(i < items.$length)) { break; }
+			if (((i < 0 || i >= items.$length) ? ($throwRuntimeError("index out of range"), undefined) : items.$array[items.$offset + i]) === item) {
+				return i;
+			}
+			i = i + (1) >> 0;
+		}
+		return -1;
+	};
 	calcBBox = function(node) {
 		var $ptr, node;
 		distBBox(node, 0, node.Children.$length, node);
@@ -14522,17 +14468,19 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	distBBox = function(node, k, p, destNode) {
 		var $ptr, child, destNode, i, k, node, p, x;
 		if (destNode === ptrType.nil) {
-			destNode = createNode(sliceType$1.nil);
+			destNode = createNode(sliceType.nil);
 		}
-		destNode.MinX = math.Inf(1);
-		destNode.MinY = math.Inf(1);
-		destNode.MaxX = math.Inf(-1);
-		destNode.MaxY = math.Inf(-1);
+		destNode.MinX = infPos;
+		destNode.MinY = infPos;
+		destNode.MinZ = infPos;
+		destNode.MaxX = infNeg;
+		destNode.MaxY = infNeg;
+		destNode.MaxZ = infNeg;
 		child = ptrType.nil;
 		i = k;
 		while (true) {
 			if (!(i < p)) { break; }
-			child = (x = node.Children, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i]));
+			child = (x = node.Children, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i]));
 			extend(destNode, child);
 			i = i + (1) >> 0;
 		}
@@ -14540,46 +14488,72 @@ $packages["github.com/tidwall/rbush"] = (function() {
 	};
 	extend = function(a, b) {
 		var $ptr, a, b;
-		a.MinX = math.Min(a.MinX, b.MinX);
-		a.MinY = math.Min(a.MinY, b.MinY);
-		a.MaxX = math.Max(a.MaxX, b.MaxX);
-		a.MaxY = math.Max(a.MaxY, b.MaxY);
+		a.MinX = minFlt(a.MinX, b.MinX);
+		a.MinY = minFlt(a.MinY, b.MinY);
+		a.MinZ = minFlt(a.MinZ, b.MinZ);
+		a.MaxX = maxFlt(a.MaxX, b.MaxX);
+		a.MaxY = maxFlt(a.MaxY, b.MaxY);
+		a.MaxZ = maxFlt(a.MaxZ, b.MaxZ);
 		return a;
 	};
 	bboxArea = function(a) {
 		var $ptr, a;
-		return (a.MaxX - a.MinX) * (a.MaxY - a.MinY);
+		return (a.MaxX - a.MinX) * (a.MaxY - a.MinY) * (a.MaxZ - a.MinZ);
 	};
 	bboxMargin = function(a) {
 		var $ptr, a;
-		return (a.MaxX - a.MinX) + (a.MaxY - a.MinY);
+		return (a.MaxX - a.MinX) + (a.MaxY - a.MinY) + (a.MaxZ - a.MinZ);
 	};
 	enlargedArea = function(a, b) {
 		var $ptr, a, b;
-		return (math.Max(b.MaxX, a.MaxX) - math.Min(b.MinX, a.MinX)) * (math.Max(b.MaxY, a.MaxY) - math.Min(b.MinY, a.MinY));
+		return (maxFlt(b.MaxX, a.MaxX) - minFlt(b.MinX, a.MinX)) * (maxFlt(b.MaxY, a.MaxY) - minFlt(b.MinY, a.MinY)) * (maxFlt(b.MaxZ, a.MaxZ) - minFlt(b.MinZ, a.MinZ));
+	};
+	maxFlt = function(a, b) {
+		var $ptr, a, b;
+		if (a > b) {
+			return a;
+		}
+		return b;
+	};
+	minFlt = function(a, b) {
+		var $ptr, a, b;
+		if (a < b) {
+			return a;
+		}
+		return b;
 	};
 	intersectionArea = function(a, b) {
-		var $ptr, a, b, maxX, maxY, minX, minY;
-		minX = math.Max(a.MinX, b.MinX);
-		minY = math.Max(a.MinY, b.MinY);
-		maxX = math.Min(a.MaxX, b.MaxX);
-		maxY = math.Min(a.MaxY, b.MaxY);
-		return math.Max(0, maxX - minX) * math.Max(0, maxY - minY);
+		var $ptr, a, b, maxX, maxY, maxZ, minX, minY, minZ;
+		minX = maxFlt(a.MinX, b.MinX);
+		minY = maxFlt(a.MinY, b.MinY);
+		minZ = maxFlt(a.MinZ, b.MinZ);
+		maxX = minFlt(a.MaxX, b.MaxX);
+		maxY = minFlt(a.MaxY, b.MaxY);
+		maxZ = minFlt(a.MaxZ, b.MaxZ);
+		return maxFlt(0, maxX - minX) * maxFlt(0, maxY - minY) * maxFlt(0, maxZ - minZ);
+	};
+	contains = function(a, b) {
+		var $ptr, a, b;
+		return a.MinX <= b.MinX && a.MinY <= b.MinY && a.MinZ <= b.MinZ && b.MaxX <= a.MaxX && b.MaxY <= a.MaxY && b.MaxZ <= a.MaxZ;
+	};
+	intersects = function(a, b) {
+		var $ptr, a, b;
+		return b.MinX <= a.MaxX && b.MinY <= a.MaxY && b.MinZ <= a.MaxZ && b.MaxX >= a.MinX && b.MaxY >= a.MinY && b.MaxZ >= a.MinZ;
 	};
 	createNode = function(children) {
 		var $ptr, children;
-		return new Node.ptr(math.Inf(1), math.Inf(1), math.Inf(-1), math.Inf(-1), children, 1, true, $ifaceNil);
+		return new Node.ptr(infPos, infPos, infPos, infNeg, infNeg, infNeg, children, 1, true, $ifaceNil);
 	};
 	multiSelect = function(arr, left, right, n) {
 		var $ptr, arr, left, mid, n, right, stack, x, x$1, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; arr = $f.arr; left = $f.left; mid = $f.mid; n = $f.n; right = $f.right; stack = $f.stack; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		stack = new sliceType$2([left, right]);
+		stack = new sliceType$1([left, right]);
 		mid = 0;
 		/* while (true) { */ case 1:
 			/* if (!(stack.$length > 0)) { break; } */ if(!(stack.$length > 0)) { $s = 2; continue; }
-			right = (x = stack.$length - 1 >> 0, ((x < 0 || x >= stack.$length) ? $throwRuntimeError("index out of range") : stack.$array[stack.$offset + x]));
+			right = (x = stack.$length - 1 >> 0, ((x < 0 || x >= stack.$length) ? ($throwRuntimeError("index out of range"), undefined) : stack.$array[stack.$offset + x]));
 			stack = $subslice(stack, 0, (stack.$length - 1 >> 0));
-			left = (x$1 = stack.$length - 1 >> 0, ((x$1 < 0 || x$1 >= stack.$length) ? $throwRuntimeError("index out of range") : stack.$array[stack.$offset + x$1]));
+			left = (x$1 = stack.$length - 1 >> 0, ((x$1 < 0 || x$1 >= stack.$length) ? ($throwRuntimeError("index out of range"), undefined) : stack.$array[stack.$offset + x$1]));
 			stack = $subslice(stack, 0, (stack.$length - 1 >> 0));
 			/* */ if ((right - left >> 0) <= n) { $s = 3; continue; }
 			/* */ $s = 4; continue;
@@ -14591,27 +14565,23 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			stack = $append(stack, left, mid, mid, right);
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: multiSelect }; } $f.$ptr = $ptr; $f.arr = arr; $f.left = left; $f.mid = mid; $f.n = n; $f.right = right; $f.stack = stack; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	splice = function(nodes, start, deleteCount, args) {
-		var $ptr, args, deleteCount, deleted, nodes, result, start;
-		result = sliceType$1.nil;
-		deleted = sliceType$1.nil;
-		if (start > nodes.$length) {
-			start = nodes.$length;
-		}
-		if ((start + deleteCount >> 0) > nodes.$length) {
-			deleteCount = nodes.$length - start >> 0;
-		}
-		deleted = $subslice(nodes, start, (start + deleteCount >> 0));
-		result = $appendSlice(ncopy($subslice(nodes, 0, start)), args);
-		result = $appendSlice(result, $subslice(nodes, (start + deleteCount >> 0)));
-		return [result, deleted];
 	};
 	ncopy = function(nodes) {
 		var $ptr, nodes;
-		return $appendSlice(sliceType$1.nil, nodes);
+		return $appendSlice(sliceType.nil, nodes);
+	};
+	sortNodes = function(nodes, dim) {
+		var $ptr, dim, i, nodes, x, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; dim = $f.dim; i = $f.i; nodes = $f.nodes; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		i = dim;
+		/* while (true) { */ case 1:
+			/* if (!(i <= 3)) { break; } */ if(!(i <= 3)) { $s = 2; continue; }
+			$r = sort.Sort((x = new byDim.ptr(nodes, dim), new x.constructor.elem(x))); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			i = i + (1) >> 0;
+		/* } */ $s = 1; continue; case 2:
+		$s = -1; return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: sortNodes }; } $f.$ptr = $ptr; $f.dim = dim; $f.i = i; $f.nodes = nodes; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	quickselect = function(arr, k, left, right) {
 		var $ptr, _q, _r, _r$1, _r$2, _r$3, _r$4, _r$5, _r$6, _r$7, _r$8, arr, i, j, k, left, m, n, newLeft, newRight, right, s, sd, t, tt, z, $s, $r;
@@ -14630,8 +14600,8 @@ $packages["github.com/tidwall/rbush"] = (function() {
 					tt = -1;
 				}
 				sd = 0.5 * math.Sqrt(z * s * (n - s) / n) * tt;
-				newLeft = (math.Max(left, math.Floor(k - m * s / n + sd)) >> 0);
-				newRight = (math.Min(right, math.Floor(k + (n - m >> 0) * s / n + sd)) >> 0);
+				newLeft = (maxFlt(left, math.Floor(k - m * s / n + sd)) >> 0);
+				newRight = (minFlt(right, math.Floor(k + (n - m >> 0) * s / n + sd)) >> 0);
 				$r = quickselect(arr, k, newLeft, newRight); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 			/* } */ case 4:
 			_r = arr.At(k); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
@@ -14683,67 +14653,45 @@ $packages["github.com/tidwall/rbush"] = (function() {
 			}
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: quickselect }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f._r$6 = _r$6; $f._r$7 = _r$7; $f._r$8 = _r$8; $f.arr = arr; $f.i = i; $f.j = j; $f.k = k; $f.left = left; $f.m = m; $f.n = n; $f.newLeft = newLeft; $f.newRight = newRight; $f.right = right; $f.s = s; $f.sd = sd; $f.t = t; $f.tt = tt; $f.z = z; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	sortNodes = function(nodes, dim) {
-		var $ptr, _1, dim, nodes, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _1 = $f._1; dim = $f.dim; nodes = $f.nodes; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-			_1 = dim;
-			/* */ if (_1 === (1)) { $s = 2; continue; }
-			/* */ if (_1 === (2)) { $s = 3; continue; }
-			/* */ $s = 4; continue;
-			/* if (_1 === (1)) { */ case 2:
-				$r = sort.Sort($subslice(new byMinX(nodes.$array), nodes.$offset, nodes.$offset + nodes.$length)); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-				$s = 5; continue;
-			/* } else if (_1 === (2)) { */ case 3:
-				$r = sort.Sort($subslice(new byMinY(nodes.$array), nodes.$offset, nodes.$offset + nodes.$length)); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-				$s = 5; continue;
-			/* } else { */ case 4:
-				$panic(new $String("invalid dimension"));
-			/* } */ case 5:
-		case 1:
-		$s = -1; return;
-		return;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: sortNodes }; } $f.$ptr = $ptr; $f._1 = _1; $f.dim = dim; $f.nodes = nodes; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	ptrType$1.methods = [{prop: "all", name: "all", pkg: "github.com/tidwall/rbush", typ: $funcType([], [sliceType$1], false)}, {prop: "search", name: "search", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [sliceType$1], false)}, {prop: "collides", name: "collides", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [$Bool], false)}, {prop: "Load", name: "Load", pkg: "", typ: $funcType([sliceType$1], [], false)}, {prop: "load", name: "load", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [ptrType$1], false)}, {prop: "insert", name: "insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "clear", name: "clear", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType$1], false)}, {prop: "remove", name: "remove", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "toJSON", name: "toJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType], false)}, {prop: "fromJSON", name: "fromJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "_all", name: "_all", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1], [sliceType$1], false)}, {prop: "_build", name: "_build", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int, $Int, $Int], [ptrType], false)}, {prop: "_chooseSubtree", name: "_chooseSubtree", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType, $Int, sliceType$1], [ptrType, sliceType$1], false)}, {prop: "_insert", name: "_insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Bool], [], false)}, {prop: "_split", name: "_split", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1, $Int], [sliceType$1], false)}, {prop: "_splitRoot", name: "_splitRoot", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType], [], false)}, {prop: "_chooseSplitIndex", name: "_chooseSplitIndex", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [$Int], false)}, {prop: "_chooseSplitAxis", name: "_chooseSplitAxis", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [], false)}, {prop: "_allDistMargin", name: "_allDistMargin", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int, $Int], [$Float64], false)}, {prop: "_adjustParentBBoxes", name: "_adjustParentBBoxes", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType$1, $Int], [], false)}, {prop: "_condense", name: "_condense", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType$1], [], false)}, {prop: "jsonString", name: "jsonString", pkg: "github.com/tidwall/rbush", typ: $funcType([], [$String], false)}];
-	byMinX.methods = [{prop: "At", name: "At", pkg: "", typ: $funcType([$Int], [$emptyInterface], false)}, {prop: "Compare", name: "Compare", pkg: "", typ: $funcType([$emptyInterface, $emptyInterface], [$Int], false)}, {prop: "Less", name: "Less", pkg: "", typ: $funcType([$Int, $Int], [$Bool], false)}, {prop: "Swap", name: "Swap", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "Len", name: "Len", pkg: "", typ: $funcType([], [$Int], false)}];
-	byMinY.methods = [{prop: "At", name: "At", pkg: "", typ: $funcType([$Int], [$emptyInterface], false)}, {prop: "Compare", name: "Compare", pkg: "", typ: $funcType([$emptyInterface, $emptyInterface], [$Int], false)}, {prop: "Less", name: "Less", pkg: "", typ: $funcType([$Int, $Int], [$Bool], false)}, {prop: "Swap", name: "Swap", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "Len", name: "Len", pkg: "", typ: $funcType([], [$Int], false)}];
-	Node.init("", [{prop: "MinX", name: "MinX", exported: true, typ: $Float64, tag: ""}, {prop: "MinY", name: "MinY", exported: true, typ: $Float64, tag: ""}, {prop: "MaxX", name: "MaxX", exported: true, typ: $Float64, tag: ""}, {prop: "MaxY", name: "MaxY", exported: true, typ: $Float64, tag: ""}, {prop: "Children", name: "Children", exported: true, typ: sliceType$1, tag: ""}, {prop: "Height", name: "Height", exported: true, typ: $Int, tag: ""}, {prop: "Leaf", name: "Leaf", exported: true, typ: $Bool, tag: ""}, {prop: "Item", name: "Item", exported: true, typ: $emptyInterface, tag: ""}]);
-	RBush.init("", [{prop: "MaxEntries", name: "MaxEntries", exported: true, typ: $Int, tag: ""}, {prop: "MinEntries", name: "MinEntries", exported: true, typ: $Int, tag: ""}, {prop: "Data", name: "Data", exported: true, typ: ptrType, tag: ""}]);
-	byMinX.init(ptrType);
-	byMinY.init(ptrType);
+	ptrType$1.methods = [{prop: "all", name: "all", pkg: "github.com/tidwall/rbush", typ: $funcType([], [sliceType], false)}, {prop: "Search", name: "Search", pkg: "", typ: $funcType([ptrType], [sliceType], false)}, {prop: "SearchAll", name: "SearchAll", pkg: "", typ: $funcType([ptrType, funcType], [], false)}, {prop: "searchAll", name: "searchAll", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType, funcType], [], false)}, {prop: "search", name: "search", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [sliceType], false)}, {prop: "collides", name: "collides", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [$Bool], false)}, {prop: "Load", name: "Load", pkg: "", typ: $funcType([sliceType], [], false)}, {prop: "load", name: "load", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType], [ptrType$1], false)}, {prop: "Insert", name: "Insert", pkg: "", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "insert", name: "insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "clear", name: "clear", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType$1], false)}, {prop: "Remove", name: "Remove", pkg: "", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "remove", name: "remove", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "toJSON", name: "toJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([], [ptrType], false)}, {prop: "fromJSON", name: "fromJSON", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType], [ptrType$1], false)}, {prop: "_all", name: "_all", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType], [sliceType], false)}, {prop: "_build", name: "_build", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType, $Int, $Int, $Int], [ptrType], false)}, {prop: "_chooseSubtree", name: "_chooseSubtree", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType, $Int, sliceType], [ptrType, sliceType], false)}, {prop: "_insert", name: "_insert", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Bool], [], false)}, {prop: "_split", name: "_split", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType, $Int], [sliceType], false)}, {prop: "_splitRoot", name: "_splitRoot", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, ptrType], [], false)}, {prop: "_chooseSplitIndex", name: "_chooseSplitIndex", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [$Int], false)}, {prop: "_chooseSplitAxis", name: "_chooseSplitAxis", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int], [], false)}, {prop: "_allDistMargin", name: "_allDistMargin", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, $Int, $Int, $Int], [$Float64], false)}, {prop: "_adjustParentBBoxes", name: "_adjustParentBBoxes", pkg: "github.com/tidwall/rbush", typ: $funcType([ptrType, sliceType, $Int], [], false)}, {prop: "_condense", name: "_condense", pkg: "github.com/tidwall/rbush", typ: $funcType([sliceType], [], false)}, {prop: "jsonString", name: "jsonString", pkg: "github.com/tidwall/rbush", typ: $funcType([], [$String], false)}];
+	byDim.methods = [{prop: "At", name: "At", pkg: "", typ: $funcType([$Int], [$emptyInterface], false)}, {prop: "Compare", name: "Compare", pkg: "", typ: $funcType([$emptyInterface, $emptyInterface], [$Int], false)}, {prop: "Less", name: "Less", pkg: "", typ: $funcType([$Int, $Int], [$Bool], false)}, {prop: "Swap", name: "Swap", pkg: "", typ: $funcType([$Int, $Int], [], false)}, {prop: "Len", name: "Len", pkg: "", typ: $funcType([], [$Int], false)}];
+	Node.init("", [{prop: "MinX", name: "MinX", exported: true, typ: $Float64, tag: ""}, {prop: "MinY", name: "MinY", exported: true, typ: $Float64, tag: ""}, {prop: "MinZ", name: "MinZ", exported: true, typ: $Float64, tag: ""}, {prop: "MaxX", name: "MaxX", exported: true, typ: $Float64, tag: ""}, {prop: "MaxY", name: "MaxY", exported: true, typ: $Float64, tag: ""}, {prop: "MaxZ", name: "MaxZ", exported: true, typ: $Float64, tag: ""}, {prop: "Children", name: "Children", exported: true, typ: sliceType, tag: ""}, {prop: "Height", name: "Height", exported: true, typ: $Int, tag: ""}, {prop: "Leaf", name: "Leaf", exported: true, typ: $Bool, tag: ""}, {prop: "Item", name: "Item", exported: true, typ: $emptyInterface, tag: ""}]);
+	RBush.init("github.com/tidwall/rbush", [{prop: "MaxEntries", name: "MaxEntries", exported: true, typ: $Int, tag: ""}, {prop: "MinEntries", name: "MinEntries", exported: true, typ: $Int, tag: ""}, {prop: "Data", name: "Data", exported: true, typ: ptrType, tag: ""}, {prop: "pathReuseBuf", name: "pathReuseBuf", exported: false, typ: sliceType, tag: ""}]);
+	byDim.init("github.com/tidwall/rbush", [{prop: "nodes", name: "nodes", exported: false, typ: sliceType, tag: ""}, {prop: "dim", name: "dim", exported: false, typ: $Int, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = md5.$init(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = fmt.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = ioutil.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = math.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = os.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = sort.$init(); /* */ $s = 6; case 6: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = strconv.$init(); /* */ $s = 7; case 7: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$r = strings.$init(); /* */ $s = 8; case 8: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = math.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = sort.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = strconv.$init(); /* */ $s = 5; case 5: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		infPos = math.Inf(1);
+		infNeg = math.Inf(-1);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
 	return $pkg;
 })();
 $packages["math/rand"] = (function() {
-	var $pkg = {}, $init, nosync, math, Source, Rand, lockedSource, rngSource, arrayType, ptrType, ptrType$1, sliceType, ptrType$2, ptrType$3, sliceType$1, ptrType$5, ke, we, fe, kn, wn, fn, globalRand, rng_cooked, absInt32, NewSource, New, read, Seed, Float64, seedrand;
+	var $pkg = {}, $init, nosync, math, Source, Source64, Rand, lockedSource, rngSource, arrayType, ptrType, ptrType$1, sliceType, ptrType$2, ptrType$3, sliceType$1, ptrType$5, ke, we, fe, kn, wn, fn, globalRand, rng_cooked, absInt32, NewSource, New, read, Seed, Float64, seedrand;
 	nosync = $packages["github.com/gopherjs/gopherjs/nosync"];
 	math = $packages["math"];
 	Source = $pkg.Source = $newType(8, $kindInterface, "rand.Source", true, "math/rand", true, null);
-	Rand = $pkg.Rand = $newType(0, $kindStruct, "rand.Rand", true, "math/rand", true, function(src_, readVal_, readPos_) {
+	Source64 = $pkg.Source64 = $newType(8, $kindInterface, "rand.Source64", true, "math/rand", true, null);
+	Rand = $pkg.Rand = $newType(0, $kindStruct, "rand.Rand", true, "math/rand", true, function(src_, s64_, readVal_, readPos_) {
 		this.$val = this;
 		if (arguments.length === 0) {
 			this.src = $ifaceNil;
+			this.s64 = $ifaceNil;
 			this.readVal = new $Int64(0, 0);
 			this.readPos = 0;
 			return;
 		}
 		this.src = src_;
+		this.s64 = s64_;
 		this.readVal = readVal_;
 		this.readPos = readPos_;
 	});
@@ -14785,10 +14733,9 @@ $packages["math/rand"] = (function() {
 			_r = r.Uint32(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			j = _r;
 			i = (j & 255) >>> 0;
-			x = j * ((i < 0 || i >= we.length) ? $throwRuntimeError("index out of range") : we[i]);
-			if (j < ((i < 0 || i >= ke.length) ? $throwRuntimeError("index out of range") : ke[i])) {
+			x = j * ((i < 0 || i >= we.length) ? ($throwRuntimeError("index out of range"), undefined) : we[i]);
+			if (j < ((i < 0 || i >= ke.length) ? ($throwRuntimeError("index out of range"), undefined) : ke[i])) {
 				$s = -1; return x;
-				return x;
 			}
 			/* */ if (i === 0) { $s = 4; continue; }
 			/* */ $s = 5; continue;
@@ -14796,18 +14743,15 @@ $packages["math/rand"] = (function() {
 				_r$1 = r.Float64(); /* */ $s = 6; case 6: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 				_r$2 = math.Log(_r$1); /* */ $s = 7; case 7: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
 				$s = -1; return 7.69711747013105 - _r$2;
-				return 7.69711747013105 - _r$2;
 			/* } */ case 5:
 			_r$3 = r.Float64(); /* */ $s = 10; case 10: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
-			/* */ if ($fround(((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]) + $fround($fround(_r$3) * ($fround((x$1 = i - 1 >>> 0, ((x$1 < 0 || x$1 >= fe.length) ? $throwRuntimeError("index out of range") : fe[x$1])) - ((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]))))) < $fround(math.Exp(-x))) { $s = 8; continue; }
+			/* */ if ($fround(((i < 0 || i >= fe.length) ? ($throwRuntimeError("index out of range"), undefined) : fe[i]) + $fround($fround(_r$3) * ($fround((x$1 = i - 1 >>> 0, ((x$1 < 0 || x$1 >= fe.length) ? ($throwRuntimeError("index out of range"), undefined) : fe[x$1])) - ((i < 0 || i >= fe.length) ? ($throwRuntimeError("index out of range"), undefined) : fe[i]))))) < $fround(math.Exp(-x))) { $s = 8; continue; }
 			/* */ $s = 9; continue;
-			/* if ($fround(((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]) + $fround($fround(_r$3) * ($fround((x$1 = i - 1 >>> 0, ((x$1 < 0 || x$1 >= fe.length) ? $throwRuntimeError("index out of range") : fe[x$1])) - ((i < 0 || i >= fe.length) ? $throwRuntimeError("index out of range") : fe[i]))))) < $fround(math.Exp(-x))) { */ case 8:
+			/* if ($fround(((i < 0 || i >= fe.length) ? ($throwRuntimeError("index out of range"), undefined) : fe[i]) + $fround($fround(_r$3) * ($fround((x$1 = i - 1 >>> 0, ((x$1 < 0 || x$1 >= fe.length) ? ($throwRuntimeError("index out of range"), undefined) : fe[x$1])) - ((i < 0 || i >= fe.length) ? ($throwRuntimeError("index out of range"), undefined) : fe[i]))))) < $fround(math.Exp(-x))) { */ case 8:
 				$s = -1; return x;
-				return x;
 			/* } */ case 9:
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return 0;
-		return 0;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.ExpFloat64 }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f.i = i; $f.j = j; $f.r = r; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.ExpFloat64 = function() { return this.$val.ExpFloat64(); };
@@ -14826,10 +14770,9 @@ $packages["math/rand"] = (function() {
 			_r = r.Uint32(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			j = (_r >> 0);
 			i = j & 127;
-			x = j * ((i < 0 || i >= wn.length) ? $throwRuntimeError("index out of range") : wn[i]);
-			if (absInt32(j) < ((i < 0 || i >= kn.length) ? $throwRuntimeError("index out of range") : kn[i])) {
+			x = j * ((i < 0 || i >= wn.length) ? ($throwRuntimeError("index out of range"), undefined) : wn[i]);
+			if (absInt32(j) < ((i < 0 || i >= kn.length) ? ($throwRuntimeError("index out of range"), undefined) : kn[i])) {
 				$s = -1; return x;
-				return x;
 			}
 			/* */ if (i === 0) { $s = 4; continue; }
 			/* */ $s = 5; continue;
@@ -14847,21 +14790,17 @@ $packages["math/rand"] = (function() {
 				/* } */ $s = 6; continue; case 7:
 				if (j > 0) {
 					$s = -1; return 3.442619855899 + x;
-					return 3.442619855899 + x;
 				}
 				$s = -1; return -3.442619855899 - x;
-				return -3.442619855899 - x;
 			/* } */ case 5:
 			_r$5 = r.Float64(); /* */ $s = 14; case 14: if($c) { $c = false; _r$5 = _r$5.$blk(); } if (_r$5 && _r$5.$blk !== undefined) { break s; }
-			/* */ if ($fround(((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]) + $fround($fround(_r$5) * ($fround((x$1 = i - 1 >> 0, ((x$1 < 0 || x$1 >= fn.length) ? $throwRuntimeError("index out of range") : fn[x$1])) - ((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]))))) < $fround(math.Exp(-0.5 * x * x))) { $s = 12; continue; }
+			/* */ if ($fround(((i < 0 || i >= fn.length) ? ($throwRuntimeError("index out of range"), undefined) : fn[i]) + $fround($fround(_r$5) * ($fround((x$1 = i - 1 >> 0, ((x$1 < 0 || x$1 >= fn.length) ? ($throwRuntimeError("index out of range"), undefined) : fn[x$1])) - ((i < 0 || i >= fn.length) ? ($throwRuntimeError("index out of range"), undefined) : fn[i]))))) < $fround(math.Exp(-0.5 * x * x))) { $s = 12; continue; }
 			/* */ $s = 13; continue;
-			/* if ($fround(((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]) + $fround($fround(_r$5) * ($fround((x$1 = i - 1 >> 0, ((x$1 < 0 || x$1 >= fn.length) ? $throwRuntimeError("index out of range") : fn[x$1])) - ((i < 0 || i >= fn.length) ? $throwRuntimeError("index out of range") : fn[i]))))) < $fround(math.Exp(-0.5 * x * x))) { */ case 12:
+			/* if ($fround(((i < 0 || i >= fn.length) ? ($throwRuntimeError("index out of range"), undefined) : fn[i]) + $fround($fround(_r$5) * ($fround((x$1 = i - 1 >> 0, ((x$1 < 0 || x$1 >= fn.length) ? ($throwRuntimeError("index out of range"), undefined) : fn[x$1])) - ((i < 0 || i >= fn.length) ? ($throwRuntimeError("index out of range"), undefined) : fn[i]))))) < $fround(math.Exp(-0.5 * x * x))) { */ case 12:
 				$s = -1; return x;
-				return x;
 			/* } */ case 13:
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return 0;
-		return 0;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.NormFloat64 }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f._r$5 = _r$5; $f.i = i; $f.j = j; $f.r = r; $f.x = x; $f.x$1 = x$1; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.NormFloat64 = function() { return this.$val.NormFloat64(); };
@@ -14873,8 +14812,10 @@ $packages["math/rand"] = (function() {
 	};
 	$pkg.NewSource = NewSource;
 	New = function(src) {
-		var $ptr, src;
-		return new Rand.ptr(src, new $Int64(0, 0), 0);
+		var $ptr, _tuple, s64, src;
+		_tuple = $assertType(src, Source64, true);
+		s64 = _tuple[0];
+		return new Rand.ptr(src, s64, new $Int64(0, 0), 0);
 	};
 	$pkg.New = New;
 	Rand.ptr.prototype.Seed = function(seed) {
@@ -14889,12 +14830,10 @@ $packages["math/rand"] = (function() {
 		/* if (ok) { */ case 1:
 			$r = lk.seedPos(seed, (r.$ptr_readPos || (r.$ptr_readPos = new ptrType$1(function() { return this.$target.readPos; }, function($v) { this.$target.readPos = $v; }, r)))); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 			$s = -1; return;
-			return;
 		/* } */ case 2:
 		$r = r.src.Seed(seed); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		r.readPos = 0;
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Seed }; } $f.$ptr = $ptr; $f._tuple = _tuple; $f.lk = lk; $f.ok = ok; $f.r = r; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Seed = function(seed) { return this.$val.Seed(seed); };
@@ -14904,7 +14843,6 @@ $packages["math/rand"] = (function() {
 		r = this;
 		_r = r.src.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int63 }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Int63 = function() { return this.$val.Int63(); };
@@ -14914,17 +14852,31 @@ $packages["math/rand"] = (function() {
 		r = this;
 		_r = r.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return ($shiftRightInt64(_r, 31).$low >>> 0);
-		return ($shiftRightInt64(_r, 31).$low >>> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Uint32 }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Uint32 = function() { return this.$val.Uint32(); };
+	Rand.ptr.prototype.Uint64 = function() {
+		var $ptr, _r, _r$1, _r$2, r, x, x$1, x$2, x$3, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; r = $f.r; x = $f.x; x$1 = $f.x$1; x$2 = $f.x$2; x$3 = $f.x$3; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		r = this;
+		/* */ if (!($interfaceIsEqual(r.s64, $ifaceNil))) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if (!($interfaceIsEqual(r.s64, $ifaceNil))) { */ case 1:
+			_r = r.s64.Uint64(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+			$s = -1; return _r;
+		/* } */ case 2:
+		_r$1 = r.Int63(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
+		_r$2 = r.Int63(); /* */ $s = 5; case 5: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
+		$s = -1; return (x = $shiftRightUint64((x$1 = _r$1, new $Uint64(x$1.$high, x$1.$low)), 31), x$2 = $shiftLeft64((x$3 = _r$2, new $Uint64(x$3.$high, x$3.$low)), 32), new $Uint64(x.$high | x$2.$high, (x.$low | x$2.$low) >>> 0));
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Uint64 }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.r = r; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Rand.prototype.Uint64 = function() { return this.$val.Uint64(); };
 	Rand.ptr.prototype.Int31 = function() {
 		var $ptr, _r, r, x, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; r = $f.r; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		r = this;
 		_r = r.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return ((x = $shiftRightInt64(_r, 32), x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
-		return ((x = $shiftRightInt64(_r, 32), x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int31 }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Int31 = function() { return this.$val.Int31(); };
@@ -14935,7 +14887,6 @@ $packages["math/rand"] = (function() {
 		_r = r.Int63(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		u = (_r.$low >>> 0);
 		$s = -1; return (((u << 1 >>> 0) >>> 1 >>> 0) >> 0);
-		return (((u << 1 >>> 0) >>> 1 >>> 0) >> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int }; } $f.$ptr = $ptr; $f._r = _r; $f.r = r; $f.u = u; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Int = function() { return this.$val.Int(); };
@@ -14951,7 +14902,6 @@ $packages["math/rand"] = (function() {
 		/* if ((x = (x$1 = new $Int64(n.$high - 0, n.$low - 1), new $Int64(n.$high & x$1.$high, (n.$low & x$1.$low) >>> 0)), (x.$high === 0 && x.$low === 0))) { */ case 1:
 			_r = r.Int63(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			$s = -1; return (x$2 = _r, x$3 = new $Int64(n.$high - 0, n.$low - 1), new $Int64(x$2.$high & x$3.$high, (x$2.$low & x$3.$low) >>> 0));
-			return (x$2 = _r, x$3 = new $Int64(n.$high - 0, n.$low - 1), new $Int64(x$2.$high & x$3.$high, (x$2.$low & x$3.$low) >>> 0));
 		/* } */ case 2:
 		max = (x$4 = (x$5 = $div64(new $Uint64(2147483648, 0), new $Uint64(n.$high, n.$low), true), new $Uint64(2147483647 - x$5.$high, 4294967295 - x$5.$low)), new $Int64(x$4.$high, x$4.$low));
 		_r$1 = r.Int63(); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
@@ -14962,7 +14912,6 @@ $packages["math/rand"] = (function() {
 			v = _r$2;
 		/* } */ $s = 5; continue; case 6:
 		$s = -1; return $div64(v, n, true);
-		return $div64(v, n, true);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int63n }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f.max = max; $f.n = n; $f.r = r; $f.v = v; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.x$4 = x$4; $f.x$5 = x$5; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Int63n = function(n) { return this.$val.Int63n(n); };
@@ -14978,7 +14927,6 @@ $packages["math/rand"] = (function() {
 		/* if ((n & ((n - 1 >> 0))) === 0) { */ case 1:
 			_r = r.Int31(); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			$s = -1; return _r & ((n - 1 >> 0));
-			return _r & ((n - 1 >> 0));
 		/* } */ case 2:
 		max = ((2147483647 - (_r$1 = 2147483648 % (n >>> 0), _r$1 === _r$1 ? _r$1 : $throwRuntimeError("integer divide by zero")) >>> 0) >> 0);
 		_r$2 = r.Int31(); /* */ $s = 4; case 4: if($c) { $c = false; _r$2 = _r$2.$blk(); } if (_r$2 && _r$2.$blk !== undefined) { break s; }
@@ -14989,7 +14937,6 @@ $packages["math/rand"] = (function() {
 			v = _r$3;
 		/* } */ $s = 5; continue; case 6:
 		$s = -1; return (_r$4 = v % n, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
-		return (_r$4 = v % n, _r$4 === _r$4 ? _r$4 : $throwRuntimeError("integer divide by zero"));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Int31n }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f._r$4 = _r$4; $f.max = max; $f.n = n; $f.r = r; $f.v = v; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Int31n = function(n) { return this.$val.Int31n(n); };
@@ -15005,11 +14952,9 @@ $packages["math/rand"] = (function() {
 		/* if (n <= 2147483647) { */ case 1:
 			_r = r.Int31n((n >> 0)); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			$s = -1; return (_r >> 0);
-			return (_r >> 0);
 		/* } */ case 2:
 		_r$1 = r.Int63n(new $Int64(0, n)); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		$s = -1; return ((x = _r$1, x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
-		return ((x = _r$1, x.$low + ((x.$high >> 31) * 4294967296)) >> 0);
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Intn }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.n = n; $f.r = r; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Intn = function(n) { return this.$val.Intn(n); };
@@ -15026,7 +14971,6 @@ $packages["math/rand"] = (function() {
 			/* goto again */ $s = 1; continue;
 		/* } */ case 4:
 		$s = -1; return f;
-		return f;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Float64 }; } $f.$ptr = $ptr; $f._r = _r; $f.f = f; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Float64 = function() { return this.$val.Float64(); };
@@ -15043,7 +14987,6 @@ $packages["math/rand"] = (function() {
 			/* goto again */ $s = 1; continue;
 		/* } */ case 4:
 		$s = -1; return f;
-		return f;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Float32 }; } $f.$ptr = $ptr; $f._r = _r; $f.f = f; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Float32 = function() { return this.$val.Float32(); };
@@ -15057,12 +15000,11 @@ $packages["math/rand"] = (function() {
 			/* if (!(i < n)) { break; } */ if(!(i < n)) { $s = 2; continue; }
 			_r = r.Intn(i + 1 >> 0); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 			j = _r;
-			((i < 0 || i >= m.$length) ? $throwRuntimeError("index out of range") : m.$array[m.$offset + i] = ((j < 0 || j >= m.$length) ? $throwRuntimeError("index out of range") : m.$array[m.$offset + j]));
-			((j < 0 || j >= m.$length) ? $throwRuntimeError("index out of range") : m.$array[m.$offset + j] = i);
+			((i < 0 || i >= m.$length) ? ($throwRuntimeError("index out of range"), undefined) : m.$array[m.$offset + i] = ((j < 0 || j >= m.$length) ? ($throwRuntimeError("index out of range"), undefined) : m.$array[m.$offset + j]));
+			((j < 0 || j >= m.$length) ? ($throwRuntimeError("index out of range"), undefined) : m.$array[m.$offset + j] = i);
 			i = i + (1) >> 0;
 		/* } */ $s = 1; continue; case 2:
 		$s = -1; return m;
-		return m;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Perm }; } $f.$ptr = $ptr; $f._r = _r; $f.i = i; $f.j = j; $f.m = m; $f.n = n; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Perm = function(n) { return this.$val.Perm(n); };
@@ -15083,14 +15025,12 @@ $packages["math/rand"] = (function() {
 			n = _tuple$1[0];
 			err = _tuple$1[1];
 			$s = -1; return [n, err];
-			return [n, err];
 		/* } */ case 2:
 		_r$1 = read(p, $methodVal(r, "Int63"), (r.$ptr_readVal || (r.$ptr_readVal = new ptrType$2(function() { return this.$target.readVal; }, function($v) { this.$target.readVal = $v; }, r))), (r.$ptr_readPos || (r.$ptr_readPos = new ptrType$1(function() { return this.$target.readPos; }, function($v) { this.$target.readPos = $v; }, r)))); /* */ $s = 4; case 4: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		_tuple$2 = _r$1;
 		n = _tuple$2[0];
 		err = _tuple$2[1];
 		$s = -1; return [n, err];
-		return [n, err];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Rand.ptr.prototype.Read }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f._tuple = _tuple; $f._tuple$1 = _tuple$1; $f._tuple$2 = _tuple$2; $f.err = err; $f.lk = lk; $f.n = n; $f.ok = ok; $f.p = p; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Rand.prototype.Read = function(p) { return this.$val.Read(p); };
@@ -15111,7 +15051,7 @@ $packages["math/rand"] = (function() {
 				val = _r;
 				pos = 7;
 			/* } */ case 4:
-			((n < 0 || n >= p.$length) ? $throwRuntimeError("index out of range") : p.$array[p.$offset + n] = (val.$low << 24 >>> 24));
+			((n < 0 || n >= p.$length) ? ($throwRuntimeError("index out of range"), undefined) : p.$array[p.$offset + n] = (val.$low << 24 >>> 24));
 			val = $shiftRightInt64(val, (8));
 			pos = pos - (1) << 24 >> 24;
 			n = n + (1) >> 0;
@@ -15119,7 +15059,6 @@ $packages["math/rand"] = (function() {
 		readPos.$set(pos);
 		readVal.$set(val);
 		$s = -1; return [n, err];
-		return [n, err];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: read }; } $f.$ptr = $ptr; $f._r = _r; $f.err = err; $f.int63 = int63; $f.n = n; $f.p = p; $f.pos = pos; $f.readPos = readPos; $f.readVal = readVal; $f.val = val; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Seed = function(seed) {
@@ -15127,7 +15066,6 @@ $packages["math/rand"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; seed = $f.seed; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		$r = globalRand.Seed(seed); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Seed }; } $f.$ptr = $ptr; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Seed = Seed;
@@ -15136,7 +15074,6 @@ $packages["math/rand"] = (function() {
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		_r = globalRand.Float64(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
 		$s = -1; return _r;
-		return _r;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Float64 }; } $f.$ptr = $ptr; $f._r = _r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.Float64 = Float64;
@@ -15150,10 +15087,22 @@ $packages["math/rand"] = (function() {
 		n = _r;
 		r.lk.Unlock();
 		$s = -1; return n;
-		return n;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.Int63 }; } $f.$ptr = $ptr; $f._r = _r; $f.n = n; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	lockedSource.prototype.Int63 = function() { return this.$val.Int63(); };
+	lockedSource.ptr.prototype.Uint64 = function() {
+		var $ptr, _r, n, r, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; n = $f.n; r = $f.r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		n = new $Uint64(0, 0);
+		r = this;
+		r.lk.Lock();
+		_r = r.src.Uint64(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		n = _r;
+		r.lk.Unlock();
+		$s = -1; return n;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.Uint64 }; } $f.$ptr = $ptr; $f._r = _r; $f.n = n; $f.r = r; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	lockedSource.prototype.Uint64 = function() { return this.$val.Uint64(); };
 	lockedSource.ptr.prototype.Seed = function(seed) {
 		var $ptr, r, seed, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; r = $f.r; seed = $f.seed; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -15162,7 +15111,6 @@ $packages["math/rand"] = (function() {
 		$r = r.src.Seed(seed); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		r.lk.Unlock();
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.Seed }; } $f.$ptr = $ptr; $f.r = r; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	lockedSource.prototype.Seed = function(seed) { return this.$val.Seed(seed); };
@@ -15175,7 +15123,6 @@ $packages["math/rand"] = (function() {
 		readPos.$set(0);
 		r.lk.Unlock();
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.seedPos }; } $f.$ptr = $ptr; $f.r = r; $f.readPos = readPos; $f.seed = seed; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	lockedSource.prototype.seedPos = function(seed, readPos) { return this.$val.seedPos(seed, readPos); };
@@ -15192,7 +15139,6 @@ $packages["math/rand"] = (function() {
 		err = _tuple[1];
 		r.lk.Unlock();
 		$s = -1; return [n, err];
-		return [n, err];
 		/* */ } return; } if ($f === undefined) { $f = { $blk: lockedSource.ptr.prototype.read }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.err = err; $f.n = n; $f.p = p; $f.r = r; $f.readPos = readPos; $f.readVal = readVal; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	lockedSource.prototype.read = function(p, readVal, readPos) { return this.$val.read(p, readVal, readPos); };
@@ -15230,15 +15176,21 @@ $packages["math/rand"] = (function() {
 				u = (x$2 = $shiftLeft64(new $Int64(0, x$1), 20), new $Int64(u.$high ^ x$2.$high, (u.$low ^ x$2.$low) >>> 0));
 				x$1 = seedrand(x$1);
 				u = (x$3 = new $Int64(0, x$1), new $Int64(u.$high ^ x$3.$high, (u.$low ^ x$3.$low) >>> 0));
-				u = (x$4 = ((i < 0 || i >= rng_cooked.length) ? $throwRuntimeError("index out of range") : rng_cooked[i]), new $Int64(u.$high ^ x$4.$high, (u.$low ^ x$4.$low) >>> 0));
-				(x$5 = rng.vec, ((i < 0 || i >= x$5.length) ? $throwRuntimeError("index out of range") : x$5[i] = new $Int64(u.$high & 2147483647, (u.$low & 4294967295) >>> 0)));
+				u = (x$4 = ((i < 0 || i >= rng_cooked.length) ? ($throwRuntimeError("index out of range"), undefined) : rng_cooked[i]), new $Int64(u.$high ^ x$4.$high, (u.$low ^ x$4.$low) >>> 0));
+				(x$5 = rng.vec, ((i < 0 || i >= x$5.length) ? ($throwRuntimeError("index out of range"), undefined) : x$5[i] = u));
 			}
 			i = i + (1) >> 0;
 		}
 	};
 	rngSource.prototype.Seed = function(seed) { return this.$val.Seed(seed); };
 	rngSource.ptr.prototype.Int63 = function() {
-		var $ptr, rng, x, x$1, x$2, x$3, x$4, x$5, x$6, x$7, x$8, x$9;
+		var $ptr, rng, x, x$1;
+		rng = this;
+		return (x = (x$1 = rng.Uint64(), new $Uint64(x$1.$high & 2147483647, (x$1.$low & 4294967295) >>> 0)), new $Int64(x.$high, x.$low));
+	};
+	rngSource.prototype.Int63 = function() { return this.$val.Int63(); };
+	rngSource.ptr.prototype.Uint64 = function() {
+		var $ptr, rng, x, x$1, x$2, x$3, x$4, x$5, x$6, x$7, x$8;
 		rng = this;
 		rng.tap = rng.tap - (1) >> 0;
 		if (rng.tap < 0) {
@@ -15248,17 +15200,18 @@ $packages["math/rand"] = (function() {
 		if (rng.feed < 0) {
 			rng.feed = rng.feed + (607) >> 0;
 		}
-		x$7 = (x = (x$1 = (x$2 = rng.vec, x$3 = rng.feed, ((x$3 < 0 || x$3 >= x$2.length) ? $throwRuntimeError("index out of range") : x$2[x$3])), x$4 = (x$5 = rng.vec, x$6 = rng.tap, ((x$6 < 0 || x$6 >= x$5.length) ? $throwRuntimeError("index out of range") : x$5[x$6])), new $Int64(x$1.$high + x$4.$high, x$1.$low + x$4.$low)), new $Int64(x.$high & 2147483647, (x.$low & 4294967295) >>> 0));
-		(x$8 = rng.vec, x$9 = rng.feed, ((x$9 < 0 || x$9 >= x$8.length) ? $throwRuntimeError("index out of range") : x$8[x$9] = x$7));
-		return x$7;
+		x$6 = (x = (x$1 = rng.vec, x$2 = rng.feed, ((x$2 < 0 || x$2 >= x$1.length) ? ($throwRuntimeError("index out of range"), undefined) : x$1[x$2])), x$3 = (x$4 = rng.vec, x$5 = rng.tap, ((x$5 < 0 || x$5 >= x$4.length) ? ($throwRuntimeError("index out of range"), undefined) : x$4[x$5])), new $Int64(x.$high + x$3.$high, x.$low + x$3.$low));
+		(x$7 = rng.vec, x$8 = rng.feed, ((x$8 < 0 || x$8 >= x$7.length) ? ($throwRuntimeError("index out of range"), undefined) : x$7[x$8] = x$6));
+		return new $Uint64(x$6.$high, x$6.$low);
 	};
-	rngSource.prototype.Int63 = function() { return this.$val.Int63(); };
-	ptrType$3.methods = [{prop: "ExpFloat64", name: "ExpFloat64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "NormFloat64", name: "NormFloat64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Uint32", name: "Uint32", pkg: "", typ: $funcType([], [$Uint32], false)}, {prop: "Int31", name: "Int31", pkg: "", typ: $funcType([], [$Int32], false)}, {prop: "Int", name: "Int", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Int63n", name: "Int63n", pkg: "", typ: $funcType([$Int64], [$Int64], false)}, {prop: "Int31n", name: "Int31n", pkg: "", typ: $funcType([$Int32], [$Int32], false)}, {prop: "Intn", name: "Intn", pkg: "", typ: $funcType([$Int], [$Int], false)}, {prop: "Float64", name: "Float64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Float32", name: "Float32", pkg: "", typ: $funcType([], [$Float32], false)}, {prop: "Perm", name: "Perm", pkg: "", typ: $funcType([$Int], [sliceType], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}];
-	ptrType.methods = [{prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "seedPos", name: "seedPos", pkg: "math/rand", typ: $funcType([$Int64, ptrType$1], [], false)}, {prop: "read", name: "read", pkg: "math/rand", typ: $funcType([sliceType$1, ptrType$2, ptrType$1], [$Int, $error], false)}];
-	ptrType$5.methods = [{prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}];
+	rngSource.prototype.Uint64 = function() { return this.$val.Uint64(); };
+	ptrType$3.methods = [{prop: "ExpFloat64", name: "ExpFloat64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "NormFloat64", name: "NormFloat64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Uint32", name: "Uint32", pkg: "", typ: $funcType([], [$Uint32], false)}, {prop: "Uint64", name: "Uint64", pkg: "", typ: $funcType([], [$Uint64], false)}, {prop: "Int31", name: "Int31", pkg: "", typ: $funcType([], [$Int32], false)}, {prop: "Int", name: "Int", pkg: "", typ: $funcType([], [$Int], false)}, {prop: "Int63n", name: "Int63n", pkg: "", typ: $funcType([$Int64], [$Int64], false)}, {prop: "Int31n", name: "Int31n", pkg: "", typ: $funcType([$Int32], [$Int32], false)}, {prop: "Intn", name: "Intn", pkg: "", typ: $funcType([$Int], [$Int], false)}, {prop: "Float64", name: "Float64", pkg: "", typ: $funcType([], [$Float64], false)}, {prop: "Float32", name: "Float32", pkg: "", typ: $funcType([], [$Float32], false)}, {prop: "Perm", name: "Perm", pkg: "", typ: $funcType([$Int], [sliceType], false)}, {prop: "Read", name: "Read", pkg: "", typ: $funcType([sliceType$1], [$Int, $error], false)}];
+	ptrType.methods = [{prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Uint64", name: "Uint64", pkg: "", typ: $funcType([], [$Uint64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "seedPos", name: "seedPos", pkg: "math/rand", typ: $funcType([$Int64, ptrType$1], [], false)}, {prop: "read", name: "read", pkg: "math/rand", typ: $funcType([sliceType$1, ptrType$2, ptrType$1], [$Int, $error], false)}];
+	ptrType$5.methods = [{prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Uint64", name: "Uint64", pkg: "", typ: $funcType([], [$Uint64], false)}];
 	Source.init([{prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}]);
-	Rand.init("math/rand", [{prop: "src", name: "src", exported: false, typ: Source, tag: ""}, {prop: "readVal", name: "readVal", exported: false, typ: $Int64, tag: ""}, {prop: "readPos", name: "readPos", exported: false, typ: $Int8, tag: ""}]);
-	lockedSource.init("math/rand", [{prop: "lk", name: "lk", exported: false, typ: nosync.Mutex, tag: ""}, {prop: "src", name: "src", exported: false, typ: Source, tag: ""}]);
+	Source64.init([{prop: "Int63", name: "Int63", pkg: "", typ: $funcType([], [$Int64], false)}, {prop: "Seed", name: "Seed", pkg: "", typ: $funcType([$Int64], [], false)}, {prop: "Uint64", name: "Uint64", pkg: "", typ: $funcType([], [$Uint64], false)}]);
+	Rand.init("math/rand", [{prop: "src", name: "src", exported: false, typ: Source, tag: ""}, {prop: "s64", name: "s64", exported: false, typ: Source64, tag: ""}, {prop: "readVal", name: "readVal", exported: false, typ: $Int64, tag: ""}, {prop: "readPos", name: "readPos", exported: false, typ: $Int8, tag: ""}]);
+	lockedSource.init("math/rand", [{prop: "lk", name: "lk", exported: false, typ: nosync.Mutex, tag: ""}, {prop: "src", name: "src", exported: false, typ: Source64, tag: ""}]);
 	rngSource.init("math/rand", [{prop: "tap", name: "tap", exported: false, typ: $Int, tag: ""}, {prop: "feed", name: "feed", exported: false, typ: $Int, tag: ""}, {prop: "vec", name: "vec", exported: false, typ: arrayType, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
@@ -15271,8 +15224,8 @@ $packages["math/rand"] = (function() {
 		kn = $toNativeArray($kindUint32, [1991057938, 0, 1611602771, 1826899878, 1918584482, 1969227037, 2001281515, 2023368125, 2039498179, 2051788381, 2061460127, 2069267110, 2075699398, 2081089314, 2085670119, 2089610331, 2093034710, 2096037586, 2098691595, 2101053571, 2103168620, 2105072996, 2106796166, 2108362327, 2109791536, 2111100552, 2112303493, 2113412330, 2114437283, 2115387130, 2116269447, 2117090813, 2117856962, 2118572919, 2119243101, 2119871411, 2120461303, 2121015852, 2121537798, 2122029592, 2122493434, 2122931299, 2123344971, 2123736059, 2124106020, 2124456175, 2124787725, 2125101763, 2125399283, 2125681194, 2125948325, 2126201433, 2126441213, 2126668298, 2126883268, 2127086657, 2127278949, 2127460589, 2127631985, 2127793506, 2127945490, 2128088244, 2128222044, 2128347141, 2128463758, 2128572095, 2128672327, 2128764606, 2128849065, 2128925811, 2128994934, 2129056501, 2129110560, 2129157136, 2129196237, 2129227847, 2129251929, 2129268426, 2129277255, 2129278312, 2129271467, 2129256561, 2129233410, 2129201800, 2129161480, 2129112170, 2129053545, 2128985244, 2128906855, 2128817916, 2128717911, 2128606255, 2128482298, 2128345305, 2128194452, 2128028813, 2127847342, 2127648860, 2127432031, 2127195339, 2126937058, 2126655214, 2126347546, 2126011445, 2125643893, 2125241376, 2124799783, 2124314271, 2123779094, 2123187386, 2122530867, 2121799464, 2120980787, 2120059418, 2119015917, 2117825402, 2116455471, 2114863093, 2112989789, 2110753906, 2108037662, 2104664315, 2100355223, 2094642347, 2086670106, 2074676188, 2054300022, 2010539237]);
 		wn = $toNativeArray($kindFloat32, [1.7290404663583558e-09, 1.2680928529462676e-10, 1.689751810696194e-10, 1.9862687883343e-10, 2.223243117382978e-10, 2.4244936613904144e-10, 2.601613091623989e-10, 2.761198769629658e-10, 2.9073962681813725e-10, 3.042996965518796e-10, 3.169979556627567e-10, 3.289802041894774e-10, 3.4035738116777736e-10, 3.5121602848242617e-10, 3.61625090983253e-10, 3.7164057942185025e-10, 3.813085680537398e-10, 3.906675816178762e-10, 3.997501218933053e-10, 4.0858399996679395e-10, 4.1719308563337165e-10, 4.255982233303257e-10, 4.3381759295968436e-10, 4.4186720948857783e-10, 4.497613115272969e-10, 4.57512583373898e-10, 4.6513240481438345e-10, 4.726310454117311e-10, 4.800177477726209e-10, 4.873009773476156e-10, 4.944885056978876e-10, 5.015873272284921e-10, 5.086040477664255e-10, 5.155446070048697e-10, 5.224146670812502e-10, 5.292193350214802e-10, 5.359634958068682e-10, 5.426517013518151e-10, 5.492881705038144e-10, 5.558769555769061e-10, 5.624218868405251e-10, 5.689264614971989e-10, 5.75394121238304e-10, 5.818281967329142e-10, 5.882316855831959e-10, 5.946076964136182e-10, 6.009590047817426e-10, 6.072883862451306e-10, 6.135985053390414e-10, 6.19892026598734e-10, 6.261713370037114e-10, 6.324390455780815e-10, 6.386973727678935e-10, 6.449488165749528e-10, 6.511955974453087e-10, 6.574400468473129e-10, 6.636843297158634e-10, 6.699307220081607e-10, 6.761814441702541e-10, 6.824387166481927e-10, 6.887046488657234e-10, 6.949815167800466e-10, 7.012714853260604e-10, 7.075767749498141e-10, 7.13899661608508e-10, 7.202424212593428e-10, 7.266072743483676e-10, 7.329966078550854e-10, 7.394128087589991e-10, 7.458582640396116e-10, 7.523354716987285e-10, 7.588469852493063e-10, 7.653954137154528e-10, 7.719834771435785e-10, 7.786139510912449e-10, 7.852897221383159e-10, 7.920137878869582e-10, 7.987892014504894e-10, 8.056192379868321e-10, 8.125072836762115e-10, 8.194568912323064e-10, 8.264716688799467e-10, 8.3355555791087e-10, 8.407127216614185e-10, 8.479473234679347e-10, 8.552640262671218e-10, 8.626675485068347e-10, 8.701631637464402e-10, 8.777562010564566e-10, 8.854524335966119e-10, 8.932581896381464e-10, 9.011799639857543e-10, 9.092249730890956e-10, 9.174008219758889e-10, 9.25715837318819e-10, 9.341788453909317e-10, 9.42799727177146e-10, 9.515889187738935e-10, 9.605578554783278e-10, 9.697193048552322e-10, 9.790869226478094e-10, 9.886760299337993e-10, 9.985036131254788e-10, 1.008588212947359e-09, 1.0189509236369076e-09, 1.0296150598776421e-09, 1.040606933955246e-09, 1.0519566329136865e-09, 1.0636980185552147e-09, 1.0758701707302976e-09, 1.0885182755160372e-09, 1.101694735439196e-09, 1.115461056855338e-09, 1.1298901814171813e-09, 1.1450695946990663e-09, 1.1611052119775422e-09, 1.178127595480305e-09, 1.1962995039027646e-09, 1.2158286599728285e-09, 1.2369856250415978e-09, 1.2601323318151003e-09, 1.2857697129220469e-09, 1.3146201904845611e-09, 1.3477839955200466e-09, 1.3870635751089821e-09, 1.43574030442295e-09, 1.5008658760251592e-09, 1.6030947680434338e-09]);
 		fn = $toNativeArray($kindFloat32, [1, 0.963599681854248, 0.9362826943397522, 0.9130436182022095, 0.8922816514968872, 0.8732430338859558, 0.8555005788803101, 0.8387836217880249, 0.8229072093963623, 0.8077383041381836, 0.7931770086288452, 0.7791460752487183, 0.7655841708183289, 0.7524415850639343, 0.7396772503852844, 0.7272568941116333, 0.7151514887809753, 0.7033361196517944, 0.6917891502380371, 0.6804918646812439, 0.6694276928901672, 0.6585819721221924, 0.6479418277740479, 0.6374954581260681, 0.6272324919700623, 0.6171433925628662, 0.6072195172309875, 0.5974531769752502, 0.5878370404243469, 0.5783646702766418, 0.5690299868583679, 0.5598273873329163, 0.550751805305481, 0.5417983531951904, 0.5329626798629761, 0.5242405533790588, 0.5156282186508179, 0.5071220397949219, 0.49871864914894104, 0.4904148280620575, 0.48220765590667725, 0.47409430146217346, 0.466072142124176, 0.45813870429992676, 0.45029163360595703, 0.44252872467041016, 0.4348478317260742, 0.42724698781967163, 0.41972434520721436, 0.41227802634239197, 0.40490642189979553, 0.39760786294937134, 0.3903807997703552, 0.3832238018512726, 0.3761354684829712, 0.3691144585609436, 0.36215949058532715, 0.3552693724632263, 0.3484429717063904, 0.3416791558265686, 0.33497685194015503, 0.32833510637283325, 0.3217529058456421, 0.3152293860912323, 0.30876362323760986, 0.3023548424243927, 0.2960021495819092, 0.2897048592567444, 0.28346219658851624, 0.2772735059261322, 0.271138072013855, 0.2650552988052368, 0.25902456045150757, 0.25304529070854187, 0.24711695313453674, 0.24123899638652802, 0.23541094362735748, 0.22963231801986694, 0.22390270233154297, 0.21822164952754974, 0.21258877217769623, 0.20700371265411377, 0.20146611332893372, 0.1959756463766098, 0.19053204357624054, 0.18513499200344086, 0.17978426814079285, 0.1744796335697174, 0.16922089457511902, 0.16400785744190216, 0.1588403731584549, 0.15371830761432648, 0.14864157140254974, 0.14361007511615753, 0.13862377405166626, 0.13368265330791473, 0.12878671288490295, 0.12393598258495331, 0.11913054436445236, 0.11437050998210907, 0.10965602099895477, 0.1049872562289238, 0.10036443918943405, 0.09578784555196762, 0.09125780314207077, 0.08677466958761215, 0.08233889937400818, 0.07795098423957825, 0.07361150532960892, 0.06932111829519272, 0.06508058309555054, 0.06089077144861221, 0.05675266310572624, 0.05266740173101425, 0.048636294901371, 0.044660862535238266, 0.040742866694927216, 0.03688438981771469, 0.03308788686990738, 0.029356317594647408, 0.025693291798233986, 0.02210330404341221, 0.018592102453112602, 0.015167297795414925, 0.011839478276669979, 0.0086244847625494, 0.005548994988203049, 0.0026696291752159595]);
-		rng_cooked = $toNativeArray($kindInt64, [new $Int64(1173834291, 3952672746), new $Int64(1081821761, 3130416987), new $Int64(324977939, 3414273807), new $Int64(1241840476, 2806224363), new $Int64(669549340, 1997590414), new $Int64(2103305448, 2402795971), new $Int64(1663160183, 1140819369), new $Int64(1120601685, 1788868961), new $Int64(1848035537, 1089001426), new $Int64(1235702047, 873593504), new $Int64(1911387977, 581324885), new $Int64(492609478, 1609182556), new $Int64(1069394745, 1241596776), new $Int64(1895445337, 1771189259), new $Int64(772864846, 3467012610), new $Int64(2006957225, 2344407434), new $Int64(402115761, 782467244), new $Int64(26335124, 3404933915), new $Int64(1063924276, 618867887), new $Int64(1178782866, 520164395), new $Int64(555910815, 1341358184), new $Int64(632398609, 665794848), new $Int64(1527227641, 3183648150), new $Int64(1781176124, 696329606), new $Int64(1789146075, 4151988961), new $Int64(60039534, 998951326), new $Int64(1535158725, 1364957564), new $Int64(63173359, 4090230633), new $Int64(649454641, 4009697548), new $Int64(248009524, 2569622517), new $Int64(778703922, 3742421481), new $Int64(1038377625, 1506914633), new $Int64(1738099768, 1983412561), new $Int64(236311649, 1436266083), new $Int64(1035966148, 3922894967), new $Int64(810508934, 1792680179), new $Int64(563141142, 1188796351), new $Int64(1349617468, 405968250), new $Int64(1044074554, 433754187), new $Int64(870549669, 4073162024), new $Int64(1053232044, 433121399), new $Int64(2451824, 4162580594), new $Int64(2010221076, 4132415622), new $Int64(611252600, 3033822028), new $Int64(2016407895, 824682382), new $Int64(2366218, 3583765414), new $Int64(1522878809, 535386927), new $Int64(1637219058, 2286693689), new $Int64(1453075389, 2968466525), new $Int64(193683513, 1351410206), new $Int64(1863677552, 1412813499), new $Int64(492736522, 4126267639), new $Int64(512765208, 2105529399), new $Int64(2132966268, 2413882233), new $Int64(947457634, 32226200), new $Int64(1149341356, 2032329073), new $Int64(106485445, 1356518208), new $Int64(79673492, 3430061722), new $Int64(663048513, 3820169661), new $Int64(481498454, 2981816134), new $Int64(1017155588, 4184371017), new $Int64(206574701, 2119206761), new $Int64(1295374591, 2472200560), new $Int64(1587026100, 2853524696), new $Int64(1307803389, 1681119904), new $Int64(1972496813, 95608918), new $Int64(392686347, 3690479145), new $Int64(941912722, 1397922290), new $Int64(988169623, 1516129515), new $Int64(1827305493, 1547420459), new $Int64(1311333971, 1470949486), new $Int64(194013850, 1336785672), new $Int64(2102397034, 4131677129), new $Int64(755205548, 4246329084), new $Int64(1004983461, 3788585631), new $Int64(2081005363, 3080389532), new $Int64(1501045284, 2215402037), new $Int64(391002300, 1171593935), new $Int64(1408774047, 1423855166), new $Int64(1628305930, 2276716302), new $Int64(1779030508, 2068027241), new $Int64(1369359303, 3427553297), new $Int64(189241615, 3289637845), new $Int64(1057480830, 3486407650), new $Int64(634572984, 3071877822), new $Int64(1159653919, 3363620705), new $Int64(1213226718, 4159821533), new $Int64(2070861710, 1894661), new $Int64(1472989750, 1156868282), new $Int64(348271067, 776219088), new $Int64(1646054810, 2425634259), new $Int64(1716021749, 680510161), new $Int64(1573220192, 1310101429), new $Int64(1095885995, 2964454134), new $Int64(1821788136, 3467098407), new $Int64(1990672920, 2109628894), new $Int64(7834944, 1232604732), new $Int64(309412934, 3261916179), new $Int64(1699175360, 434597899), new $Int64(235436061, 1624796439), new $Int64(521080809, 3589632480), new $Int64(1198416575, 864579159), new $Int64(208735487, 1380889830), new $Int64(619206309, 2654509477), new $Int64(1419738251, 1468209306), new $Int64(403198876, 100794388), new $Int64(956062190, 2991674471), new $Int64(1938816907, 2224662036), new $Int64(1973824487, 977097250), new $Int64(1351320195, 726419512), new $Int64(1964023751, 1747974366), new $Int64(1394388465, 1556430604), new $Int64(1097991433, 1080776742), new $Int64(1761636690, 280794874), new $Int64(117767733, 919835643), new $Int64(1180474222, 3434019658), new $Int64(196069168, 2461941785), new $Int64(133215641, 3615001066), new $Int64(417204809, 3103414427), new $Int64(790056561, 3380809712), new $Int64(879802240, 2724693469), new $Int64(547796833, 598827710), new $Int64(300924196, 3452273442), new $Int64(2071705424, 649274915), new $Int64(1346182319, 2585724112), new $Int64(636549385, 3165579553), new $Int64(1185578221, 2635894283), new $Int64(2094573470, 2053289721), new $Int64(985976581, 3169337108), new $Int64(1170569632, 144717764), new $Int64(1079216270, 1383666384), new $Int64(2022678706, 681540375), new $Int64(1375448925, 537050586), new $Int64(182715304, 315246468), new $Int64(226402871, 849323088), new $Int64(1262421183, 45543944), new $Int64(1201038398, 2319052083), new $Int64(2106775454, 3613090841), new $Int64(560472520, 2992171180), new $Int64(1765620479, 2068244785), new $Int64(917538188, 4239862634), new $Int64(777927839, 3892253031), new $Int64(720683925, 958186149), new $Int64(1724185863, 1877702262), new $Int64(1357886971, 837674867), new $Int64(1837048883, 1507589294), new $Int64(1905518400, 873336795), new $Int64(267722611, 2764496274), new $Int64(341003118, 4196182374), new $Int64(1080717893, 550964545), new $Int64(818747069, 420611474), new $Int64(222653272, 204265180), new $Int64(1549974541, 1787046383), new $Int64(1215581865, 3102292318), new $Int64(418321538, 1552199393), new $Int64(1243493047, 980542004), new $Int64(267284263, 3293718720), new $Int64(1179528763, 3771917473), new $Int64(599484404, 2195808264), new $Int64(252818753, 3894702887), new $Int64(780007692, 2099949527), new $Int64(1424094358, 338442522), new $Int64(490737398, 637158004), new $Int64(419862118, 281976339), new $Int64(574970164, 3619802330), new $Int64(1715552825, 3084554784), new $Int64(882872465, 4129772886), new $Int64(43084605, 1680378557), new $Int64(525521057, 3339087776), new $Int64(1680500332, 4220317857), new $Int64(211654685, 2959322499), new $Int64(1675600481, 1488354890), new $Int64(1312620086, 3958162143), new $Int64(920972075, 2773705983), new $Int64(1876039582, 225908689), new $Int64(963748535, 908216283), new $Int64(1541787429, 3574646075), new $Int64(319760557, 1936937569), new $Int64(1519770881, 75492235), new $Int64(816689472, 1935193178), new $Int64(2142521206, 2018250883), new $Int64(455141620, 3943126022), new $Int64(1546084160, 3066544345), new $Int64(1932392669, 2793082663), new $Int64(908474287, 3297036421), new $Int64(1640597065, 2206987825), new $Int64(1594236910, 807894872), new $Int64(366158341, 766252117), new $Int64(2060649606, 3833114345), new $Int64(845619743, 1255067973), new $Int64(1201145605, 741697208), new $Int64(671241040, 2810093753), new $Int64(1109032642, 4229340371), new $Int64(1462188720, 1361684224), new $Int64(988084219, 1906263026), new $Int64(475781207, 3904421704), new $Int64(1523946520, 1769075545), new $Int64(1062308525, 2621599764), new $Int64(1279509432, 3431891480), new $Int64(404732502, 1871896503), new $Int64(128756421, 1412808876), new $Int64(1605404688, 952876175), new $Int64(1917039957, 1824438899), new $Int64(1662295856, 1005035476), new $Int64(1990909507, 527508597), new $Int64(1288873303, 3066806859), new $Int64(565995893, 3244940914), new $Int64(1257737460, 209092916), new $Int64(1899814242, 1242699167), new $Int64(1433653252, 456723774), new $Int64(1776978905, 1001252870), new $Int64(1468772157, 2026725874), new $Int64(857254202, 2137562569), new $Int64(765939740, 3183366709), new $Int64(1533887628, 2612072960), new $Int64(56977098, 1727148468), new $Int64(949899753, 3803658212), new $Int64(1883670356, 479946959), new $Int64(685713571, 1562982345), new $Int64(201241205, 1766109365), new $Int64(700596547, 3257093788), new $Int64(1962768719, 2365720207), new $Int64(93384808, 3742754173), new $Int64(1689098413, 2878193673), new $Int64(1096135042, 2174002182), new $Int64(1313222695, 3573511231), new $Int64(1392911121, 1760299077), new $Int64(771856457, 2260779833), new $Int64(1281464374, 1452805722), new $Int64(917811730, 2940011802), new $Int64(1890251082, 1886183802), new $Int64(893897673, 2514369088), new $Int64(1644345561, 3924317791), new $Int64(172616216, 500935732), new $Int64(1403501753, 676580929), new $Int64(581571365, 1184984890), new $Int64(1455515235, 1271474274), new $Int64(318728910, 3163791473), new $Int64(2051027584, 2842487377), new $Int64(1511537551, 2170968612), new $Int64(573262976, 3535856740), new $Int64(94256461, 1488599718), new $Int64(966951817, 3408913763), new $Int64(60951736, 2501050084), new $Int64(1272353200, 1639124157), new $Int64(138001144, 4088176393), new $Int64(1574896563, 3989947576), new $Int64(1982239940, 3414355209), new $Int64(1355154361, 2275136352), new $Int64(89709303, 2151835223), new $Int64(1216338715, 1654534827), new $Int64(1467562197, 377892833), new $Int64(1664767638, 660204544), new $Int64(85706799, 390828249), new $Int64(725310955, 3402783878), new $Int64(678849488, 3717936603), new $Int64(1113532086, 2211058823), new $Int64(1564224320, 2692150867), new $Int64(1952770442, 1928910388), new $Int64(788716862, 3931011137), new $Int64(1083670504, 1112701047), new $Int64(2079333076, 2452299106), new $Int64(1251318826, 2337204777), new $Int64(1774877857, 273889282), new $Int64(1798719843, 1462008793), new $Int64(2138834788, 1554494002), new $Int64(952516517, 182675323), new $Int64(548928884, 1882802136), new $Int64(589279648, 3700220025), new $Int64(381039426, 3083431543), new $Int64(1295624457, 3622207527), new $Int64(338126939, 432729309), new $Int64(480013522, 2391914317), new $Int64(297925497, 235747924), new $Int64(2120733629, 3088823825), new $Int64(1402403853, 2314658321), new $Int64(1165929723, 2957634338), new $Int64(501323675, 4117056981), new $Int64(1564699815, 1482500298), new $Int64(1406657158, 840489337), new $Int64(799522364, 3483178565), new $Int64(532129761, 2074004656), new $Int64(724246478, 3643392642), new $Int64(1482330167, 1583624461), new $Int64(1261660694, 287473085), new $Int64(1667835381, 3136843981), new $Int64(1138806821, 1266970974), new $Int64(135185781, 1998688839), new $Int64(392094735, 1492900209), new $Int64(1031326774, 1538112737), new $Int64(76914806, 2207265429), new $Int64(260686035, 963263315), new $Int64(1671145500, 2295892134), new $Int64(1068469660, 2002560897), new $Int64(1791233343, 1369254035), new $Int64(33436120, 3353312708), new $Int64(57507843, 947771099), new $Int64(201728503, 1747061399), new $Int64(1507240140, 2047354631), new $Int64(720000810, 4165367136), new $Int64(479265078, 3388864963), new $Int64(1195302398, 286492130), new $Int64(2045622690, 2795735007), new $Int64(1431753082, 3703961339), new $Int64(1999047161, 1797825479), new $Int64(1429039600, 1116589674), new $Int64(482063550, 2593309206), new $Int64(1329049334, 3404995677), new $Int64(1396904208, 3453462936), new $Int64(1014767077, 3016498634), new $Int64(75698599, 1650371545), new $Int64(1592007860, 212344364), new $Int64(1127766888, 3843932156), new $Int64(1399463792, 3573129983), new $Int64(1256901817, 665897820), new $Int64(1071492673, 1675628772), new $Int64(243225682, 2831752928), new $Int64(2120298836, 1486294219), new $Int64(193076235, 268782709), new $Int64(1145360145, 4186179080), new $Int64(624342951, 1613720397), new $Int64(857179861, 2703686015), new $Int64(1235864944, 2205342611), new $Int64(1474779655, 1411666394), new $Int64(619028749, 677744900), new $Int64(270855115, 4172867247), new $Int64(135494707, 2163418403), new $Int64(849547544, 2841526879), new $Int64(1029966689, 1082141470), new $Int64(377371856, 4046134367), new $Int64(51415528, 2142943655), new $Int64(1897659315, 3124627521), new $Int64(998228909, 219992939), new $Int64(1068692697, 1756846531), new $Int64(1283749206, 1225118210), new $Int64(1621625642, 1647770243), new $Int64(111523943, 444807907), new $Int64(2036369448, 3952076173), new $Int64(53201823, 1461839639), new $Int64(315761893, 3699250910), new $Int64(702974850, 1373688981), new $Int64(734022261, 147523747), new $Int64(100152742, 1211276581), new $Int64(1294440951, 2548832680), new $Int64(1144696256, 1995631888), new $Int64(154500578, 2011457303), new $Int64(796460974, 3057425772), new $Int64(667839456, 81484597), new $Int64(465502760, 3646681560), new $Int64(775020923, 635548515), new $Int64(602489502, 2508044581), new $Int64(353263531, 1014917157), new $Int64(719992433, 3214891315), new $Int64(852684611, 959582252), new $Int64(226415134, 3347040449), new $Int64(1784615552, 4102971975), new $Int64(397887437, 4078022210), new $Int64(1610679822, 2851767182), new $Int64(749162636, 1540160644), new $Int64(598384772, 1057290595), new $Int64(2034890660, 3907769253), new $Int64(579300318, 4248952684), new $Int64(1092907599, 132554364), new $Int64(1061621234, 1029351092), new $Int64(697840928, 2583007416), new $Int64(298619124, 1486185789), new $Int64(55905697, 2871589073), new $Int64(2017643612, 723203291), new $Int64(146250550, 2494333952), new $Int64(1064490251, 2230939180), new $Int64(342915576, 3943232912), new $Int64(1768732449, 2181367922), new $Int64(1418222537, 2889274791), new $Int64(1824032949, 2046728161), new $Int64(1653899792, 1376052477), new $Int64(1022327048, 381236993), new $Int64(1034385958, 3188942166), new $Int64(2073003539, 350070824), new $Int64(144881592, 61758415), new $Int64(1405659422, 3492950336), new $Int64(117440928, 3093818430), new $Int64(1693893113, 2962480613), new $Int64(235432940, 3154871160), new $Int64(511005079, 3228564679), new $Int64(610731502, 888276216), new $Int64(1200780674, 3574998604), new $Int64(870415268, 1967526716), new $Int64(591335707, 1554691298), new $Int64(574459414, 339944798), new $Int64(1223764147, 1154515356), new $Int64(1825645307, 967516237), new $Int64(1546195135, 596588202), new $Int64(279882768, 3764362170), new $Int64(492091056, 266611402), new $Int64(1754227768, 2047856075), new $Int64(1146757215, 21444105), new $Int64(1198058894, 3065563181), new $Int64(1915064845, 1140663212), new $Int64(633187674, 2323741028), new $Int64(2126290159, 3103873707), new $Int64(1008658319, 2766828349), new $Int64(1661896145, 1970872996), new $Int64(1628585413, 3766615585), new $Int64(1552335120, 2036813414), new $Int64(152606527, 3105536507), new $Int64(13954645, 3396176938), new $Int64(1426081645, 1377154485), new $Int64(2085644467, 3807014186), new $Int64(543009040, 3710110597), new $Int64(396058129, 916420443), new $Int64(734556788, 2103831255), new $Int64(381322154, 717331943), new $Int64(572884752, 3550505941), new $Int64(45939673, 378749927), new $Int64(149867929, 611017331), new $Int64(592130075, 758907650), new $Int64(1012992349, 154266815), new $Int64(1107028706, 1407468696), new $Int64(469292398, 970098704), new $Int64(1862426162, 1971660656), new $Int64(998365243, 3332747885), new $Int64(1947089649, 1935189867), new $Int64(1510248801, 203520055), new $Int64(842317902, 3916463034), new $Int64(1758884993, 3474113316), new $Int64(1036101639, 316544223), new $Int64(373738757, 1650844677), new $Int64(1240292229, 4267565603), new $Int64(1077208624, 2501167616), new $Int64(626831785, 3929401789), new $Int64(56122796, 337170252), new $Int64(1186981558, 2061966842), new $Int64(1843292800, 2508461464), new $Int64(206012532, 2791377107), new $Int64(1240791848, 1227227588), new $Int64(1813978778, 1709681848), new $Int64(1153692192, 3768820575), new $Int64(1145186199, 2887126398), new $Int64(700372314, 296561685), new $Int64(700300844, 3729960077), new $Int64(575172304, 372833036), new $Int64(2078875613, 2409779288), new $Int64(1829161290, 555274064), new $Int64(1041887929, 4239804901), new $Int64(1839403216, 3723486978), new $Int64(498390553, 2145871984), new $Int64(564717933, 3565480803), new $Int64(578829821, 2197313814), new $Int64(974785092, 3613674566), new $Int64(438638731, 3042093666), new $Int64(2050927384, 3324034321), new $Int64(869420878, 3708873369), new $Int64(946682149, 1698090092), new $Int64(1618900382, 4213940712), new $Int64(304003901, 2087477361), new $Int64(381315848, 2407950639), new $Int64(851258090, 3942568569), new $Int64(923583198, 4088074412), new $Int64(723260036, 2964773675), new $Int64(1473561819, 1539178386), new $Int64(1062961552, 2694849566), new $Int64(460977733, 2120273838), new $Int64(542912908, 2484608657), new $Int64(880846449, 2956190677), new $Int64(1970902366, 4223313749), new $Int64(662161910, 3502682327), new $Int64(705634754, 4133891139), new $Int64(1116124348, 1166449596), new $Int64(1038247601, 3362705993), new $Int64(93734798, 3892921029), new $Int64(1876124043, 786869787), new $Int64(1057490746, 1046342263), new $Int64(242763728, 493777327), new $Int64(1293910447, 3304827646), new $Int64(616460742, 125356352), new $Int64(499300063, 74094113), new $Int64(1351896723, 2500816079), new $Int64(1657235204, 514015239), new $Int64(1377565129, 543520454), new $Int64(107706923, 3614531153), new $Int64(2056746300, 2356753985), new $Int64(1390062617, 2018141668), new $Int64(131272971, 2087974891), new $Int64(644556607, 3166972343), new $Int64(372256200, 1517638666), new $Int64(1212207984, 173466846), new $Int64(1451709187, 4241513471), new $Int64(733932806, 2783126920), new $Int64(1972004134, 4167264826), new $Int64(29260506, 3907395640), new $Int64(1236582087, 1539634186), new $Int64(1551526350, 178241987), new $Int64(2034206012, 182168164), new $Int64(1044953189, 2386154934), new $Int64(1379126408, 4077374341), new $Int64(32803926, 1732699140), new $Int64(1726425903, 1041306002), new $Int64(1860414813, 2068001749), new $Int64(1005320202, 3208962910), new $Int64(844054010, 697710380), new $Int64(638124245, 2228431183), new $Int64(1337169671, 3554678728), new $Int64(1396494601, 173470263), new $Int64(2061597383, 3848297795), new $Int64(1220546671, 246236185), new $Int64(163293187, 2066374846), new $Int64(1771673660, 312890749), new $Int64(703378057, 3573310289), new $Int64(1548631747, 143166754), new $Int64(613554316, 2081511079), new $Int64(1197802104, 486038032), new $Int64(240999859, 2982218564), new $Int64(364901986, 1000939191), new $Int64(1902782651, 2750454885), new $Int64(1475638791, 3375313137), new $Int64(503615608, 881302957), new $Int64(638698903, 2514186393), new $Int64(443860803, 360024739), new $Int64(1399671872, 292500025), new $Int64(1381210821, 2276300752), new $Int64(521803381, 4069087683), new $Int64(208500981, 1637778212), new $Int64(720490469, 1676670893), new $Int64(1067262482, 3855174429), new $Int64(2114075974, 2067248671), new $Int64(2058057389, 2884561259), new $Int64(1341742553, 2456511185), new $Int64(983726246, 561175414), new $Int64(427994085, 432588903), new $Int64(885133709, 4059399550), new $Int64(2054387382, 1075014784), new $Int64(413651020, 2728058415), new $Int64(1839142064, 1299703678), new $Int64(1262333188, 2347583393), new $Int64(1285481956, 2468164145), new $Int64(989129637, 1140014346), new $Int64(2033889184, 1936972070), new $Int64(409904655, 3870530098), new $Int64(1662989391, 1717789158), new $Int64(1914486492, 1153452491), new $Int64(1157059232, 3948827651), new $Int64(790338018, 2101413152), new $Int64(1495744672, 3854091229), new $Int64(83644069, 4215565463), new $Int64(762206335, 1202710438), new $Int64(1582574611, 2072216740), new $Int64(705690639, 2066751068), new $Int64(33900336, 173902580), new $Int64(1405499842, 142459001), new $Int64(172391592, 1889151926), new $Int64(1648540523, 3034199774), new $Int64(1618587731, 516490102), new $Int64(93114264, 3692577783), new $Int64(68662295, 2953948865), new $Int64(1826544975, 4041040923), new $Int64(204965672, 592046130), new $Int64(1441840008, 384297211), new $Int64(95834184, 265863924), new $Int64(2101717619, 1333136237), new $Int64(1499611781, 1406273556), new $Int64(1074670496, 426305476), new $Int64(125704633, 2750898176), new $Int64(488068495, 1633944332), new $Int64(2037723464, 3236349343), new $Int64(444060402, 4013676611), new $Int64(1718532237, 2265047407), new $Int64(1433593806, 875071080), new $Int64(1804436145, 1418843655), new $Int64(2009228711, 451657300), new $Int64(1229446621, 1866374663), new $Int64(1653472867, 1551455622), new $Int64(577191481, 3560962459), new $Int64(1669204077, 3347903778), new $Int64(1849156454, 2675874918), new $Int64(316128071, 2762991672), new $Int64(530492383, 3689068477), new $Int64(844089962, 4071997905), new $Int64(1508155730, 1381702441), new $Int64(2089931018, 2373284878), new $Int64(1283216186, 2143983064), new $Int64(308739063, 1938207195), new $Int64(1754949306, 1188152253), new $Int64(1272345009, 615870490), new $Int64(742653194, 2662252621), new $Int64(1477718295, 3839976789), new $Int64(56149435, 306752547), new $Int64(720795581, 2162363077), new $Int64(2090431015, 2767224719), new $Int64(675859549, 2628837712), new $Int64(1678405918, 2967771969), new $Int64(1694285728, 499792248), new $Int64(403352367, 4285253508), new $Int64(962357072, 2856511070), new $Int64(679471692, 2526409716), new $Int64(353777175, 1240875658), new $Int64(1232590226, 2577342868), new $Int64(1146185433, 4136853496), new $Int64(670368674, 2403540137), new $Int64(1372824515, 1371410668), new $Int64(1970921600, 371758825), new $Int64(1706420536, 1528834084), new $Int64(2075795018, 1504757260), new $Int64(685663576, 699052551), new $Int64(1641940109, 3347789870), new $Int64(1951619734, 3430604759), new $Int64(2119672219, 1935601723), new $Int64(966789690, 834676166)]);
-		globalRand = New(new lockedSource.ptr(new nosync.Mutex.ptr(false), NewSource(new $Int64(0, 1))));
+		rng_cooked = $toNativeArray($kindInt64, [new $Int64(-973649357, 3952672746), new $Int64(-1065661887, 3130416987), new $Int64(324977939, 3414273807), new $Int64(1241840476, 2806224363), new $Int64(-1477934308, 1997590414), new $Int64(2103305448, 2402795971), new $Int64(1663160183, 1140819369), new $Int64(1120601685, 1788868961), new $Int64(1848035537, 1089001426), new $Int64(1235702047, 873593504), new $Int64(1911387977, 581324885), new $Int64(-1654874170, 1609182556), new $Int64(1069394745, 1241596776), new $Int64(1895445337, 1771189259), new $Int64(-1374618802, 3467012610), new $Int64(-140526423, 2344407434), new $Int64(-1745367887, 782467244), new $Int64(26335124, 3404933915), new $Int64(1063924276, 618867887), new $Int64(-968700782, 520164395), new $Int64(-1591572833, 1341358184), new $Int64(-1515085039, 665794848), new $Int64(1527227641, 3183648150), new $Int64(1781176124, 696329606), new $Int64(1789146075, 4151988961), new $Int64(-2087444114, 998951326), new $Int64(-612324923, 1364957564), new $Int64(63173359, 4090230633), new $Int64(-1498029007, 4009697548), new $Int64(248009524, 2569622517), new $Int64(778703922, 3742421481), new $Int64(-1109106023, 1506914633), new $Int64(1738099768, 1983412561), new $Int64(236311649, 1436266083), new $Int64(-1111517500, 3922894967), new $Int64(-1336974714, 1792680179), new $Int64(563141142, 1188796351), new $Int64(1349617468, 405968250), new $Int64(1044074554, 433754187), new $Int64(870549669, 4073162024), new $Int64(-1094251604, 433121399), new $Int64(2451824, 4162580594), new $Int64(-137262572, 4132415622), new $Int64(-1536231048, 3033822028), new $Int64(2016407895, 824682382), new $Int64(2366218, 3583765414), new $Int64(-624604839, 535386927), new $Int64(1637219058, 2286693689), new $Int64(1453075389, 2968466525), new $Int64(193683513, 1351410206), new $Int64(-283806096, 1412813499), new $Int64(492736522, 4126267639), new $Int64(512765208, 2105529399), new $Int64(2132966268, 2413882233), new $Int64(947457634, 32226200), new $Int64(1149341356, 2032329073), new $Int64(106485445, 1356518208), new $Int64(-2067810156, 3430061722), new $Int64(-1484435135, 3820169661), new $Int64(-1665985194, 2981816134), new $Int64(1017155588, 4184371017), new $Int64(206574701, 2119206761), new $Int64(-852109057, 2472200560), new $Int64(-560457548, 2853524696), new $Int64(1307803389, 1681119904), new $Int64(-174986835, 95608918), new $Int64(392686347, 3690479145), new $Int64(-1205570926, 1397922290), new $Int64(-1159314025, 1516129515), new $Int64(-320178155, 1547420459), new $Int64(1311333971, 1470949486), new $Int64(-1953469798, 1336785672), new $Int64(-45086614, 4131677129), new $Int64(-1392278100, 4246329084), new $Int64(-1142500187, 3788585631), new $Int64(-66478285, 3080389532), new $Int64(-646438364, 2215402037), new $Int64(391002300, 1171593935), new $Int64(1408774047, 1423855166), new $Int64(-519177718, 2276716302), new $Int64(-368453140, 2068027241), new $Int64(1369359303, 3427553297), new $Int64(189241615, 3289637845), new $Int64(1057480830, 3486407650), new $Int64(-1512910664, 3071877822), new $Int64(1159653919, 3363620705), new $Int64(-934256930, 4159821533), new $Int64(-76621938, 1894661), new $Int64(-674493898, 1156868282), new $Int64(348271067, 776219088), new $Int64(-501428838, 2425634259), new $Int64(1716021749, 680510161), new $Int64(-574263456, 1310101429), new $Int64(1095885995, 2964454134), new $Int64(-325695512, 3467098407), new $Int64(1990672920, 2109628894), new $Int64(-2139648704, 1232604732), new $Int64(-1838070714, 3261916179), new $Int64(1699175360, 434597899), new $Int64(235436061, 1624796439), new $Int64(-1626402839, 3589632480), new $Int64(1198416575, 864579159), new $Int64(-1938748161, 1380889830), new $Int64(619206309, 2654509477), new $Int64(1419738251, 1468209306), new $Int64(-1744284772, 100794388), new $Int64(-1191421458, 2991674471), new $Int64(-208666741, 2224662036), new $Int64(-173659161, 977097250), new $Int64(1351320195, 726419512), new $Int64(-183459897, 1747974366), new $Int64(-753095183, 1556430604), new $Int64(-1049492215, 1080776742), new $Int64(-385846958, 280794874), new $Int64(117767733, 919835643), new $Int64(-967009426, 3434019658), new $Int64(-1951414480, 2461941785), new $Int64(133215641, 3615001066), new $Int64(417204809, 3103414427), new $Int64(790056561, 3380809712), new $Int64(-1267681408, 2724693469), new $Int64(547796833, 598827710), new $Int64(-1846559452, 3452273442), new $Int64(-75778224, 649274915), new $Int64(-801301329, 2585724112), new $Int64(-1510934263, 3165579553), new $Int64(1185578221, 2635894283), new $Int64(-52910178, 2053289721), new $Int64(985976581, 3169337108), new $Int64(1170569632, 144717764), new $Int64(1079216270, 1383666384), new $Int64(-124804942, 681540375), new $Int64(1375448925, 537050586), new $Int64(-1964768344, 315246468), new $Int64(226402871, 849323088), new $Int64(-885062465, 45543944), new $Int64(-946445250, 2319052083), new $Int64(-40708194, 3613090841), new $Int64(560472520, 2992171180), new $Int64(-381863169, 2068244785), new $Int64(917538188, 4239862634), new $Int64(-1369555809, 3892253031), new $Int64(720683925, 958186149), new $Int64(-423297785, 1877702262), new $Int64(1357886971, 837674867), new $Int64(1837048883, 1507589294), new $Int64(1905518400, 873336795), new $Int64(-1879761037, 2764496274), new $Int64(-1806480530, 4196182374), new $Int64(-1066765755, 550964545), new $Int64(818747069, 420611474), new $Int64(-1924830376, 204265180), new $Int64(1549974541, 1787046383), new $Int64(1215581865, 3102292318), new $Int64(418321538, 1552199393), new $Int64(1243493047, 980542004), new $Int64(267284263, 3293718720), new $Int64(1179528763, 3771917473), new $Int64(599484404, 2195808264), new $Int64(252818753, 3894702887), new $Int64(-1367475956, 2099949527), new $Int64(1424094358, 338442522), new $Int64(490737398, 637158004), new $Int64(-1727621530, 281976339), new $Int64(574970164, 3619802330), new $Int64(-431930823, 3084554784), new $Int64(-1264611183, 4129772886), new $Int64(-2104399043, 1680378557), new $Int64(-1621962591, 3339087776), new $Int64(1680500332, 4220317857), new $Int64(-1935828963, 2959322499), new $Int64(1675600481, 1488354890), new $Int64(-834863562, 3958162143), new $Int64(-1226511573, 2773705983), new $Int64(1876039582, 225908689), new $Int64(-1183735113, 908216283), new $Int64(-605696219, 3574646075), new $Int64(-1827723091, 1936937569), new $Int64(1519770881, 75492235), new $Int64(816689472, 1935193178), new $Int64(2142521206, 2018250883), new $Int64(455141620, 3943126022), new $Int64(-601399488, 3066544345), new $Int64(1932392669, 2793082663), new $Int64(-1239009361, 3297036421), new $Int64(1640597065, 2206987825), new $Int64(-553246738, 807894872), new $Int64(-1781325307, 766252117), new $Int64(2060649606, 3833114345), new $Int64(845619743, 1255067973), new $Int64(1201145605, 741697208), new $Int64(-1476242608, 2810093753), new $Int64(1109032642, 4229340371), new $Int64(1462188720, 1361684224), new $Int64(-1159399429, 1906263026), new $Int64(475781207, 3904421704), new $Int64(-623537128, 1769075545), new $Int64(1062308525, 2621599764), new $Int64(1279509432, 3431891480), new $Int64(-1742751146, 1871896503), new $Int64(128756421, 1412808876), new $Int64(1605404688, 952876175), new $Int64(-230443691, 1824438899), new $Int64(1662295856, 1005035476), new $Int64(-156574141, 527508597), new $Int64(1288873303, 3066806859), new $Int64(565995893, 3244940914), new $Int64(-889746188, 209092916), new $Int64(-247669406, 1242699167), new $Int64(-713830396, 456723774), new $Int64(1776978905, 1001252870), new $Int64(1468772157, 2026725874), new $Int64(857254202, 2137562569), new $Int64(765939740, 3183366709), new $Int64(1533887628, 2612072960), new $Int64(56977098, 1727148468), new $Int64(-1197583895, 3803658212), new $Int64(1883670356, 479946959), new $Int64(685713571, 1562982345), new $Int64(-1946242443, 1766109365), new $Int64(700596547, 3257093788), new $Int64(-184714929, 2365720207), new $Int64(93384808, 3742754173), new $Int64(-458385235, 2878193673), new $Int64(1096135042, 2174002182), new $Int64(-834260953, 3573511231), new $Int64(-754572527, 1760299077), new $Int64(-1375627191, 2260779833), new $Int64(-866019274, 1452805722), new $Int64(-1229671918, 2940011802), new $Int64(1890251082, 1886183802), new $Int64(893897673, 2514369088), new $Int64(1644345561, 3924317791), new $Int64(-1974867432, 500935732), new $Int64(1403501753, 676580929), new $Int64(-1565912283, 1184984890), new $Int64(-691968413, 1271474274), new $Int64(-1828754738, 3163791473), new $Int64(2051027584, 2842487377), new $Int64(1511537551, 2170968612), new $Int64(573262976, 3535856740), new $Int64(-2053227187, 1488599718), new $Int64(-1180531831, 3408913763), new $Int64(-2086531912, 2501050084), new $Int64(-875130448, 1639124157), new $Int64(-2009482504, 4088176393), new $Int64(1574896563, 3989947576), new $Int64(-165243708, 3414355209), new $Int64(-792329287, 2275136352), new $Int64(-2057774345, 2151835223), new $Int64(-931144933, 1654534827), new $Int64(-679921451, 377892833), new $Int64(-482716010, 660204544), new $Int64(85706799, 390828249), new $Int64(-1422172693, 3402783878), new $Int64(-1468634160, 3717936603), new $Int64(1113532086, 2211058823), new $Int64(1564224320, 2692150867), new $Int64(1952770442, 1928910388), new $Int64(788716862, 3931011137), new $Int64(1083670504, 1112701047), new $Int64(-68150572, 2452299106), new $Int64(-896164822, 2337204777), new $Int64(1774877857, 273889282), new $Int64(1798719843, 1462008793), new $Int64(2138834788, 1554494002), new $Int64(-1194967131, 182675323), new $Int64(-1598554764, 1882802136), new $Int64(589279648, 3700220025), new $Int64(381039426, 3083431543), new $Int64(-851859191, 3622207527), new $Int64(338126939, 432729309), new $Int64(-1667470126, 2391914317), new $Int64(-1849558151, 235747924), new $Int64(2120733629, 3088823825), new $Int64(-745079795, 2314658321), new $Int64(1165929723, 2957634338), new $Int64(501323675, 4117056981), new $Int64(1564699815, 1482500298), new $Int64(-740826490, 840489337), new $Int64(799522364, 3483178565), new $Int64(532129761, 2074004656), new $Int64(724246478, 3643392642), new $Int64(-665153481, 1583624461), new $Int64(-885822954, 287473085), new $Int64(1667835381, 3136843981), new $Int64(1138806821, 1266970974), new $Int64(135185781, 1998688839), new $Int64(392094735, 1492900209), new $Int64(1031326774, 1538112737), new $Int64(-2070568842, 2207265429), new $Int64(-1886797613, 963263315), new $Int64(1671145500, 2295892134), new $Int64(1068469660, 2002560897), new $Int64(-356250305, 1369254035), new $Int64(33436120, 3353312708), new $Int64(57507843, 947771099), new $Int64(-1945755145, 1747061399), new $Int64(1507240140, 2047354631), new $Int64(720000810, 4165367136), new $Int64(479265078, 3388864963), new $Int64(-952181250, 286492130), new $Int64(2045622690, 2795735007), new $Int64(-715730566, 3703961339), new $Int64(-148436487, 1797825479), new $Int64(1429039600, 1116589674), new $Int64(-1665420098, 2593309206), new $Int64(1329049334, 3404995677), new $Int64(-750579440, 3453462936), new $Int64(1014767077, 3016498634), new $Int64(75698599, 1650371545), new $Int64(1592007860, 212344364), new $Int64(1127766888, 3843932156), new $Int64(-748019856, 3573129983), new $Int64(-890581831, 665897820), new $Int64(1071492673, 1675628772), new $Int64(243225682, 2831752928), new $Int64(2120298836, 1486294219), new $Int64(-1954407413, 268782709), new $Int64(-1002123503, 4186179080), new $Int64(624342951, 1613720397), new $Int64(857179861, 2703686015), new $Int64(-911618704, 2205342611), new $Int64(-672703993, 1411666394), new $Int64(-1528454899, 677744900), new $Int64(-1876628533, 4172867247), new $Int64(135494707, 2163418403), new $Int64(849547544, 2841526879), new $Int64(-1117516959, 1082141470), new $Int64(-1770111792, 4046134367), new $Int64(51415528, 2142943655), new $Int64(-249824333, 3124627521), new $Int64(998228909, 219992939), new $Int64(-1078790951, 1756846531), new $Int64(1283749206, 1225118210), new $Int64(-525858006, 1647770243), new $Int64(-2035959705, 444807907), new $Int64(2036369448, 3952076173), new $Int64(53201823, 1461839639), new $Int64(315761893, 3699250910), new $Int64(702974850, 1373688981), new $Int64(734022261, 147523747), new $Int64(-2047330906, 1211276581), new $Int64(1294440951, 2548832680), new $Int64(1144696256, 1995631888), new $Int64(-1992983070, 2011457303), new $Int64(-1351022674, 3057425772), new $Int64(667839456, 81484597), new $Int64(-1681980888, 3646681560), new $Int64(-1372462725, 635548515), new $Int64(602489502, 2508044581), new $Int64(-1794220117, 1014917157), new $Int64(719992433, 3214891315), new $Int64(-1294799037, 959582252), new $Int64(226415134, 3347040449), new $Int64(-362868096, 4102971975), new $Int64(397887437, 4078022210), new $Int64(-536803826, 2851767182), new $Int64(-1398321012, 1540160644), new $Int64(-1549098876, 1057290595), new $Int64(-112592988, 3907769253), new $Int64(579300318, 4248952684), new $Int64(-1054576049, 132554364), new $Int64(-1085862414, 1029351092), new $Int64(697840928, 2583007416), new $Int64(298619124, 1486185789), new $Int64(55905697, 2871589073), new $Int64(2017643612, 723203291), new $Int64(146250550, 2494333952), new $Int64(-1082993397, 2230939180), new $Int64(-1804568072, 3943232912), new $Int64(1768732449, 2181367922), new $Int64(-729261111, 2889274791), new $Int64(1824032949, 2046728161), new $Int64(1653899792, 1376052477), new $Int64(1022327048, 381236993), new $Int64(-1113097690, 3188942166), new $Int64(-74480109, 350070824), new $Int64(144881592, 61758415), new $Int64(-741824226, 3492950336), new $Int64(-2030042720, 3093818430), new $Int64(-453590535, 2962480613), new $Int64(-1912050708, 3154871160), new $Int64(-1636478569, 3228564679), new $Int64(610731502, 888276216), new $Int64(-946702974, 3574998604), new $Int64(-1277068380, 1967526716), new $Int64(-1556147941, 1554691298), new $Int64(-1573024234, 339944798), new $Int64(1223764147, 1154515356), new $Int64(1825645307, 967516237), new $Int64(1546195135, 596588202), new $Int64(-1867600880, 3764362170), new $Int64(-1655392592, 266611402), new $Int64(-393255880, 2047856075), new $Int64(-1000726433, 21444105), new $Int64(-949424754, 3065563181), new $Int64(-232418803, 1140663212), new $Int64(633187674, 2323741028), new $Int64(2126290159, 3103873707), new $Int64(1008658319, 2766828349), new $Int64(-485587503, 1970872996), new $Int64(1628585413, 3766615585), new $Int64(-595148528, 2036813414), new $Int64(-1994877121, 3105536507), new $Int64(13954645, 3396176938), new $Int64(-721402003, 1377154485), new $Int64(-61839181, 3807014186), new $Int64(543009040, 3710110597), new $Int64(-1751425519, 916420443), new $Int64(734556788, 2103831255), new $Int64(-1766161494, 717331943), new $Int64(-1574598896, 3550505941), new $Int64(45939673, 378749927), new $Int64(-1997615719, 611017331), new $Int64(592130075, 758907650), new $Int64(1012992349, 154266815), new $Int64(-1040454942, 1407468696), new $Int64(-1678191250, 970098704), new $Int64(-285057486, 1971660656), new $Int64(998365243, 3332747885), new $Int64(1947089649, 1935189867), new $Int64(1510248801, 203520055), new $Int64(-1305165746, 3916463034), new $Int64(-388598655, 3474113316), new $Int64(1036101639, 316544223), new $Int64(-1773744891, 1650844677), new $Int64(-907191419, 4267565603), new $Int64(-1070275024, 2501167616), new $Int64(-1520651863, 3929401789), new $Int64(-2091360852, 337170252), new $Int64(-960502090, 2061966842), new $Int64(-304190848, 2508461464), new $Int64(-1941471116, 2791377107), new $Int64(1240791848, 1227227588), new $Int64(1813978778, 1709681848), new $Int64(1153692192, 3768820575), new $Int64(-1002297449, 2887126398), new $Int64(-1447111334, 296561685), new $Int64(700300844, 3729960077), new $Int64(-1572311344, 372833036), new $Int64(2078875613, 2409779288), new $Int64(1829161290, 555274064), new $Int64(-1105595719, 4239804901), new $Int64(1839403216, 3723486978), new $Int64(-1649093095, 2145871984), new $Int64(-1582765715, 3565480803), new $Int64(-1568653827, 2197313814), new $Int64(974785092, 3613674566), new $Int64(438638731, 3042093666), new $Int64(-96556264, 3324034321), new $Int64(869420878, 3708873369), new $Int64(946682149, 1698090092), new $Int64(1618900382, 4213940712), new $Int64(-1843479747, 2087477361), new $Int64(-1766167800, 2407950639), new $Int64(-1296225558, 3942568569), new $Int64(-1223900450, 4088074412), new $Int64(723260036, 2964773675), new $Int64(-673921829, 1539178386), new $Int64(1062961552, 2694849566), new $Int64(460977733, 2120273838), new $Int64(-1604570740, 2484608657), new $Int64(880846449, 2956190677), new $Int64(1970902366, 4223313749), new $Int64(662161910, 3502682327), new $Int64(705634754, 4133891139), new $Int64(-1031359300, 1166449596), new $Int64(1038247601, 3362705993), new $Int64(93734798, 3892921029), new $Int64(1876124043, 786869787), new $Int64(1057490746, 1046342263), new $Int64(242763728, 493777327), new $Int64(-853573201, 3304827646), new $Int64(616460742, 125356352), new $Int64(499300063, 74094113), new $Int64(-795586925, 2500816079), new $Int64(-490248444, 514015239), new $Int64(1377565129, 543520454), new $Int64(-2039776725, 3614531153), new $Int64(2056746300, 2356753985), new $Int64(1390062617, 2018141668), new $Int64(131272971, 2087974891), new $Int64(-1502927041, 3166972343), new $Int64(372256200, 1517638666), new $Int64(-935275664, 173466846), new $Int64(-695774461, 4241513471), new $Int64(-1413550842, 2783126920), new $Int64(1972004134, 4167264826), new $Int64(29260506, 3907395640), new $Int64(-910901561, 1539634186), new $Int64(-595957298, 178241987), new $Int64(-113277636, 182168164), new $Int64(-1102530459, 2386154934), new $Int64(1379126408, 4077374341), new $Int64(-2114679722, 1732699140), new $Int64(-421057745, 1041306002), new $Int64(1860414813, 2068001749), new $Int64(1005320202, 3208962910), new $Int64(844054010, 697710380), new $Int64(-1509359403, 2228431183), new $Int64(-810313977, 3554678728), new $Int64(-750989047, 173470263), new $Int64(-85886265, 3848297795), new $Int64(-926936977, 246236185), new $Int64(-1984190461, 2066374846), new $Int64(1771673660, 312890749), new $Int64(703378057, 3573310289), new $Int64(-598851901, 143166754), new $Int64(613554316, 2081511079), new $Int64(1197802104, 486038032), new $Int64(-1906483789, 2982218564), new $Int64(364901986, 1000939191), new $Int64(1902782651, 2750454885), new $Int64(-671844857, 3375313137), new $Int64(-1643868040, 881302957), new $Int64(-1508784745, 2514186393), new $Int64(-1703622845, 360024739), new $Int64(1399671872, 292500025), new $Int64(1381210821, 2276300752), new $Int64(521803381, 4069087683), new $Int64(-1938982667, 1637778212), new $Int64(720490469, 1676670893), new $Int64(1067262482, 3855174429), new $Int64(2114075974, 2067248671), new $Int64(-89426259, 2884561259), new $Int64(-805741095, 2456511185), new $Int64(983726246, 561175414), new $Int64(-1719489563, 432588903), new $Int64(885133709, 4059399550), new $Int64(-93096266, 1075014784), new $Int64(-1733832628, 2728058415), new $Int64(1839142064, 1299703678), new $Int64(1262333188, 2347583393), new $Int64(1285481956, 2468164145), new $Int64(-1158354011, 1140014346), new $Int64(2033889184, 1936972070), new $Int64(-1737578993, 3870530098), new $Int64(-484494257, 1717789158), new $Int64(-232997156, 1153452491), new $Int64(-990424416, 3948827651), new $Int64(-1357145630, 2101413152), new $Int64(1495744672, 3854091229), new $Int64(83644069, 4215565463), new $Int64(-1385277313, 1202710438), new $Int64(-564909037, 2072216740), new $Int64(705690639, 2066751068), new $Int64(-2113583312, 173902580), new $Int64(-741983806, 142459001), new $Int64(172391592, 1889151926), new $Int64(-498943125, 3034199774), new $Int64(1618587731, 516490102), new $Int64(93114264, 3692577783), new $Int64(-2078821353, 2953948865), new $Int64(-320938673, 4041040923), new $Int64(-1942517976, 592046130), new $Int64(-705643640, 384297211), new $Int64(-2051649464, 265863924), new $Int64(2101717619, 1333136237), new $Int64(1499611781, 1406273556), new $Int64(1074670496, 426305476), new $Int64(125704633, 2750898176), new $Int64(488068495, 1633944332), new $Int64(2037723464, 3236349343), new $Int64(-1703423246, 4013676611), new $Int64(1718532237, 2265047407), new $Int64(1433593806, 875071080), new $Int64(-343047503, 1418843655), new $Int64(2009228711, 451657300), new $Int64(1229446621, 1866374663), new $Int64(1653472867, 1551455622), new $Int64(577191481, 3560962459), new $Int64(1669204077, 3347903778), new $Int64(-298327194, 2675874918), new $Int64(-1831355577, 2762991672), new $Int64(530492383, 3689068477), new $Int64(844089962, 4071997905), new $Int64(1508155730, 1381702441), new $Int64(2089931018, 2373284878), new $Int64(-864267462, 2143983064), new $Int64(308739063, 1938207195), new $Int64(1754949306, 1188152253), new $Int64(1272345009, 615870490), new $Int64(742653194, 2662252621), new $Int64(1477718295, 3839976789), new $Int64(-2091334213, 306752547), new $Int64(-1426688067, 2162363077), new $Int64(-57052633, 2767224719), new $Int64(-1471624099, 2628837712), new $Int64(1678405918, 2967771969), new $Int64(1694285728, 499792248), new $Int64(-1744131281, 4285253508), new $Int64(962357072, 2856511070), new $Int64(679471692, 2526409716), new $Int64(-1793706473, 1240875658), new $Int64(-914893422, 2577342868), new $Int64(-1001298215, 4136853496), new $Int64(-1477114974, 2403540137), new $Int64(1372824515, 1371410668), new $Int64(-176562048, 371758825), new $Int64(-441063112, 1528834084), new $Int64(-71688630, 1504757260), new $Int64(-1461820072, 699052551), new $Int64(-505543539, 3347789870), new $Int64(1951619734, 3430604759), new $Int64(2119672219, 1935601723), new $Int64(966789690, 834676166)]);
+		globalRand = New(new lockedSource.ptr(new nosync.Mutex.ptr(false), $assertType(NewSource(new $Int64(0, 1)), Source64)));
 		/* */ } return; } if ($f === undefined) { $f = { $blk: $init }; } $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.$init = $init;
@@ -15373,7 +15326,6 @@ $packages["main"] = (function() {
 				tree[0].layout();
 			}; })(tree), funcType));
 			$s = -1; return;
-			return;
 			/* */ } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f._r = _r; $f.cover = cover; $f.tree = tree; $f.$s = $s; $f.$r = $r; return $f;
 		}), funcType));
 	};
@@ -15393,7 +15345,6 @@ $packages["main"] = (function() {
 		t.rects = t.buildRects(sliceType$2.nil, t.tr.Data, 0);
 		t.start();
 		$s = -1; return t;
-		return t;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: NewTree }; } $f.$ptr = $ptr; $f.parent = parent; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	$pkg.NewTree = NewTree;
@@ -15406,7 +15357,7 @@ $packages["main"] = (function() {
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			s = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			s = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			if (!($global[$externalize(s, $String)] === undefined)) {
 				raf = s;
 				break;
@@ -15424,7 +15375,6 @@ $packages["main"] = (function() {
 			$global[$externalize(raf, $String)]($externalize(f, funcType$1));
 			$r = t.loop($parseFloat(timestampJS) / 1000); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 			$s = -1; return;
-			return;
 			/* */ } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f.timestampJS = timestampJS; $f.$s = $s; $f.$r = $r; return $f;
 		});
 		$global[$externalize(raf, $String)]($externalize(f, funcType$1));
@@ -15442,14 +15392,13 @@ $packages["main"] = (function() {
 		consoleTimeEnd("bulk-insert " + itoa(K) + " items");
 		t.data = $appendSlice(t.data, data2);
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Tree.ptr.prototype.genBulkInsert }; } $f.$ptr = $ptr; $f.K = K; $f.M = M; $f._r = _r; $f.data2 = data2; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Tree.prototype.genBulkInsert = function(K, M) { return this.$val.genBulkInsert(K, M); };
 	genRandomData = function(N) {
 		var $ptr, N, _r, _r$1, _r$2, _r$3, data, h, i, w, x, y, $s, $r;
 		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; N = $f.N; _r = $f._r; _r$1 = $f._r$1; _r$2 = $f._r$2; _r$3 = $f._r$3; data = $f.data; h = $f.h; i = $f.i; w = $f.w; x = $f.x; y = $f.y; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		$r = rand.Seed(time.Now().UnixNano()); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		$r = rand.Seed($clone(time.Now(), time.Time).UnixNano()); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		data = sliceType$1.nil;
 		i = 0;
 		/* while (true) { */ case 2:
@@ -15462,11 +15411,10 @@ $packages["main"] = (function() {
 			x = (1000 - w) * _r$2;
 			_r$3 = rand.Float64(); /* */ $s = 7; case 7: if($c) { $c = false; _r$3 = _r$3.$blk(); } if (_r$3 && _r$3.$blk !== undefined) { break s; }
 			y = (1000 - w) * _r$3;
-			data = $append(data, new rbush.Node.ptr(x, y, x + w, y + h, sliceType$1.nil, 0, false, new $Bool(true)));
+			data = $append(data, new rbush.Node.ptr(x, y, 0, x + w, y + h, 0, sliceType$1.nil, 0, false, new $Bool(true)));
 			i = i + (1) >> 0;
 		/* } */ $s = 2; continue; case 3:
 		$s = -1; return data;
-		return data;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: genRandomData }; } $f.$ptr = $ptr; $f.N = N; $f._r = _r; $f._r$1 = _r$1; $f._r$2 = _r$2; $f._r$3 = _r$3; $f.data = data; $f.h = h; $f.i = i; $f.w = w; $f.x = x; $f.y = y; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	consoleTime = function(s) {
@@ -15475,7 +15423,7 @@ $packages["main"] = (function() {
 	};
 	consoleTimeEnd = function(s) {
 		var $ptr, end, s, x;
-		end = time.Since(start);
+		end = time.Since($clone(start, time.Time));
 		console.log(s + ": " + itoa(((x = $div64(end, new time.Duration(0, 1000000), false), x.$low + ((x.$high >> 31) * 4294967296)) >> 0)) + "ms");
 	};
 	Tree.ptr.prototype.layout = function() {
@@ -15520,7 +15468,6 @@ $packages["main"] = (function() {
 				/* } */ case 5:
 			/* } */ case 3:
 			$s = -1; return;
-			return;
 			/* */ } return; } if ($f === undefined) { $f = { $blk: $b }; } $f.$ptr = $ptr; $f.ev = ev; $f.$s = $s; $f.$r = $r; return $f;
 		}), funcType$1));
 		t.canvas.addEventListener($externalize("mousemove", $String), $externalize((function(ev) {
@@ -15560,7 +15507,7 @@ $packages["main"] = (function() {
 			if (level === 0) {
 				rect.color = "grey";
 			} else {
-				rect.color = (x = (_r = ((node.Height - 1 >> 0)) % colors.$length, _r === _r ? _r : $throwRuntimeError("integer divide by zero")), ((x < 0 || x >= colors.$length) ? $throwRuntimeError("index out of range") : colors.$array[colors.$offset + x]));
+				rect.color = (x = (_r = ((node.Height - 1 >> 0)) % colors.$length, _r === _r ? _r : $throwRuntimeError("integer divide by zero")), ((x < 0 || x >= colors.$length) ? ($throwRuntimeError("index out of range"), undefined) : colors.$array[colors.$offset + x]));
 			}
 			if (level === 0) {
 				rect.stroke = 0.2;
@@ -15581,7 +15528,7 @@ $packages["main"] = (function() {
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			child = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+			child = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 			rects = t.buildRects(rects, child, level + 1 >> 0);
 			_i++;
 		}
@@ -15622,7 +15569,7 @@ $packages["main"] = (function() {
 		i = t.rects.$length - 1 >> 0;
 		/* while (true) { */ case 1:
 			/* if (!(i >= 0)) { break; } */ if(!(i >= 0)) { $s = 2; continue; }
-			rect = $clone((x = t.rects, ((i < 0 || i >= x.$length) ? $throwRuntimeError("index out of range") : x.$array[x.$offset + i])), rectT);
+			rect = $clone((x = t.rects, ((i < 0 || i >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + i])), rectT);
 			opacity = 0;
 			/* */ if (rect.node.Leaf) { $s = 3; continue; }
 			/* */ $s = 4; continue;
@@ -15692,7 +15639,7 @@ $packages["main"] = (function() {
 					_i = 0;
 					while (true) {
 						if (!(_i < _ref.$length)) { break; }
-						child = ((_i < 0 || _i >= _ref.$length) ? $throwRuntimeError("index out of range") : _ref.$array[_ref.$offset + _i]);
+						child = ((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]);
 						x$2 = t.tx(child.MinX);
 						y$1 = t.ty(child.MinY);
 						if (t.width > t.height) {
@@ -15712,12 +15659,11 @@ $packages["main"] = (function() {
 			} else {
 				t.strokeRect(x$1, y, w, h, 1 * t.ratio);
 			}
-			rectT.copy((x$3 = t.rects, ((i < 0 || i >= x$3.$length) ? $throwRuntimeError("index out of range") : x$3.$array[x$3.$offset + i])), rect);
+			rectT.copy((x$3 = t.rects, ((i < 0 || i >= x$3.$length) ? ($throwRuntimeError("index out of range"), undefined) : x$3.$array[x$3.$offset + i])), rect);
 			i = i - (1) >> 0;
 		/* } */ $s = 1; continue; case 2:
 		t.drawTitles();
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Tree.ptr.prototype.draw }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._r$1 = _r$1; $f._ref = _ref; $f.child = child; $f.diff = diff; $f.h = h; $f.i = i; $f.opacity = opacity; $f.rect = rect; $f.stroke = stroke; $f.t = t; $f.w = w; $f.x = x; $f.x$1 = x$1; $f.x$2 = x$2; $f.x$3 = x$3; $f.y = y; $f.y$1 = y$1; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Tree.prototype.draw = function() { return this.$val.draw(); };
@@ -15751,7 +15697,6 @@ $packages["main"] = (function() {
 		t.ts = dur;
 		$r = t.draw(); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$s = -1; return;
-		return;
 		/* */ } return; } if ($f === undefined) { $f = { $blk: Tree.ptr.prototype.loop }; } $f.$ptr = $ptr; $f.dur = dur; $f.t = t; $f.$s = $s; $f.$r = $r; return $f;
 	};
 	Tree.prototype.loop = function(dur) { return this.$val.loop(dur); };
@@ -15812,7 +15757,7 @@ $packages["main"] = (function() {
 $synthesizeMethods();
 var $mainPkg = $packages["main"];
 $packages["runtime"].$init();
-$go($mainPkg.$init, [], true);
+$go($mainPkg.$init, []);
 $flushConsole();
 
 }).call(this);

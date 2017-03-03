@@ -11,12 +11,12 @@ import (
 const defaultMaxEntries = 9
 
 type Node struct {
-	MinX, MinY float64
-	MaxX, MaxY float64
-	Children   []*Node
-	Height     int
-	Leaf       bool
-	Item       interface{}
+	MinX, MinY, MinZ float64
+	MaxX, MaxY, MaxZ float64
+	Children         []*Node
+	Height           int
+	Leaf             bool
+	Item             interface{}
 }
 
 type RBush struct {
@@ -26,58 +26,60 @@ type RBush struct {
 	pathReuseBuf []*Node
 }
 
-type byMinX []*Node
-
-func (arr byMinX) At(i int) interface{} {
-	return arr[i]
+type byDim struct {
+	nodes []*Node
+	dim   int
 }
-func (arr byMinX) Compare(a, b interface{}) int {
+
+func (arr byDim) At(i int) interface{} {
+	return arr.nodes[i]
+}
+func (arr byDim) Compare(a, b interface{}) int {
 	na, nb := a.(*Node), b.(*Node)
-	if na.MinX < nb.MinX {
-		return -1
-	}
-	if na.MinX > nb.MinX {
-		return +1
+	switch arr.dim {
+	case 1:
+		if na.MinX < nb.MinX {
+			return -1
+		}
+		if na.MinX > nb.MinX {
+			return +1
+		}
+	case 2:
+		if na.MinY < nb.MinY {
+			return -1
+		}
+		if na.MinY > nb.MinY {
+			return +1
+		}
+	case 3:
+		if na.MinZ < nb.MinZ {
+			return -1
+		}
+		if na.MinZ > nb.MinZ {
+			return +1
+		}
 	}
 	return 0
 }
-func (arr byMinX) Less(i, j int) bool {
-	return arr[i].MinX < arr[j].MinX
-}
 
-func (arr byMinX) Swap(i, j int) {
-	arr[i], arr[j] = arr[j], arr[i]
-}
-
-func (arr byMinX) Len() int {
-	return len(arr)
-}
-
-type byMinY []*Node
-
-func (arr byMinY) At(i int) interface{} {
-	return arr[i]
-}
-func (arr byMinY) Compare(a, b interface{}) int {
-	na, nb := a.(*Node), b.(*Node)
-	if na.MinY < nb.MinY {
-		return -1
+func (arr byDim) Less(i, j int) bool {
+	na, nb := arr.nodes[i], arr.nodes[j]
+	switch arr.dim {
+	case 1:
+		return na.MinX < na.MinX
+	case 2:
+		return nb.MinY < nb.MinY
+	case 3:
+		return nb.MinZ < nb.MinZ
 	}
-	if na.MinY > nb.MinY {
-		return +1
-	}
-	return 0
+	return false
 }
-func (arr byMinY) Less(i, j int) bool {
-	return arr[i].MinY < arr[j].MinY
+func (arr byDim) Swap(i, j int) {
+	arr.nodes[i], arr.nodes[j] = arr.nodes[j], arr.nodes[i]
 }
 
-func (arr byMinY) Swap(i, j int) {
-	arr[i], arr[j] = arr[j], arr[i]
-}
-
-func (arr byMinY) Len() int {
-	return len(arr)
+func (arr byDim) Len() int {
+	return len(arr.nodes)
 }
 
 func New(maxEntries int) *RBush {
@@ -347,10 +349,10 @@ func (this *RBush) _build(items []*Node, left, right, height int) *Node {
 	var N2 = int(math.Ceil(float64(N) / float64(M)))
 	var N1 = N2 * int(math.Ceil(math.Sqrt(float64(M))))
 	var i, j, right2, right3 int
-	multiSelect(byMinX(items), left, right, N1)
+	multiSelect(byDim{items, 1}, left, right, N1)
 	for i = left; i <= right; i += N1 {
 		right2 = int(minFlt(float64(i+N1-1), float64(right)))
-		multiSelect(byMinY(items), i, right2, N2)
+		multiSelect(byDim{items, 2}, i, right2, N2)
 		for j = i; j <= right2; j += N2 {
 			right3 = int(minFlt(float64(j+N2-1), float64(right2)))
 			// pack each entry recursively
@@ -586,8 +588,10 @@ func distBBox(node *Node, k, p int, destNode *Node) *Node {
 	}
 	destNode.MinX = infPos
 	destNode.MinY = infPos
+	destNode.MinZ = infPos
 	destNode.MaxX = infNeg
 	destNode.MaxY = infNeg
+	destNode.MaxZ = infNeg
 
 	var child *Node
 	for i := k; i < p; i++ {
@@ -600,55 +604,64 @@ func distBBox(node *Node, k, p int, destNode *Node) *Node {
 func extend(a *Node, b *Node) *Node {
 	a.MinX = minFlt(a.MinX, b.MinX)
 	a.MinY = minFlt(a.MinY, b.MinY)
+	a.MinZ = minFlt(a.MinZ, b.MinZ)
 	a.MaxX = maxFlt(a.MaxX, b.MaxX)
 	a.MaxY = maxFlt(a.MaxY, b.MaxY)
+	a.MaxZ = maxFlt(a.MaxZ, b.MaxZ)
 	return a
 }
 
 func bboxArea(a *Node) float64 {
-	return (a.MaxX - a.MinX) * (a.MaxY - a.MinY)
+	return (a.MaxX - a.MinX) * (a.MaxY - a.MinY) * (a.MaxZ - a.MinZ)
 }
 
 func bboxMargin(a *Node) float64 {
-	return (a.MaxX - a.MinX) + (a.MaxY - a.MinY)
+	return (a.MaxX - a.MinX) + (a.MaxY - a.MinY) + (a.MaxZ - a.MinZ)
 }
 
 func enlargedArea(a, b *Node) float64 {
 	return (maxFlt(b.MaxX, a.MaxX) - minFlt(b.MinX, a.MinX)) *
-		(maxFlt(b.MaxY, a.MaxY) - minFlt(b.MinY, a.MinY))
+		(maxFlt(b.MaxY, a.MaxY) - minFlt(b.MinY, a.MinY)) *
+		(maxFlt(b.MaxZ, a.MaxZ) - minFlt(b.MinZ, a.MinZ))
 }
-func maxFlt(x, y float64) float64 {
-	if x > y {
-		return x
+func maxFlt(a, b float64) float64 {
+	if a > b {
+		return a
 	}
-	return y
+	return b
 }
-func minFlt(x, y float64) float64 {
-	if x < y {
-		return x
+func minFlt(a, b float64) float64 {
+	if a < b {
+		return a
 	}
-	return y
+	return b
 }
 func intersectionArea(a, b *Node) float64 {
 	var minX = maxFlt(a.MinX, b.MinX)
 	var minY = maxFlt(a.MinY, b.MinY)
+	var minZ = maxFlt(a.MinZ, b.MinZ)
 	var maxX = minFlt(a.MaxX, b.MaxX)
 	var maxY = minFlt(a.MaxY, b.MaxY)
-	return maxFlt(0, maxX-minX) * maxFlt(0, maxY-minY)
+	var maxZ = minFlt(a.MaxZ, b.MaxZ)
+	return maxFlt(0, maxX-minX) * maxFlt(0, maxY-minY) * maxFlt(0, maxZ-minZ)
 }
 
 func contains(a, b *Node) bool {
 	return a.MinX <= b.MinX &&
 		a.MinY <= b.MinY &&
+		a.MinZ <= b.MinZ &&
 		b.MaxX <= a.MaxX &&
-		b.MaxY <= a.MaxY
+		b.MaxY <= a.MaxY &&
+		b.MaxZ <= a.MaxZ
 }
 
 func intersects(a, b *Node) bool {
 	return b.MinX <= a.MaxX &&
 		b.MinY <= a.MaxY &&
+		b.MinZ <= a.MaxZ &&
 		b.MaxX >= a.MinX &&
-		b.MaxY >= a.MinY
+		b.MaxY >= a.MinY &&
+		b.MaxZ >= a.MinZ
 }
 
 func createNode(children []*Node) *Node {
@@ -658,8 +671,10 @@ func createNode(children []*Node) *Node {
 		Leaf:     true,
 		MinX:     infPos,
 		MinY:     infPos,
+		MinZ:     infPos,
 		MaxX:     infNeg,
 		MaxY:     infNeg,
+		MaxZ:     infNeg,
 	}
 }
 
@@ -706,12 +721,14 @@ func nodeString(node *Node) string {
 		` leaf:%v`+
 		` minX:%v`+
 		` minY:%v`+
+		` minZ:%v`+
 		` maxX:%v`+
 		` maxY:%v`+
+		` maxZ:%v`+
 		`} (%v)`,
 		len(node.Children), count(node),
 		node.Height, node.Leaf,
-		node.MinX, node.MinY, node.MaxX, node.MaxY,
+		node.MinX, node.MinY, node.MinZ, node.MaxX, node.MaxY, node.MaxZ,
 		sum[len(sum)-7:],
 	)
 }
@@ -754,10 +771,14 @@ func appendNodeJSON(b []byte, node *Node, depth int) []byte {
 	b = append(b, strconv.FormatFloat(node.MinX, 'f', -1, 64)...)
 	b = append(b, `,"minY":`...)
 	b = append(b, strconv.FormatFloat(node.MinY, 'f', -1, 64)...)
+	b = append(b, `,"minZ":`...)
+	b = append(b, strconv.FormatFloat(node.MinZ, 'f', -1, 64)...)
 	b = append(b, `,"maxX":`...)
 	b = append(b, strconv.FormatFloat(node.MaxX, 'f', -1, 64)...)
 	b = append(b, `,"maxY":`...)
 	b = append(b, strconv.FormatFloat(node.MaxY, 'f', -1, 64)...)
+	b = append(b, `,"maxZ":`...)
+	b = append(b, strconv.FormatFloat(node.MaxZ, 'f', -1, 64)...)
 	b = append(b, '}')
 	return b
 }
@@ -773,10 +794,9 @@ func ncopy(nodes []*Node) []*Node {
 }
 
 func sortNodes(nodes []*Node, dim int) {
-	if dim == 1 {
-		sort.Sort(byMinX(nodes))
+	for i := dim; i <= 3; i++ {
+		sort.Sort(byDim{nodes, dim})
 	}
-	sort.Sort(byMinY(nodes))
 }
 
 type quickSelectArr interface {
