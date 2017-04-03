@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -503,15 +504,23 @@ func TestQuickselect(t *testing.T) {
 		}
 	}
 }
+func readMemStats() runtime.MemStats {
+	var m runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&m)
+	return m
+}
 func BenchmarkVarious(t *testing.B) {
-	t.N = 0
+
+	t.N = 0 // avoid stuff
 	var N = 1000000
-	var maxFill = 16
+	var maxFill = 9
 
 	fmt.Printf("number: %v\n", N)
 	fmt.Printf("maxFill: %v\n", maxFill)
 
 	rand.Seed(time.Now().UnixNano())
+
 	randBox := func(size float64) *Node {
 		var x = rand.Float64() * (100 - size)
 		var y = rand.Float64() * (100 - size)
@@ -538,14 +547,11 @@ func BenchmarkVarious(t *testing.B) {
 		end := time.Since(start)
 		fmt.Printf("%v: %dms\n", s, end/time.Millisecond)
 	}
-	var data = genData(N, 1)
-	var data2 = genData(N, 1)
-	var bboxes100 = genData(1000, 100*math.Sqrt(0.1))
-	var bboxes10 = genData(1000, 10)
-	var bboxes1 = genData(1000, 1)
 
 	var tree = New(maxFill)
 
+	var m1 = readMemStats()
+	var data = genData(N, 1)
 	t.ResetTimer()
 	consoleTime("insert one by one")
 	for i := 0; i < N; i++ {
@@ -553,8 +559,11 @@ func BenchmarkVarious(t *testing.B) {
 		t.N++
 	}
 	consoleTimeEnd("insert one by one")
+	m2 := readMemStats()
+	fmt.Printf(">> %d bytes per rect\n", int(m2.HeapAlloc-m1.HeapAlloc)/N)
 
 	consoleTime("1000 searches 10%")
+	var bboxes100 = genData(1000, 100*math.Sqrt(0.1))
 	for i := 0; i < 1000; i++ {
 		tree.search(bboxes100[i])
 		t.N++
@@ -562,6 +571,7 @@ func BenchmarkVarious(t *testing.B) {
 	consoleTimeEnd("1000 searches 10%")
 
 	consoleTime("1000 searches 1%")
+	var bboxes10 = genData(1000, 10)
 	for i := 0; i < 1000; i++ {
 		tree.search(bboxes10[i])
 		t.N++
@@ -569,6 +579,7 @@ func BenchmarkVarious(t *testing.B) {
 	consoleTimeEnd("1000 searches 1%")
 
 	consoleTime("1000 searches 0.01%")
+	var bboxes1 = genData(1000, 1)
 	for i := 0; i < 1000; i++ {
 		tree.search(bboxes1[i])
 		t.N++
@@ -583,6 +594,7 @@ func BenchmarkVarious(t *testing.B) {
 	consoleTimeEnd("remove 1000 one by one")
 
 	consoleTime("bulk-insert 1M more")
+	var data2 = genData(N, 1)
 	tree.load(data2)
 	consoleTimeEnd("bulk-insert 1M more")
 
