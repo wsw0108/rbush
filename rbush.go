@@ -105,7 +105,7 @@ type Item interface {
 	Rect() (min, max []float64)
 }
 
-type RTree struct {
+type RBush struct {
 	dims       int
 	maxEntries int
 	minEntries int
@@ -113,9 +113,9 @@ type RTree struct {
 	reusePath  []*treeNode
 }
 
-func New(dims int) *RTree {
+func New(dims int) *RBush {
 	maxEntries := 9
-	tr := &RTree{}
+	tr := &RBush{}
 	tr.dims = dims
 	tr.maxEntries = int(mathMax(4, float64(maxEntries)))
 	tr.minEntries = int(mathMax(2, math.Ceil(float64(tr.maxEntries)*0.4)))
@@ -140,7 +140,7 @@ func createNode(children []interface{}, dims int) *treeNode {
 func fillBBox(item Item, bbox *treeNode) {
 	bbox.min, bbox.max = item.Rect()
 }
-func (tr *RTree) Insert(item Item) {
+func (tr *RBush) Insert(item Item) {
 	if item == nil {
 		panic("item is nil")
 	}
@@ -150,14 +150,14 @@ func (tr *RTree) Insert(item Item) {
 	}
 	tr.insertBBox(item, min, max)
 }
-func (tr *RTree) insertBBox(item Item, min, max []float64) {
+func (tr *RBush) insertBBox(item Item, min, max []float64) {
 	var bbox treeNode
 	bbox.min = min
 	bbox.max = max
 	tr.insert(&bbox, item, tr.data.height-1, false)
 }
 
-func (tr *RTree) insert(bbox *treeNode, item Item, level int, isNode bool) {
+func (tr *RBush) insert(bbox *treeNode, item Item, level int, isNode bool) {
 	tr.reusePath = tr.reusePath[:0]
 	node, insertPath := tr.chooseSubtree(bbox, tr.data, level, tr.reusePath)
 	node.children = append(node.children, item)
@@ -173,13 +173,13 @@ func (tr *RTree) insert(bbox *treeNode, item Item, level int, isNode bool) {
 	tr.adjustParentBBoxes(bbox, insertPath, level)
 	tr.reusePath = insertPath
 }
-func (tr *RTree) adjustParentBBoxes(bbox *treeNode, path []*treeNode, level int) {
+func (tr *RBush) adjustParentBBoxes(bbox *treeNode, path []*treeNode, level int) {
 	// adjust bboxes along the given tree path
 	for i := level; i >= 0; i-- {
 		path[i].extend(bbox)
 	}
 }
-func (tr *RTree) split(insertPath []*treeNode, level int) []*treeNode {
+func (tr *RBush) split(insertPath []*treeNode, level int) []*treeNode {
 	var node = insertPath[level]
 	var M = len(node.children)
 	var m = tr.minEntries
@@ -205,13 +205,13 @@ func (tr *RTree) split(insertPath []*treeNode, level int) []*treeNode {
 	}
 	return insertPath
 }
-func (tr *RTree) splitRoot(node, newNode *treeNode) {
+func (tr *RBush) splitRoot(node, newNode *treeNode) {
 	tr.data = createNode([]interface{}{node, newNode}, tr.dims)
 	tr.data.height = node.height + 1
 	tr.data.leaf = false
 	calcBBox(tr.data, tr.dims)
 }
-func (tr *RTree) chooseSplitIndex(node *treeNode, m, M int) int {
+func (tr *RBush) chooseSplitIndex(node *treeNode, m, M int) int {
 	var i int
 	var bbox1, bbox2 *treeNode
 	var overlap, area, minOverlap, minArea float64
@@ -246,7 +246,7 @@ func (tr *RTree) chooseSplitIndex(node *treeNode, m, M int) int {
 	return index
 }
 
-func (tr *RTree) chooseSplitAxis(node *treeNode, m, M int) {
+func (tr *RBush) chooseSplitAxis(node *treeNode, m, M int) {
 	var axis int
 	var minMargin float64
 	for i := 0; i < tr.dims; i++ {
@@ -301,7 +301,7 @@ func sortNodes(node *treeNode, axis int) {
 
 // allDistMargin sorts the node's children based on the their margin for
 // the specified axis
-func (tr *RTree) allDistMargin(node *treeNode, m, M int, axis int) float64 {
+func (tr *RBush) allDistMargin(node *treeNode, m, M int, axis int) float64 {
 	sortNodes(node, axis)
 	var leftBBox = distBBox(node, 0, m, nil, tr.dims)
 	var rightBBox = distBBox(node, M-m, M, nil, tr.dims)
@@ -335,7 +335,7 @@ func (tr *RTree) allDistMargin(node *treeNode, m, M int, axis int) float64 {
 	}
 	return margin
 }
-func (tr *RTree) chooseSubtree(bbox, node *treeNode, level int, path []*treeNode) (*treeNode, []*treeNode) {
+func (tr *RBush) chooseSubtree(bbox, node *treeNode, level int, path []*treeNode) (*treeNode, []*treeNode) {
 	var targetNode *treeNode
 	var area, enlargement, minArea, minEnlargement float64
 	for {
@@ -400,7 +400,7 @@ func distBBox(node *treeNode, k, p int, destNode *treeNode, dims int) *treeNode 
 	return destNode
 }
 
-func (tr *RTree) Search(bbox Item, iter func(item Item) bool) bool {
+func (tr *RBush) Search(bbox Item, iter func(item Item) bool) bool {
 	if bbox == nil {
 		panic("bbox is nil")
 	}
@@ -411,7 +411,7 @@ func (tr *RTree) Search(bbox Item, iter func(item Item) bool) bool {
 	return tr.searchBBox(min, max, iter)
 }
 
-func (tr *RTree) searchBBox(min, max []float64, iter func(item Item) bool) bool {
+func (tr *RBush) searchBBox(min, max []float64, iter func(item Item) bool) bool {
 	bbox := treeNode{min: min, max: max}
 	if !tr.data.intersects(&bbox) {
 		return true
@@ -444,7 +444,7 @@ func search(node, bbox *treeNode, iter func(item Item) bool) bool {
 	return true
 }
 
-func (tr *RTree) Remove(item Item) {
+func (tr *RBush) Remove(item Item) {
 	if item == nil {
 		panic("item is nil")
 	}
@@ -455,7 +455,7 @@ func (tr *RTree) Remove(item Item) {
 	tr.removeBBox(item, min, max)
 }
 
-func (tr *RTree) removeBBox(item Item, min, max []float64) {
+func (tr *RBush) removeBBox(item Item, min, max []float64) {
 	var bbox treeNode
 	bbox.min = min
 	bbox.max = max
@@ -517,7 +517,7 @@ done:
 	tr.reusePath = path
 	return
 }
-func (tr *RTree) condense(path []*treeNode) {
+func (tr *RBush) condense(path []*treeNode) {
 	// go through the path, removing empty nodes and updating bboxes
 	var siblings []interface{}
 	for i := len(path) - 1; i >= 0; i-- {
@@ -551,7 +551,7 @@ func findItem(item Item, node *treeNode) int {
 	}
 	return -1
 }
-func (tr *RTree) Count() int {
+func (tr *RBush) Count() int {
 	return count(tr.data)
 }
 func count(node *treeNode) int {
@@ -565,7 +565,7 @@ func count(node *treeNode) int {
 	return n
 }
 
-func (tr *RTree) Traverse(iter func(min, max []float64, level int, item Item) bool) {
+func (tr *RBush) Traverse(iter func(min, max []float64, level int, item Item) bool) {
 	traverse(tr.data, iter)
 }
 
@@ -592,7 +592,7 @@ func traverse(node *treeNode, iter func(min, max []float64, level int, item Item
 	return true
 }
 
-func (tr *RTree) Scan(iter func(item Item) bool) bool {
+func (tr *RBush) Scan(iter func(item Item) bool) bool {
 	return scan(tr.data, iter)
 }
 
@@ -613,7 +613,7 @@ func scan(node *treeNode, iter func(item Item) bool) bool {
 	return true
 }
 
-func (tr *RTree) Bounds() (min, max []float64) {
+func (tr *RBush) Bounds() (min, max []float64) {
 	if len(tr.data.children) > 0 {
 		return tr.data.min, tr.data.max
 	}

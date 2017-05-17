@@ -14,7 +14,7 @@ func (item *queueItem) Less(b tinyqueue.Item) bool {
 	return item.dist < b.(*queueItem).dist
 }
 
-func (tr *RTree) KNN(point []float64, iter func(item Item, dist float64) bool) bool {
+func (tr *RBush) KNN(point []float64, iter func(item Item, dist float64) bool) bool {
 	node := tr.data
 	queue := tinyqueue.New(nil)
 	for node != nil {

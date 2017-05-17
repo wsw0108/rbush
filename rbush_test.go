@@ -226,7 +226,7 @@ func testRandom(t *testing.T, which string, n int, dims int) {
 	assert.Equal(t, make([]float64, dims), min)
 	assert.Equal(t, make([]float64, dims), max)
 }
-func testKNN(t *testing.T, tr *rbush.RTree, objs []rbush.Item, n int, check bool) {
+func testKNN(t *testing.T, tr *rbush.RBush, objs []rbush.Item, n int, check bool) {
 	min, max := tr.Bounds()
 	var center []float64
 	for i := 0; i < len(min); i++ {
@@ -294,7 +294,7 @@ func testAxisDist(k, min, max float64) float64 {
 	}
 	return k - max
 }
-func testSearch(t *testing.T, tr *rbush.RTree, objs []rbush.Item, percent float64, check bool) {
+func testSearch(t *testing.T, tr *rbush.RBush, objs []rbush.Item, percent float64, check bool) {
 	min, max := tr.Bounds()
 	values := make([]float64, len(min)*2)
 	for i := 0; i < len(min); i++ {
