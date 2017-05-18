@@ -105,6 +105,8 @@ func makeRandom(what string, dims int) rbush.Item {
 }
 
 func TestRandomPoints(t *testing.T) {
+	//testRandom(t, "point", 1000000, 2)
+	//return
 	for i := 1; i <= 5; i++ {
 		testRandom(t, "point", 10000, i)
 	}
