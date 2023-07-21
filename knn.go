@@ -15,21 +15,21 @@ func (item *queueItem) Less(b tinyqueue.Item) bool {
 }
 
 func (tr *RBush) KNN(point []float64, iter func(item Item, dist float64) bool) bool {
-	node := tr.data
+	node := tr.Data
 	queue := tinyqueue.New(nil)
 	for node != nil {
-		for _, child := range node.children {
+		for _, child := range node.Children {
 			var min, max []float64
-			if node.leaf {
+			if node.Leaf {
 				item := child.(Item)
 				min, max = item.Rect()
 			} else {
-				node := child.(*treeNode)
+				node := child.(*TreeNode)
 				min, max = node.min, node.max
 			}
 			queue.Push(&queueItem{
 				node:   child,
-				isItem: node.leaf,
+				isItem: node.Leaf,
 				dist:   boxDist(point, min, max),
 			})
 		}
@@ -42,7 +42,7 @@ func (tr *RBush) KNN(point []float64, iter func(item Item, dist float64) bool) b
 		}
 		last := queue.Pop()
 		if last != nil {
-			node = last.(*queueItem).node.(*treeNode)
+			node = last.(*queueItem).node.(*TreeNode)
 		} else {
 			node = nil
 		}
@@ -62,6 +62,7 @@ func boxDist(point []float64, min, max []float64) float64 {
 	}
 	return dist
 }
+
 func axisDist(k, min, max float64) float64 {
 	if k < min {
 		return min - k
