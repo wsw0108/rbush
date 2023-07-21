@@ -25,7 +25,7 @@ func (tr *RBush) KNN(point []float64, iter func(item Item, dist float64) bool) b
 				min, max = item.Rect()
 			} else {
 				node := child.(*TreeNode)
-				min, max = node.min, node.max
+				min, max = node.Min, node.Max
 			}
 			queue.Push(&queueItem{
 				node:   child,

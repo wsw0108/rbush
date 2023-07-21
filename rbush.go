@@ -25,24 +25,24 @@ func mathMax(a, b float64) float64 {
 }
 
 type TreeNode struct {
-	min, max []float64
+	Min, Max []float64
 	Children []interface{}
 	Leaf     bool
 	height   int
 }
 
 func (a *TreeNode) extend(b *TreeNode) {
-	for i := 0; i < len(a.min); i++ {
-		a.min[i] = mathMin(a.min[i], b.min[i])
-		a.max[i] = mathMax(a.max[i], b.max[i])
+	for i := 0; i < len(a.Min); i++ {
+		a.Min[i] = mathMin(a.Min[i], b.Min[i])
+		a.Max[i] = mathMax(a.Max[i], b.Max[i])
 	}
 }
 
 func (a *TreeNode) intersectionArea(b *TreeNode) float64 {
 	var area float64
-	for i := 0; i < len(a.min); i++ {
-		min := mathMax(a.min[i], b.min[i])
-		max := mathMin(a.max[i], b.max[i])
+	for i := 0; i < len(a.Min); i++ {
+		min := mathMax(a.Min[i], b.Min[i])
+		max := mathMin(a.Max[i], b.Max[i])
 		if i == 0 {
 			area = mathMax(0, max-min)
 		} else {
@@ -54,11 +54,11 @@ func (a *TreeNode) intersectionArea(b *TreeNode) float64 {
 
 func (a *TreeNode) area() float64 {
 	var area float64
-	for i := 0; i < len(a.min); i++ {
+	for i := 0; i < len(a.Min); i++ {
 		if i == 0 {
-			area = a.max[i] - a.min[i]
+			area = a.Max[i] - a.Min[i]
 		} else {
-			area *= a.max[i] - a.min[i]
+			area *= a.Max[i] - a.Min[i]
 		}
 	}
 	return area
@@ -66,19 +66,19 @@ func (a *TreeNode) area() float64 {
 
 func (a *TreeNode) enlargedArea(b *TreeNode) float64 {
 	var area float64
-	for i := 0; i < len(a.min); i++ {
+	for i := 0; i < len(a.Min); i++ {
 		if i == 0 {
-			area = mathMax(b.max[i], a.max[i]) - mathMin(b.min[i], a.min[i])
+			area = mathMax(b.Max[i], a.Max[i]) - mathMin(b.Min[i], a.Min[i])
 		} else {
-			area *= mathMax(b.max[i], a.max[i]) - mathMin(b.min[i], a.min[i])
+			area *= mathMax(b.Max[i], a.Max[i]) - mathMin(b.Min[i], a.Min[i])
 		}
 	}
 	return area
 }
 
 func (a *TreeNode) intersects(b *TreeNode) bool {
-	for i := 0; i < len(a.min); i++ {
-		if !(b.min[i] <= a.max[i] && b.max[i] >= a.min[i]) {
+	for i := 0; i < len(a.Min); i++ {
+		if !(b.Min[i] <= a.Max[i] && b.Max[i] >= a.Min[i]) {
 			return false
 		}
 	}
@@ -86,8 +86,8 @@ func (a *TreeNode) intersects(b *TreeNode) bool {
 }
 
 func (a *TreeNode) contains(b *TreeNode) bool {
-	for i := 0; i < len(a.min); i++ {
-		if !(a.min[i] <= b.min[i] && b.max[i] <= a.max[i]) {
+	for i := 0; i < len(a.Min); i++ {
+		if !(a.Min[i] <= b.Min[i] && b.Max[i] <= a.Max[i]) {
 			return false
 		}
 	}
@@ -96,11 +96,11 @@ func (a *TreeNode) contains(b *TreeNode) bool {
 
 func (a *TreeNode) margin() float64 {
 	var area float64
-	for i := 0; i < len(a.min); i++ {
+	for i := 0; i < len(a.Min); i++ {
 		if i == 0 {
-			area = a.max[i] - a.min[i]
+			area = a.Max[i] - a.Min[i]
 		} else {
-			area += a.max[i] - a.min[i]
+			area += a.Max[i] - a.Min[i]
 		}
 	}
 	return area
@@ -133,18 +133,18 @@ func createNode(children []interface{}, dims int) *TreeNode {
 		Children: children,
 		height:   1,
 		Leaf:     true,
-		min:      make([]float64, dims),
-		max:      make([]float64, dims),
+		Min:      make([]float64, dims),
+		Max:      make([]float64, dims),
 	}
 	for i := 0; i < dims; i++ {
-		n.min[i] = mathInfPos
-		n.max[i] = mathInfNeg
+		n.Min[i] = mathInfPos
+		n.Max[i] = mathInfNeg
 	}
 	return n
 }
 
 func fillBBox(item Item, bbox *TreeNode) {
-	bbox.min, bbox.max = item.Rect()
+	bbox.Min, bbox.Max = item.Rect()
 }
 
 func (tr *RBush) Insert(item Item) {
@@ -160,8 +160,8 @@ func (tr *RBush) Insert(item Item) {
 
 func (tr *RBush) insertBBox(item Item, min, max []float64) {
 	var bbox TreeNode
-	bbox.min = min
-	bbox.max = max
+	bbox.Min = min
+	bbox.Max = max
 	tr.insert(&bbox, item, tr.Data.height-1, false)
 }
 
@@ -283,7 +283,7 @@ func (arr *leafByDim) Less(i, j int) bool {
 	var a, b TreeNode
 	fillBBox(arr.node.Children[i].(Item), &a)
 	fillBBox(arr.node.Children[j].(Item), &b)
-	return a.min[arr.axis] < b.min[arr.axis]
+	return a.Min[arr.axis] < b.Min[arr.axis]
 }
 
 func (arr *leafByDim) Swap(i, j int) {
@@ -299,7 +299,7 @@ func (arr *nodeByDim) Len() int { return len(arr.node.Children) }
 func (arr *nodeByDim) Less(i, j int) bool {
 	a := arr.node.Children[i].(*TreeNode)
 	b := arr.node.Children[j].(*TreeNode)
-	return a.min[arr.axis] < b.min[arr.axis]
+	return a.Min[arr.axis] < b.Min[arr.axis]
 }
 
 func (arr *nodeByDim) Swap(i, j int) {
@@ -398,8 +398,8 @@ func distBBox(node *TreeNode, k, p int, destNode *TreeNode, dims int) *TreeNode 
 		destNode = createNode(nil, dims)
 	} else {
 		for i := 0; i < dims; i++ {
-			destNode.min[i] = mathInfPos
-			destNode.max[i] = mathInfNeg
+			destNode.Min[i] = mathInfPos
+			destNode.Max[i] = mathInfNeg
 		}
 	}
 
@@ -429,7 +429,7 @@ func (tr *RBush) Search(bbox Item, iter func(item Item) bool) bool {
 }
 
 func (tr *RBush) searchBBox(min, max []float64, iter func(item Item) bool) bool {
-	bbox := TreeNode{min: min, max: max}
+	bbox := TreeNode{Min: min, Max: max}
 	if !tr.Data.intersects(&bbox) {
 		return true
 	}
@@ -474,8 +474,8 @@ func (tr *RBush) Remove(item Item) {
 
 func (tr *RBush) removeBBox(item Item, min, max []float64) {
 	var bbox TreeNode
-	bbox.min = min
-	bbox.max = max
+	bbox.Min = min
+	bbox.Max = max
 	path := tr.reusePath[:0]
 
 	node := tr.Data
@@ -591,7 +591,7 @@ func (tr *RBush) Traverse(iter func(min, max []float64, level int, item Item) bo
 }
 
 func traverse(node *TreeNode, iter func(min, max []float64, level int, item Item) bool) bool {
-	if !iter(node.min, node.max, node.height, nil) {
+	if !iter(node.Min, node.Max, node.height, nil) {
 		return false
 	}
 	if node.Leaf {
@@ -599,7 +599,7 @@ func traverse(node *TreeNode, iter func(min, max []float64, level int, item Item
 			item := ptr.(Item)
 			var bbox TreeNode
 			fillBBox(item, &bbox)
-			if !iter(bbox.min, bbox.max, 0, item) {
+			if !iter(bbox.Min, bbox.Max, 0, item) {
 				return false
 			}
 		}
@@ -636,7 +636,7 @@ func scan(node *TreeNode, iter func(item Item) bool) bool {
 
 func (tr *RBush) Bounds() (min, max []float64) {
 	if len(tr.Data.Children) > 0 {
-		return tr.Data.min, tr.Data.max
+		return tr.Data.Min, tr.Data.Max
 	}
 	return make([]float64, tr.dims), make([]float64, tr.dims)
 }
