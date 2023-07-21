@@ -38,11 +38,13 @@ func makePoint(values ...float64) rbush.Item {
 func makeRect(values ...float64) rbush.Item {
 	return &rect{values[:len(values)/2], values[len(values)/2:]}
 }
+
 func TestBasic(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		testBasic(t, i)
 	}
 }
+
 func testBasic(t *testing.T, dims int) {
 	tr := rbush.New(dims)
 	p1 := makePoint([]float64{-115, 33, 1, 10, 100}[:dims]...)
@@ -105,8 +107,8 @@ func makeRandom(what string, dims int) rbush.Item {
 }
 
 func TestRandomPoints(t *testing.T) {
-	//testRandom(t, "point", 1000000, 2)
-	//return
+	// testRandom(t, "point", 1000000, 2)
+	// return
 	for i := 1; i <= 5; i++ {
 		testRandom(t, "point", 10000, i)
 	}
@@ -228,6 +230,7 @@ func testRandom(t *testing.T, which string, n int, dims int) {
 	assert.Equal(t, make([]float64, dims), min)
 	assert.Equal(t, make([]float64, dims), max)
 }
+
 func testKNN(t *testing.T, tr *rbush.RBush, objs []rbush.Item, n int, check bool) {
 	min, max := tr.Bounds()
 	var center []float64
@@ -273,8 +276,8 @@ func testKNN(t *testing.T, tr *rbush.RBush, objs []rbush.Item, n int, check bool
 	// only compare the distances, not the objects because rectangles with
 	// a dist of zero will not be ordered.
 	assert.Equal(t, dists1, dists2)
-
 }
+
 func testBoxDist(point []float64, min, max []float64) float64 {
 	var dist float64
 	for i := 0; i < len(point); i++ {
@@ -287,6 +290,7 @@ func testBoxDist(point []float64, min, max []float64) float64 {
 	}
 	return dist
 }
+
 func testAxisDist(k, min, max float64) float64 {
 	if k < min {
 		return min - k
@@ -296,6 +300,7 @@ func testAxisDist(k, min, max float64) float64 {
 	}
 	return k - max
 }
+
 func testSearch(t *testing.T, tr *rbush.RBush, objs []rbush.Item, percent float64, check bool) {
 	min, max := tr.Bounds()
 	values := make([]float64, len(min)*2)
@@ -345,6 +350,7 @@ func testIntersects(obj, box rbush.Item) bool {
 	}
 	return true
 }
+
 func testHasSameItems(a1, a2 []rbush.Item) bool {
 	if len(a1) != len(a2) {
 		return false
@@ -397,7 +403,7 @@ func TestOutput3DPNG(t *testing.T) {
 	})
 	opts := *pinhole.DefaultImageOptions
 	opts.LineWidth = 0.05
-	opts.NoCaps = true
+	// opts.NoCaps = true
 	p.SavePNG("out3d.png", 500, 500, &opts)
 }
 
