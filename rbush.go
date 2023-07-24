@@ -128,6 +128,15 @@ func New(dims int) *RBush {
 	return tr
 }
 
+func NewMaxEntries(dims int, maxEntries int) *RBush {
+	tr := &RBush{}
+	tr.dims = dims
+	tr.maxEntries = int(mathMax(4, float64(maxEntries)))
+	tr.minEntries = int(mathMax(2, math.Ceil(float64(tr.maxEntries)*0.4)))
+	tr.Data = createNode(nil, dims)
+	return tr
+}
+
 func createNode(children []interface{}, dims int) *TreeNode {
 	n := &TreeNode{
 		Children: children,
